@@ -40,7 +40,7 @@ spring:
     show-sql: ${SHOW_SQL:false}
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: com.mdau.ushirika.config.PostgresDialect
         format_sql: false
         use_sql_comments: false
         generate_statistics: false
