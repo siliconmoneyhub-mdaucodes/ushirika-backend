@@ -5,6 +5,9 @@ import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
 import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
 import com.mdau.ushirika.module.member.service.OnboardingService;
+import com.mdau.ushirika.module.program.dto.ApplyToProgramsRequest;
+import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
+import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Applicant onboarding steps between "Send Form" and final membership approval.
@@ -27,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
+    private final ProgramApplicationService programApplicationService;
 
     @GetMapping("/status")
     @Operation(summary = "Current onboarding progress for the logged-in applicant")
@@ -63,5 +69,17 @@ public class OnboardingController {
     @Operation(summary = "Final onboarding step — submit for membership approval once the registration fee is reported")
     public ResponseEntity<ApiResponse<OnboardingStatusDto>> submitRegistration() {
         return ResponseEntity.ok(ApiResponse.ok("Registration submitted for final approval", onboardingService.submitRegistration()));
+    }
+
+    @PostMapping("/programs")
+    @Operation(summary = "Apply to join one or more programs (MGR, Benevolence, etc.) — visible to the program's coordinator only once membership is approved")
+    public ResponseEntity<ApiResponse<List<ProgramApplicationDto>>> applyToPrograms(@Valid @RequestBody ApplyToProgramsRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Program application(s) submitted", programApplicationService.applyToPrograms(req)));
+    }
+
+    @GetMapping("/programs")
+    @Operation(summary = "List the programs this applicant has applied to")
+    public ResponseEntity<ApiResponse<List<ProgramApplicationDto>>> myProgramApplications() {
+        return ResponseEntity.ok(ApiResponse.ok(programApplicationService.listMyApplications()));
     }
 }

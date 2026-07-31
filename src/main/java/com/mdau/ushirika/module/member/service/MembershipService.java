@@ -23,6 +23,7 @@ import com.mdau.ushirika.module.payment.entity.PeerPayment;
 import com.mdau.ushirika.module.payment.enums.PeerPaymentPurpose;
 import com.mdau.ushirika.module.payment.enums.PeerPaymentStatus;
 import com.mdau.ushirika.module.payment.repository.PeerPaymentRepository;
+import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +53,7 @@ public class MembershipService {
     private final MembershipDuesService membershipDuesService;
     private final PasswordEncoder passwordEncoder;
     private final PeerPaymentRepository peerPaymentRepository;
+    private final ProgramApplicationService programApplicationService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -373,6 +375,7 @@ public class MembershipService {
         userRepository.save(user);
 
         membershipDuesService.createInitialDues(user);
+        programApplicationService.makeApplicationsVisibleToCoordinators(user);
 
         application.setStatus(ApplicationStatus.APPROVED);
         application.setApprovedAt(LocalDateTime.now());

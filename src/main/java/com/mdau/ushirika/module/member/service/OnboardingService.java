@@ -12,6 +12,7 @@ import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
+import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.payment.enums.PeerPaymentPurpose;
@@ -38,6 +39,7 @@ public class OnboardingService {
     private static final int OTP_EXPIRY_MINUTES = 15;
 
     private final MembershipApplicationRepository applicationRepository;
+    private final MemberProfileRepository profileRepository;
     private final UserRepository userRepository;
     private final GoverningDocumentRepository governingDocumentRepository;
     private final PeerPaymentRepository peerPaymentRepository;
@@ -84,10 +86,20 @@ public class OnboardingService {
 
     @Transactional
     public OnboardingStatusDto submitAdditionalInfo(AdditionalInfoRequest req) {
-        MembershipApplication application = findApplication(currentUser());
-        application.setAdditionalInfoDocumentUrls(req.documentUrls());
+        User user = currentUser();
+        MembershipApplication application = findApplication(user);
+        application.setAdditionalInfoDocumentUrls(req.documentUrls() != null ? req.documentUrls() : List.of());
+        application.setHeardAboutUs(req.heardAboutUs());
+        application.setBeneficiaries(req.beneficiaries() != null ? req.beneficiaries() : List.of());
+        application.setAdditionalInfoSubmittedAt(LocalDateTime.now());
         advanceToOnboarding(application);
         applicationRepository.save(application);
+
+        profileRepository.findByUser(user).ifPresent(profile -> {
+            profile.setHeardAboutUs(req.heardAboutUs());
+            profileRepository.save(profile);
+        });
+
         return OnboardingStatusDto.from(application);
     }
 
@@ -115,9 +127,7 @@ public class OnboardingService {
         if (application.getEmailReverifiedAt() == null) {
             throw new BadRequestException("Please verify your email before continuing.");
         }
-        if (application.getAdditionalInfoDocumentUrls() == null || application.getAdditionalInfoDocumentUrls().isEmpty()) {
-            throw new BadRequestException("Please upload the requested additional information before continuing.");
-        }
+        // Document upload is disabled for now — no requirement here until the spec is finalized.
         if (application.getBylawsAcceptedAt() == null) {
             throw new BadRequestException("Please read and accept the bylaws and constitution before continuing.");
         }

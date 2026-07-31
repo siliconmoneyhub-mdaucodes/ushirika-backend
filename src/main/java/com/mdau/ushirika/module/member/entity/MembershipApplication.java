@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.member.entity;
 
 import com.mdau.ushirika.common.entity.BaseEntity;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.member.dto.BeneficiaryInfo;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -107,6 +108,20 @@ public class MembershipApplication extends BaseEntity {
     @Column(name = "additional_info_document_urls", columnDefinition = "jsonb")
     @Builder.Default
     private List<String> additionalInfoDocumentUrls = new ArrayList<>();
+
+    /** Set once the additional-info step is submitted — document presence alone can no longer signal this, since uploads are optional. */
+    @Column(name = "additional_info_submitted_at")
+    private LocalDateTime additionalInfoSubmittedAt;
+
+    /** How the applicant heard about the organization — free-form key from a fixed frontend dropdown. */
+    @Column(name = "heard_about_us", length = 50)
+    private String heardAboutUs;
+
+    /** General-purpose beneficiaries captured once during onboarding. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "beneficiaries", columnDefinition = "jsonb")
+    @Builder.Default
+    private List<BeneficiaryInfo> beneficiaries = new ArrayList<>();
 
     /** One-time code sent to re-verify the applicant's email during onboarding (separate from account signup OTP). */
     @Column(name = "onboarding_email_otp", length = 6)

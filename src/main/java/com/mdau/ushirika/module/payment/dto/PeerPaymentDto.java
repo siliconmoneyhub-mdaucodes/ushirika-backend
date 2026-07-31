@@ -23,6 +23,7 @@ public record PeerPaymentDto(
     String period,
     PeerPaymentPurpose purpose,
     String notes,
+    String proofImageUrl,
     PeerPaymentStatus status,
     String rejectionReason,
     String verifiedByName,
@@ -43,6 +44,7 @@ public record PeerPaymentDto(
             p.getPeriod(),
             p.getPurpose(),
             p.getNotes(),
+            p.getProofImageUrl(),
             p.getStatus(),
             p.getRejectionReason(),
             p.getVerifiedBy() != null ? p.getVerifiedBy().getFullName() : null,
@@ -59,7 +61,7 @@ public record PeerPaymentDto(
             full.amount(), full.currency(), full.paymentMode(),
             full.memberTxReference(),
             null,   // adminTxReference not exposed to member
-            full.period(), full.purpose(), full.notes(), full.status(), full.rejectionReason(),
+            full.period(), full.purpose(), full.notes(), full.proofImageUrl(), full.status(), full.rejectionReason(),
             full.verifiedByName(), full.verifiedAt(), full.createdAt()
         );
     }

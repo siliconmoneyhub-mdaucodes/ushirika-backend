@@ -76,6 +76,10 @@ public class PeerPayment extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    /** Cloudinary URL of a screenshot proving the payment was sent. */
+    @Column(name = "proof_image_url", length = 1000)
+    private String proofImageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     @Builder.Default

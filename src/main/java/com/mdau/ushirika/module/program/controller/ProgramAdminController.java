@@ -1,8 +1,11 @@
 package com.mdau.ushirika.module.program.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
+import com.mdau.ushirika.module.program.dto.DecideProgramApplicationRequest;
+import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
 import com.mdau.ushirika.module.program.dto.ProgramDto;
 import com.mdau.ushirika.module.program.dto.UpdateProgramDetailsRequest;
+import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import com.mdau.ushirika.module.program.service.ProgramService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import java.util.UUID;
 public class ProgramAdminController {
 
     private final ProgramService programService;
+    private final ProgramApplicationService programApplicationService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProgramDto>>> myPrograms() {
@@ -34,5 +38,16 @@ public class ProgramAdminController {
     public ResponseEntity<ApiResponse<ProgramDto>> updateDetails(
             @PathVariable UUID id, @Valid @RequestBody UpdateProgramDetailsRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Program details updated", programService.updateDetailsAsProgramAdmin(id, req)));
+    }
+
+    @GetMapping("/{id}/applications")
+    public ResponseEntity<ApiResponse<List<ProgramApplicationDto>>> applications(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(programApplicationService.listApplicationsForProgram(id)));
+    }
+
+    @PatchMapping("/applications/{applicationId}/decision")
+    public ResponseEntity<ApiResponse<ProgramApplicationDto>> decide(
+            @PathVariable UUID applicationId, @Valid @RequestBody DecideProgramApplicationRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Decision recorded", programApplicationService.decide(applicationId, req)));
     }
 }

@@ -27,5 +27,12 @@ public record ReportPeerPaymentRequest(
     String notes,
 
     /** Defaults to DUES when omitted — set REGISTRATION_FEE for the onboarding registration payment. */
-    PeerPaymentPurpose purpose
+    PeerPaymentPurpose purpose,
+
+    /**
+     * Cloudinary URL of a screenshot proving the payment was sent. Optional at the API level so
+     * automated/API testing isn't blocked — the real frontend form should treat it as required.
+     */
+    @Size(max = 1000)
+    String proofImageUrl
 ) {}

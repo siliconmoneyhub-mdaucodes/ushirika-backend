@@ -4,6 +4,7 @@ import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** Applicant-facing view of onboarding progress — drives the onboarding wizard's step state. */
 public record OnboardingStatusDto(
@@ -11,6 +12,8 @@ public record OnboardingStatusDto(
         ApplicationStatus status,
         boolean emailVerified,
         boolean additionalInfoSubmitted,
+        String heardAboutUs,
+        List<BeneficiaryInfo> beneficiaries,
         boolean bylawsAccepted,
         boolean registrationSubmitted,
         LocalDateTime formSentAt
@@ -20,7 +23,9 @@ public record OnboardingStatusDto(
                 app.getReferenceNumber(),
                 app.getStatus(),
                 app.getEmailReverifiedAt() != null,
-                app.getAdditionalInfoDocumentUrls() != null && !app.getAdditionalInfoDocumentUrls().isEmpty(),
+                app.getAdditionalInfoSubmittedAt() != null,
+                app.getHeardAboutUs(),
+                app.getBeneficiaries(),
                 app.getBylawsAcceptedAt() != null,
                 app.getRegistrationSubmittedAt() != null,
                 app.getFormSentAt()

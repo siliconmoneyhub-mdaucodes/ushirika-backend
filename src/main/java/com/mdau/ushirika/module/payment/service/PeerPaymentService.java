@@ -62,6 +62,7 @@ public class PeerPaymentService {
                 .period(req.period())
                 .notes(req.notes())
                 .purpose(req.purpose() != null ? req.purpose() : PeerPaymentPurpose.DUES)
+                .proofImageUrl(req.proofImageUrl())
                 .status(PeerPaymentStatus.PENDING)
                 .build();
 
