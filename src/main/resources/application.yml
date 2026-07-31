@@ -40,7 +40,7 @@ spring:
     show-sql: ${SHOW_SQL:false}
     properties:
       hibernate:
-        dialect: com.mdau.ushirika.config.PostgresDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
         use_sql_comments: false
         generate_statistics: false
@@ -159,12 +159,10 @@ springdoc:
 
 logging:
   level:
-    root: ERROR
+    root: WARN
     com.mdau.ushirika: ${LOG_LEVEL:INFO}
-    org.springframework.web: ERROR
-    org.springframework.security: ERROR
-    org.hibernate.SQL: ERROR
-    org.hibernate: ERROR
-    org.springframework: ERROR
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
