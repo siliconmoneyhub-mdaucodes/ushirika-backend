@@ -44,15 +44,17 @@ public class AdminUserService {
     private final EmailService emailService;
     private final MembershipDuesService membershipDuesService;
 
+    private static final int MAX_SUPERADMINS = 5;
+
     @Transactional(readOnly = true)
     public PagedResponse<UserDto> listUsers(Pageable pageable) {
         return PagedResponse.of(userRepository.findAll(pageable).map(UserDto::from));
     }
 
     /**
-     * SUPERADMIN is hidden from this directory for everyone except itself — there's only
-     * ever one CEO-level seat (see updateRole's guard), and it shouldn't appear in the
-     * regular admin/member listing that ordinary ADMIN users can browse.
+     * SUPERADMIN accounts are hidden from this directory for everyone except fellow
+     * SUPERADMINs (up to {@link #MAX_SUPERADMINS} may exist — see updateRole's guard) —
+     * ordinary ADMIN/LEADERSHIP users browsing this list should never see them.
      */
     @Transactional(readOnly = true)
     public PagedResponse<UserProfileDto> listMembersWithProfile(Pageable pageable) {
@@ -60,7 +62,7 @@ public class AdminUserService {
         Page<User> page = userRepository.findAll(pageable);
 
         List<UserProfileDto> content = page.getContent().stream()
-                .filter(u -> u.getRole() != UserRole.SUPERADMIN || u.getId().equals(actor.getId()))
+                .filter(u -> u.getRole() != UserRole.SUPERADMIN || actor.getRole() == UserRole.SUPERADMIN)
                 .map(user -> {
                     MemberProfile profile = profileRepository.findByUser(user).orElse(null);
                     return UserProfileDto.from(user, profile);
@@ -83,7 +85,7 @@ public class AdminUserService {
      * SUPERADMIN can change any user's role and official title.
      * Guards:
      * - Cannot demote or modify another SUPERADMIN
-     * - Cannot promote anyone to SUPERADMIN (only one CEO seat)
+     * - Cannot promote anyone to SUPERADMIN once {@link #MAX_SUPERADMINS} already exist
      */
     @Transactional
     public UserDto updateRole(UUID userId, UpdateRoleRequest req) {
@@ -98,8 +100,8 @@ public class AdminUserService {
             throw new ForbiddenException("The SUPERADMIN role cannot be modified.");
         }
 
-        if (req.role() == UserRole.SUPERADMIN) {
-            throw new ForbiddenException("Cannot promote a user to SUPERADMIN. There can only be one.");
+        if (req.role() == UserRole.SUPERADMIN && userRepository.countByRole(UserRole.SUPERADMIN) >= MAX_SUPERADMINS) {
+            throw new ForbiddenException("Cannot promote to SUPERADMIN — the maximum of " + MAX_SUPERADMINS + " has been reached.");
         }
 
         target.setRole(req.role());

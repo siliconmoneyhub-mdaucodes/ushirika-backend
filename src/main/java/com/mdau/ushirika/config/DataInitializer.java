@@ -63,7 +63,10 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     private void seedSuperAdmin() {
-        User superAdmin = userRepository.findFirstByRole(UserRole.SUPERADMIN)
+        // Matched by email, not role — there can be more than one SUPERADMIN-role user
+        // (e.g. promoted directly in the DB), and this must only ever touch the one
+        // account tied to SUPERADMIN_EMAIL, never whichever SUPERADMIN row it finds first.
+        User superAdmin = userRepository.findByEmail(superAdminEmail)
                 .orElse(null);
 
         boolean isNew = (superAdmin == null);
@@ -72,6 +75,7 @@ public class DataInitializer implements ApplicationRunner {
             superAdmin = User.builder()
                     .firstName("Super")
                     .lastName("Admin")
+                    .email(superAdminEmail)
                     .phone(superAdminPhone)
                     .role(UserRole.SUPERADMIN)
                     .emailVerified(true)
@@ -79,9 +83,9 @@ public class DataInitializer implements ApplicationRunner {
                     .build();
         }
 
-        // Always overwrite email + password from env vars so redeployment to a new
+        // Always overwrite password + role from env vars so redeployment to a new
         // database (or a migrated one) never leaves stale credentials.
-        superAdmin.setEmail(superAdminEmail);
+        superAdmin.setRole(UserRole.SUPERADMIN);
         superAdmin.setPassword(passwordEncoder.encode(superAdminPassword));
         superAdmin.setActive(true);
         superAdmin.setEmailVerified(true);
