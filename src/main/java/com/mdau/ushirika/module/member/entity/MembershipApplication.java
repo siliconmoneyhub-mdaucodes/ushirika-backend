@@ -66,7 +66,7 @@ public class MembershipApplication extends BaseEntity {
     private String referenceNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 30)
     @Builder.Default
     private ApplicationStatus status = ApplicationStatus.DRAFT;
 
