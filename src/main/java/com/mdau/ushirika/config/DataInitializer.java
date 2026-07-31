@@ -83,10 +83,15 @@ public class DataInitializer implements ApplicationRunner {
                     .build();
         }
 
-        // Always overwrite password + role from env vars so redeployment to a new
-        // database (or a migrated one) never leaves stale credentials.
+        // Only set the password from env vars when the account is first created — on a fresh
+        // DB that's the only way it gets a password at all. Once it exists, redeploys must
+        // never touch it again: SUPERADMIN_PASSWORD silently overwriting whatever the real
+        // superadmin most recently set via the app (login reset, credential-reset endpoint)
+        // was exactly the bug that made the password appear to "change itself" on every deploy.
+        if (isNew) {
+            superAdmin.setPassword(passwordEncoder.encode(superAdminPassword));
+        }
         superAdmin.setRole(UserRole.SUPERADMIN);
-        superAdmin.setPassword(passwordEncoder.encode(superAdminPassword));
         superAdmin.setActive(true);
         superAdmin.setEmailVerified(true);
 
