@@ -6,6 +6,7 @@ import com.mdau.ushirika.module.payment.enums.PeerPaymentPurpose;
 import com.mdau.ushirika.module.payment.enums.PeerPaymentStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -24,6 +25,8 @@ public record PeerPaymentDto(
     PeerPaymentPurpose purpose,
     String notes,
     String proofImageUrl,
+    /** What the member claims — compare against createdAt and the screenshot's own date during verification. */
+    LocalDate paymentDate,
     PeerPaymentStatus status,
     String rejectionReason,
     String verifiedByName,
@@ -45,6 +48,7 @@ public record PeerPaymentDto(
             p.getPurpose(),
             p.getNotes(),
             p.getProofImageUrl(),
+            p.getPaymentDate(),
             p.getStatus(),
             p.getRejectionReason(),
             p.getVerifiedBy() != null ? p.getVerifiedBy().getFullName() : null,
@@ -61,7 +65,7 @@ public record PeerPaymentDto(
             full.amount(), full.currency(), full.paymentMode(),
             full.memberTxReference(),
             null,   // adminTxReference not exposed to member
-            full.period(), full.purpose(), full.notes(), full.proofImageUrl(), full.status(), full.rejectionReason(),
+            full.period(), full.purpose(), full.notes(), full.proofImageUrl(), full.paymentDate(), full.status(), full.rejectionReason(),
             full.verifiedByName(), full.verifiedAt(), full.createdAt()
         );
     }

@@ -5,6 +5,7 @@ import com.mdau.ushirika.module.payment.enums.PeerPaymentPurpose;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record ReportPeerPaymentRequest(
 
@@ -34,5 +35,13 @@ public record ReportPeerPaymentRequest(
      * automated/API testing isn't blocked — the real frontend form should treat it as required.
      */
     @Size(max = 1000)
-    String proofImageUrl
+    String proofImageUrl,
+
+    /**
+     * When the member says they made the payment — must be today or yesterday (see
+     * PeerPaymentService.report()). Payments older than that must go through an admin
+     * manually recording it after contacting the member directly, not this self-service path.
+     */
+    @NotNull(message = "Please enter the date you made this payment.")
+    LocalDate paymentDate
 ) {}

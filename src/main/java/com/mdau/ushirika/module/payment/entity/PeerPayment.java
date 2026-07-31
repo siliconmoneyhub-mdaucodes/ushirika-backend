@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -79,6 +80,10 @@ public class PeerPayment extends BaseEntity {
     /** Cloudinary URL of a screenshot proving the payment was sent. */
     @Column(name = "proof_image_url", length = 1000)
     private String proofImageUrl;
+
+    /** Date the member says they made the payment — see PeerPaymentService.report() for the freshness gate. */
+    @Column(name = "payment_date")
+    private LocalDate paymentDate;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)

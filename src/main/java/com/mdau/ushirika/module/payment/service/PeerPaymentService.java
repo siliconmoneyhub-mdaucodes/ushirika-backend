@@ -24,6 +24,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -54,6 +55,20 @@ public class PeerPaymentService {
                 "If you believe this is an error, please contact support.");
         }
 
+        // Freshness gate: self-service reporting only covers payments made today or yesterday.
+        // Older payments must go through an admin who has directly contacted and verified the
+        // member — this endpoint can't be trusted for those, no matter how convincing the claim.
+        LocalDate today = LocalDate.now();
+        if (req.paymentDate().isAfter(today)) {
+            throw new BadRequestException("The payment date can't be in the future.");
+        }
+        if (req.paymentDate().isBefore(today.minusDays(1))) {
+            throw new BadRequestException(
+                "Payments can only be self-reported within a day of when they were made. " +
+                "If this payment is older than that, please contact the office directly so an " +
+                "admin can record it after verifying with you.");
+        }
+
         PeerPayment payment = PeerPayment.builder()
                 .member(member)
                 .amount(req.amount())
@@ -63,6 +78,7 @@ public class PeerPaymentService {
                 .notes(req.notes())
                 .purpose(req.purpose() != null ? req.purpose() : PeerPaymentPurpose.DUES)
                 .proofImageUrl(req.proofImageUrl())
+                .paymentDate(req.paymentDate())
                 .status(PeerPaymentStatus.PENDING)
                 .build();
 
