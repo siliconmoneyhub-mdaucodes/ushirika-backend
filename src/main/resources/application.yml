@@ -110,8 +110,8 @@ app:
   # Brevo (email)
   brevo:
     api-key: ${BREVO_API_KEY:NOT_SET}
-    sender-email: ${BREVO_SENDER_EMAIL:noreply@ushirikawelfare.org}
-    sender-name: ${BREVO_SENDER_NAME:Ushirika Welfare}
+    sender-email: ${BREVO_SENDER_EMAIL:lezisign@gmail.com}
+    sender-name: ${BREVO_SENDER_NAME:Ushirika Welfare DFW}
 
   # Africa's Talking (SMS)
   africas-talking:
