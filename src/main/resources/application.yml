@@ -159,10 +159,12 @@ springdoc:
 
 logging:
   level:
-    root: WARN
+    root: ERROR
     com.mdau.ushirika: ${LOG_LEVEL:INFO}
-    org.springframework.web: WARN
-    org.springframework.security: WARN
-    org.hibernate.SQL: WARN
+    org.springframework.web: ERROR
+    org.springframework.security: ERROR
+    org.hibernate.SQL: ERROR
+    org.hibernate: ERROR
+    org.springframework: ERROR
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
