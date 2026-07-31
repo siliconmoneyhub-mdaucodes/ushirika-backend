@@ -35,7 +35,7 @@ public class BrevoEmailService implements EmailService {
     @Value("${app.brevo.api-key:NOT_SET}")
     private String apiKey;
 
-    @Value("${app.brevo.sender-email:lezisign@gmail.com}")
+    @Value("${app.brevo.sender-email:noreply@ushirikawelfare.org}")
     private String senderEmail;
 
     @Value("${app.brevo.sender-name:Ushirika Welfare}")

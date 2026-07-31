@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.auth.service;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.exception.TooManyRequestsException;
 import com.mdau.ushirika.module.auth.dto.*;
 import com.mdau.ushirika.module.auth.entity.RefreshToken;
 import com.mdau.ushirika.module.auth.entity.User;
@@ -38,6 +39,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
+    private final PasswordResetRateLimiter passwordResetRateLimiter;
 
     @Value("${app.jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
@@ -190,8 +192,20 @@ public class AuthService {
 
     @Transactional
     public void forgotPassword(ForgotPasswordRequest req) {
+        String email = req.email().toLowerCase();
+
+        // Cap is keyed on the submitted email itself (not on whether it's registered)
+        // so a flood of requests can't be used to distinguish real accounts from fake
+        // ones — it always fails the same way regardless of existence.
+        if (!passwordResetRateLimiter.tryConsume(email)) {
+            throw new TooManyRequestsException(
+                    "Too many reset requests for this email — max " + passwordResetRateLimiter.getMaxPerHour() +
+                            " per hour. Please wait and try again."
+            );
+        }
+
         // Always return success to prevent email enumeration
-        userRepository.findByEmail(req.email().toLowerCase()).ifPresent(user -> {
+        userRepository.findByEmail(email).ifPresent(user -> {
             String otp = generateOtp();
             user.setPasswordResetOtp(otp);
             user.setPasswordResetOtpExpiry(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));

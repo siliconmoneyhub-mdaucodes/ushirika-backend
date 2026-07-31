@@ -148,6 +148,10 @@ app:
     public-rpm: ${RATE_LIMIT_PUBLIC_RPM:60}
     api-rpm: ${RATE_LIMIT_API_RPM:120}
 
+  # Cap on password-reset OTP requests per email address (not per IP)
+  password-reset:
+    max-per-hour: ${PASSWORD_RESET_MAX_PER_HOUR:3}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
