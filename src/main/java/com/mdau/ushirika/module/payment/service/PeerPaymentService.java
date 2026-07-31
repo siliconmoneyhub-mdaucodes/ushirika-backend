@@ -6,6 +6,7 @@ import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.payment.dto.*;
 import com.mdau.ushirika.module.payment.entity.MemberContribution;
@@ -37,6 +38,7 @@ public class PeerPaymentService {
     private final MemberContributionRepository contributionRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final MembershipDuesService membershipDuesService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -168,6 +170,12 @@ public class PeerPaymentService {
                        " payment — TX: " + payment.getMemberTxReference())
                 .build();
         contributionRepository.save(contribution);
+
+        // The registration fee is handled entirely by MembershipService.approveMembership()'s
+        // own check — only ongoing DUES payments should count against MembershipDue here.
+        if (payment.getPurpose() == PeerPaymentPurpose.DUES) {
+            membershipDuesService.applyExternalPayment(payment.getMember(), payment.getAmount());
+        }
 
         log.info("Peer payment verified: id={} member={} mode={} amount={} by={}",
                 id, payment.getMember().getEmail(),

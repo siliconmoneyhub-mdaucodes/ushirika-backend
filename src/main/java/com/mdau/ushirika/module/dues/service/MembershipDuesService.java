@@ -213,6 +213,36 @@ public class MembershipDuesService {
         return DuesPaymentDto.from(payment);
     }
 
+    // ── Called by other verified-payment paths (e.g. PeerPaymentService) ──────
+
+    /**
+     * Credits a verified payment from outside the installment system (currently: a
+     * PeerPayment reported with purpose=DUES) toward the member's current-year dues.
+     * Additive on top of paidAmount rather than a re-derived sum, since — unlike
+     * DuesPayment — these records don't carry a FK back to a specific MembershipDue.
+     * Safe from double-counting because callers only invoke this once per payment,
+     * inside their own verify() idempotency guard.
+     */
+    @Transactional
+    public void applyExternalPayment(User member, BigDecimal amount) {
+        int year = LocalDate.now().getYear();
+        dueRepository.findByUserAndYear(member, year).ifPresent(due -> {
+            if (due.getStatus() == DuesStatus.PAID || due.getStatus() == DuesStatus.WAIVED) return;
+
+            BigDecimal newTotal = due.getPaidAmount().add(amount);
+            due.setPaidAmount(newTotal);
+
+            if (newTotal.compareTo(ANNUAL_FEE) >= 0) {
+                due.setStatus(DuesStatus.PAID);
+                due.setPaidAt(LocalDateTime.now());
+                reactivateIfNeeded(member, "dues paid in full via peer payment");
+                log.info("Dues fully paid via external payment: member={} year={} totalPaid={}",
+                        member.getEmail(), year, newTotal);
+            }
+            dueRepository.save(due);
+        });
+    }
+
     // ── Admin: reject an installment ──────────────────────────────────────────
 
     @Transactional
