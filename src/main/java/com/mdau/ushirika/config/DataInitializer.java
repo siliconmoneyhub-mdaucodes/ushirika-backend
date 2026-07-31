@@ -10,6 +10,10 @@ import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.payment.entity.ContributionPlan;
 import com.mdau.ushirika.module.payment.enums.ContributionFrequency;
 import com.mdau.ushirika.module.payment.repository.ContributionPlanRepository;
+import com.mdau.ushirika.module.program.entity.Program;
+import com.mdau.ushirika.module.program.enums.ProgramStatus;
+import com.mdau.ushirika.module.program.enums.ProgramType;
+import com.mdau.ushirika.module.program.repository.ProgramRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +35,7 @@ public class DataInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final MemberProfileRepository memberProfileRepository;
     private final ContributionPlanRepository planRepository;
+    private final ProgramRepository programRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.superadmin.email:admin@ushirikawelfare.org}")
@@ -54,6 +59,7 @@ public class DataInitializer implements ApplicationRunner {
         seedSuperAdmin();
         seedTestMember();
         seedContributionPlans();
+        seedPrograms();
     }
 
     private void seedSuperAdmin() {
@@ -196,5 +202,27 @@ public class DataInitializer implements ApplicationRunner {
 
         planRepository.saveAll(List.of(standard, family, patron));
         log.info("Seeded 3 default contribution plans: Standard $25, Family $50, Patron $100");
+    }
+
+    private void seedPrograms() {
+        seedProgramIfMissing("mgr", "Merry-Go-Round (MGR)", ProgramType.MGR,
+                "A rotating table-banking cycle — members contribute each round and take turns receiving the full payout.");
+
+        seedProgramIfMissing("benevolence", "Benevolence Fund", ProgramType.BENEVOLENCE,
+                "Bereavement and hardship support — pay into the fund and name beneficiaries who can claim support when needed.");
+    }
+
+    private void seedProgramIfMissing(String slug, String name, ProgramType type, String shortDescription) {
+        if (programRepository.existsBySlug(slug)) return;
+
+        Program program = Program.builder()
+                .name(name)
+                .slug(slug)
+                .shortDescription(shortDescription)
+                .type(type)
+                .status(ProgramStatus.ACTIVE)
+                .build();
+        programRepository.save(program);
+        log.info("Seeded program: {}", name);
     }
 }

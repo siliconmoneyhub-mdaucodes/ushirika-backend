@@ -130,6 +130,27 @@ public class AuthService {
         return issueTokens(user);
     }
 
+    // ── Magic login (onboarding "Continue Your Application" link) ──────────────
+
+    @Transactional
+    public AuthResponse magicLogin(MagicLoginRequest req) {
+        User user = userRepository.findByOnboardingLoginToken(req.token())
+                .orElseThrow(() -> new BadRequestException("This link is invalid or has already been used."));
+
+        if (user.getOnboardingLoginTokenExpiry() == null
+                || LocalDateTime.now().isAfter(user.getOnboardingLoginTokenExpiry())) {
+            throw new BadRequestException("This link has expired. Please sign in with your email and password instead.");
+        }
+
+        // Single-use — clear it immediately regardless of what happens next.
+        user.setOnboardingLoginToken(null);
+        user.setOnboardingLoginTokenExpiry(null);
+        userRepository.save(user);
+
+        refreshTokenRepository.revokeAllUserTokens(user);
+        return issueTokens(user);
+    }
+
     // ── Resolve user from flexible username ───────────────────────────────────
 
     private User resolveUser(String raw) {

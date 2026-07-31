@@ -21,6 +21,7 @@ import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -47,12 +49,29 @@ public class AdminUserService {
         return PagedResponse.of(userRepository.findAll(pageable).map(UserDto::from));
     }
 
+    /**
+     * SUPERADMIN is hidden from this directory for everyone except itself — there's only
+     * ever one CEO-level seat (see updateRole's guard), and it shouldn't appear in the
+     * regular admin/member listing that ordinary ADMIN users can browse.
+     */
     @Transactional(readOnly = true)
     public PagedResponse<UserProfileDto> listMembersWithProfile(Pageable pageable) {
-        return PagedResponse.of(userRepository.findAll(pageable).map(user -> {
-            MemberProfile profile = profileRepository.findByUser(user).orElse(null);
-            return UserProfileDto.from(user, profile);
-        }));
+        User actor = currentUser();
+        Page<User> page = userRepository.findAll(pageable);
+
+        List<UserProfileDto> content = page.getContent().stream()
+                .filter(u -> u.getRole() != UserRole.SUPERADMIN || u.getId().equals(actor.getId()))
+                .map(user -> {
+                    MemberProfile profile = profileRepository.findByUser(user).orElse(null);
+                    return UserProfileDto.from(user, profile);
+                })
+                .toList();
+
+        long hidden = page.getContent().size() - content.size();
+        long total = page.getTotalElements() - hidden;
+        int totalPages = pageable.getPageSize() == 0 ? 0 : (int) Math.ceil((double) total / pageable.getPageSize());
+
+        return new PagedResponse<>(content, page.getNumber(), page.getSize(), total, totalPages, page.isLast());
     }
 
     @Transactional(readOnly = true)

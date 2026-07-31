@@ -56,6 +56,8 @@ public class MembershipService {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
+    private static final int ONBOARDING_LOGIN_TOKEN_HOURS = 48;
+
     // ------------------------------------------------------------------ Member
 
     /**
@@ -313,12 +315,18 @@ public class MembershipService {
             applicantFirstName = user.getFirstName();
         }
 
+        String loginToken = generateLoginToken();
+        user.setOnboardingLoginToken(loginToken);
+        user.setOnboardingLoginTokenExpiry(LocalDateTime.now().plusHours(ONBOARDING_LOGIN_TOKEN_HOURS));
+        userRepository.save(user);
+
         application.setStatus(ApplicationStatus.FORM_SENT);
         application.setFormSentAt(LocalDateTime.now());
         application.setReviewedAt(LocalDateTime.now());
         applicationRepository.save(application);
 
-        emailService.sendFormSentCredentials(applicantEmail, applicantFirstName, tempPassword, siteUrl + "/login");
+        String continueUrl = siteUrl + "/login?token=" + loginToken;
+        emailService.sendFormSentCredentials(applicantEmail, applicantFirstName, tempPassword, continueUrl);
         log.info("Form sent for application {} — applicant={}", application.getReferenceNumber(), applicantEmail);
 
         return AdminApplicationDto.from(application, isSuperAdmin);
@@ -415,6 +423,13 @@ public class MembershipService {
         StringBuilder sb = new StringBuilder(12);
         for (int i = 0; i < 12; i++) sb.append(chars.charAt(rand.nextInt(chars.length())));
         return sb.toString();
+    }
+
+    /** One-time magic-login token — 32 random bytes, URL-safe, no padding. */
+    private String generateLoginToken() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private void sendApplicantConfirmation(String toEmail, String toName, String referenceNumber) {

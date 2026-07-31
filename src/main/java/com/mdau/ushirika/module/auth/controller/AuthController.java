@@ -50,6 +50,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Login successful", auth));
     }
 
+    @PostMapping("/magic-login")
+    @Operation(summary = "Exchange the one-time onboarding link token for a session — no password needed")
+    public ResponseEntity<ApiResponse<AuthResponse>> magicLogin(@Valid @RequestBody MagicLoginRequest req) {
+        AuthResponse auth = authService.magicLogin(req);
+        return ResponseEntity.ok(ApiResponse.ok("Login successful", auth));
+    }
+
     @PostMapping("/refresh")
     @Operation(summary = "Exchange a valid refresh token for a new access token")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest req) {

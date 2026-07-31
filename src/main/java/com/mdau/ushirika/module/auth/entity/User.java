@@ -74,6 +74,18 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "password_reset_otp_expiry")
     private LocalDateTime passwordResetOtpExpiry;
 
+    /**
+     * One-time magic-login token issued alongside the temp password when an application's
+     * form is sent — lets the "Continue Your Application" email button log the applicant
+     * straight in instead of requiring them to type the emailed credentials. Cleared after
+     * first use or once the applicant becomes a full MEMBER.
+     */
+    @Column(name = "onboarding_login_token", length = 64)
+    private String onboardingLoginToken;
+
+    @Column(name = "onboarding_login_token_expiry")
+    private LocalDateTime onboardingLoginTokenExpiry;
+
     /** SUPERADMIN can deactivate any account without deleting it. */
     @Column(name = "active", nullable = false)
     @Builder.Default
