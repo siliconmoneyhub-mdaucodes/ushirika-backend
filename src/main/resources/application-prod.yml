@@ -24,3 +24,9 @@ app:
   cors:
     allowed-origins:
       - ${FRONTEND_URL}
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}

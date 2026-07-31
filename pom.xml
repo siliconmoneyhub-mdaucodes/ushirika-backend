@@ -131,12 +131,6 @@
       <version>25.10.0</version>
     </dependency>
 
-    <!-- WebClient — for Brevo, Cloudinary HTTP calls -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webflux</artifactId>
-    </dependency>
-
     <!-- Test -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
