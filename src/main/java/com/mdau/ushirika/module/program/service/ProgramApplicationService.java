@@ -10,9 +10,11 @@ import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.program.dto.ApplyToProgramsRequest;
 import com.mdau.ushirika.module.program.dto.DecideProgramApplicationRequest;
 import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
+import com.mdau.ushirika.module.benevolence.service.BenevolenceEnrollmentService;
 import com.mdau.ushirika.module.program.entity.Program;
 import com.mdau.ushirika.module.program.entity.ProgramApplication;
 import com.mdau.ushirika.module.program.enums.ProgramApplicationStatus;
+import com.mdau.ushirika.module.program.enums.ProgramType;
 import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
 import com.mdau.ushirika.module.program.repository.ProgramApplicationRepository;
 import com.mdau.ushirika.module.program.repository.ProgramRepository;
@@ -33,6 +35,7 @@ public class ProgramApplicationService {
     private final ProgramRepository programRepository;
     private final ProgramAdminAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
+    private final BenevolenceEnrollmentService benevolenceEnrollmentService;
 
     private static final List<ProgramApplicationStatus> COORDINATOR_VISIBLE_STATUSES =
             List.of(ProgramApplicationStatus.PENDING_REVIEW, ProgramApplicationStatus.APPROVED, ProgramApplicationStatus.REJECTED);
@@ -94,30 +97,51 @@ public class ProgramApplicationService {
         ProgramApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Program application not found"));
 
-        requireCoordinatorAccess(application.getProgram().getId());
+        requireCoordinatorDecisionAccess(application.getProgram().getId());
 
         if (application.getStatus() != ProgramApplicationStatus.PENDING_REVIEW) {
             throw new BadRequestException("Only applications pending review can be decided. Current status: " + application.getStatus());
         }
 
-        application.setStatus(req.decision() == DecideProgramApplicationRequest.Decision.APPROVE
-                ? ProgramApplicationStatus.APPROVED : ProgramApplicationStatus.REJECTED);
+        boolean approved = req.decision() == DecideProgramApplicationRequest.Decision.APPROVE;
+        application.setStatus(approved ? ProgramApplicationStatus.APPROVED : ProgramApplicationStatus.REJECTED);
         application.setReviewedAt(LocalDateTime.now());
         application.setReviewedBy(currentUser());
-        if (req.decision() == DecideProgramApplicationRequest.Decision.REJECT) {
+        if (!approved) {
             application.setRejectionReason(req.reason());
         }
-        return ProgramApplicationDto.from(applicationRepository.save(application));
+        ProgramApplication saved = applicationRepository.save(application);
+
+        if (approved && saved.getProgram().getType() == ProgramType.BENEVOLENCE) {
+            benevolenceEnrollmentService.ensureEnrolled(saved.getApplicant());
+        }
+
+        return ProgramApplicationDto.from(saved);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    /** Viewing an application's queue: coordinator, or admin/superadmin for oversight. */
     private void requireCoordinatorAccess(UUID programId) {
         User me = currentUser();
         boolean isAssignedCoordinator = assignmentRepository.existsByProgramIdAndUserId(programId, me.getId());
         boolean isGlobalAdmin = me.getRole() == UserRole.ADMIN || me.getRole() == UserRole.SUPERADMIN;
         if (!isAssignedCoordinator && !isGlobalAdmin) {
             throw new ForbiddenException("You do not coordinate this program");
+        }
+    }
+
+    /**
+     * Deciding an application: the assigned program coordinator only. Deliberately excludes
+     * the plain ADMIN role — the client requires that only the program's own coordinator can
+     * approve membership on a program, not a general administrator. SUPERADMIN retains a
+     * break-glass override since they're the one who provisions coordinators in the first place.
+     */
+    private void requireCoordinatorDecisionAccess(UUID programId) {
+        User me = currentUser();
+        boolean isAssignedCoordinator = assignmentRepository.existsByProgramIdAndUserId(programId, me.getId());
+        if (!isAssignedCoordinator && me.getRole() != UserRole.SUPERADMIN) {
+            throw new ForbiddenException("Only this program's coordinator can decide applications.");
         }
     }
 

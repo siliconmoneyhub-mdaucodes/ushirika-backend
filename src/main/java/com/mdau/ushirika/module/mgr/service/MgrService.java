@@ -2,8 +2,10 @@ package com.mdau.ushirika.module.mgr.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
+import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
@@ -12,6 +14,10 @@ import com.mdau.ushirika.module.mgr.entity.*;
 import com.mdau.ushirika.module.mgr.enums.*;
 import com.mdau.ushirika.module.mgr.repository.*;
 import com.mdau.ushirika.module.notification.service.EmailService;
+import com.mdau.ushirika.module.program.entity.Program;
+import com.mdau.ushirika.module.program.enums.ProgramType;
+import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
+import com.mdau.ushirika.module.program.repository.ProgramRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +43,8 @@ public class MgrService {
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
     private final EmailService emailService;
+    private final ProgramRepository programRepo;
+    private final ProgramAdminAssignmentRepository programAdminAssignmentRepo;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -237,6 +245,7 @@ public class MgrService {
     @Transactional
     public MgrJoinRequestDto approveJoinRequest(UUID requestId, String adminNotes) {
         User admin = currentUser();
+        requireMgrCoordinatorAccess(admin);
         MgrJoinRequest request = findJoinRequest(requestId);
 
         if (request.getStatus() != JoinRequestStatus.PENDING) {
@@ -275,6 +284,7 @@ public class MgrService {
     @Transactional
     public MgrJoinRequestDto rejectJoinRequest(UUID requestId, String adminNotes) {
         User admin = currentUser();
+        requireMgrCoordinatorAccess(admin);
         MgrJoinRequest request = findJoinRequest(requestId);
 
         if (request.getStatus() != JoinRequestStatus.PENDING) {
@@ -725,5 +735,23 @@ public class MgrService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+    }
+
+    /**
+     * Approving/rejecting a join request is deciding MGR program membership — the client requires
+     * only the MGR program's assigned coordinator can do this, not a general ADMIN. The /admin/mgr/**
+     * path is open to any ADMIN at the security-filter level, so this service-level check is what
+     * actually enforces the restriction. SUPERADMIN keeps a break-glass override.
+     */
+    private void requireMgrCoordinatorAccess(User user) {
+        if (user.getRole() == UserRole.SUPERADMIN) {
+            return;
+        }
+        List<Program> mgrPrograms = programRepo.findAllByType(ProgramType.MGR);
+        boolean isAssignedCoordinator = mgrPrograms.stream()
+                .anyMatch(p -> programAdminAssignmentRepo.existsByProgramIdAndUserId(p.getId(), user.getId()));
+        if (!isAssignedCoordinator) {
+            throw new ForbiddenException("Only the MGR program's coordinator can decide join requests.");
+        }
     }
 }

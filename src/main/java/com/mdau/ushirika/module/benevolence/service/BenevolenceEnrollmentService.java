@@ -192,6 +192,13 @@ public class BenevolenceEnrollmentService {
         return toFullDto(enrollment);
     }
 
+    /** Called when a coordinator approves a member's ProgramApplication for Benevolence — creates
+     * the enrollment record so the member can immediately submit beneficiaries and start paying. */
+    @Transactional
+    public void ensureEnrolled(User user) {
+        enrollmentRepo.findByUser(user).orElseGet(() -> createEnrollment(user));
+    }
+
     // ── Internals ─────────────────────────────────────────────────────────────
 
     private BenevolenceEnrollment createEnrollment(User user) {
