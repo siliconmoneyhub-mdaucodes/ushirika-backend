@@ -114,6 +114,9 @@ public class ProgramApplicationService {
 
         if (approved && saved.getProgram().getType() == ProgramType.BENEVOLENCE) {
             benevolenceEnrollmentService.ensureEnrolled(saved.getApplicant());
+            if (saved.getPrepaidAmount() != null && saved.getPrepaidAmount().signum() > 0) {
+                benevolenceEnrollmentService.applyPayment(saved.getApplicant(), saved.getPrepaidAmount());
+            }
         }
 
         return ProgramApplicationDto.from(saved);

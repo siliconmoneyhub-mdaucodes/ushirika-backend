@@ -199,6 +199,51 @@ public class BenevolenceEnrollmentService {
         enrollmentRepo.findByUser(user).orElseGet(() -> createEnrollment(user));
     }
 
+    /** Null if not enrolled. Otherwise the remaining balance (0 once PROBATION/ELIGIBLE) + current status name. */
+    @Transactional(readOnly = true)
+    public EnrollmentBalance outstandingBalance(User user) {
+        return enrollmentRepo.findByUser(user).map(e -> {
+            BigDecimal remaining = e.getStatus() == EnrollmentStatus.PAYING
+                    ? ENROLLMENT_TOTAL.subtract(e.getTotalPaid() != null ? e.getTotalPaid() : BigDecimal.ZERO).max(BigDecimal.ZERO)
+                    : BigDecimal.ZERO;
+            return new EnrollmentBalance(remaining, e.getStatus().name());
+        }).orElse(null);
+    }
+
+    public record EnrollmentBalance(BigDecimal balance, String status) {}
+
+    /** Credits a confirmed Stripe payment-basket line toward this member's enrollment fee.
+     * Mirrors recordEnrollmentPayment but no-ops instead of throwing if already paid in full —
+     * this runs from the webhook, not a live user request. */
+    @Transactional
+    public void applyPayment(User user, BigDecimal amountUsd) {
+        BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(user)
+                .orElseGet(() -> createEnrollment(user));
+
+        if (enrollment.getStatus() == EnrollmentStatus.ELIGIBLE || enrollment.getStatus() == EnrollmentStatus.PROBATION) {
+            return;
+        }
+
+        EnrollmentPayment payment = EnrollmentPayment.builder()
+                .enrollment(enrollment)
+                .amount(amountUsd)
+                .paymentMethod("STRIPE")
+                .paidAt(LocalDateTime.now())
+                .build();
+        paymentRepo.save(payment);
+
+        BigDecimal newTotal = enrollment.getTotalPaid().add(amountUsd);
+        if (newTotal.compareTo(ENROLLMENT_TOTAL) >= 0) {
+            enrollment.setTotalPaid(ENROLLMENT_TOTAL);
+            enrollment.setCompletedAt(LocalDateTime.now());
+            enrollment.setProbationEndsAt(LocalDate.now().plusMonths(6));
+            enrollment.setStatus(EnrollmentStatus.PROBATION);
+        } else {
+            enrollment.setTotalPaid(newTotal);
+        }
+        enrollmentRepo.save(enrollment);
+    }
+
     // ── Internals ─────────────────────────────────────────────────────────────
 
     private BenevolenceEnrollment createEnrollment(User user) {

@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,14 +25,17 @@ public class StripeService {
     private final String secretKey;
     private final String webhookSecret;
     private final boolean devMode;
+    private final boolean allowDevFallback;
 
     public StripeService(
             @Value("${app.stripe.secret-key:NOT_SET}") String secretKey,
-            @Value("${app.stripe.webhook-secret:NOT_SET}") String webhookSecret
+            @Value("${app.stripe.webhook-secret:NOT_SET}") String webhookSecret,
+            @Value("${app.stripe.allow-dev-fallback:false}") boolean allowDevFallback
     ) {
         this.secretKey = secretKey;
         this.webhookSecret = webhookSecret;
         this.devMode = "NOT_SET".equals(secretKey);
+        this.allowDevFallback = allowDevFallback;
     }
 
     @PostConstruct
@@ -42,9 +46,8 @@ public class StripeService {
     }
 
     /**
-     * Creates a Stripe Checkout Session for a one-time USD payment.
-     * Returns the session ID and hosted checkout URL.
-     * Amount is in USD — converted to cents (× 100) for Stripe.
+     * Creates a Stripe Checkout Session for a one-time USD payment with a single line item.
+     * Convenience wrapper around {@link #createCheckoutSession(String, List, String, String, Map)}.
      */
     public StripeCheckoutResult createCheckoutSession(
             String email,
@@ -54,32 +57,56 @@ public class StripeService {
             String cancelUrl,
             Map<String, String> metadata
     ) {
+        return createCheckoutSession(email, List.of(new LineItem(productName, amountUsd)), successUrl, cancelUrl, metadata);
+    }
+
+    /**
+     * Creates a Stripe Checkout Session covering one or more line items in a single card charge.
+     * Returns the session ID and hosted checkout URL. Amounts are in USD — converted to cents for Stripe.
+     */
+    public StripeCheckoutResult createCheckoutSession(
+            String email,
+            List<LineItem> lineItems,
+            String successUrl,
+            String cancelUrl,
+            Map<String, String> metadata
+    ) {
+        if (lineItems == null || lineItems.isEmpty()) {
+            throw new BadRequestException("At least one line item is required to start checkout.");
+        }
+
         if (devMode) {
+            if (!allowDevFallback) {
+                throw new IllegalStateException(
+                        "Stripe is not configured (STRIPE_SECRET_KEY missing) and dev-fallback simulation is disabled. "
+                                + "Card payments cannot be processed until Stripe is configured.");
+            }
             String fakeSessionId = "cs_dev_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
-            log.warn("[Stripe DEV] Simulating checkout session for email={} amount={} product={}",
-                    email, amountUsd, productName);
+            log.warn("[Stripe DEV] Simulating checkout session for email={} lineItems={}", email, lineItems);
             return new StripeCheckoutResult(fakeSessionId,
                     "https://checkout.stripe.com/dev/" + fakeSessionId);
         }
-
-        long amountCents = amountUsd.multiply(BigDecimal.valueOf(100)).longValue();
 
         SessionCreateParams.Builder builder = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.PAYMENT)
                 .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
                 .setCustomerEmail(email)
                 .setSuccessUrl(successUrl + (successUrl.contains("?") ? "&" : "?") + "session_id={CHECKOUT_SESSION_ID}")
-                .setCancelUrl(cancelUrl)
-                .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setQuantity(1L)
-                        .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
-                                .setCurrency("usd")
-                                .setUnitAmount(amountCents)
-                                .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                        .setName(productName)
-                                        .build())
-                                .build())
-                        .build());
+                .setCancelUrl(cancelUrl);
+
+        for (LineItem item : lineItems) {
+            long amountCents = item.amountUsd().multiply(BigDecimal.valueOf(100)).longValue();
+            builder.addLineItem(SessionCreateParams.LineItem.builder()
+                    .setQuantity(1L)
+                    .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
+                            .setCurrency("usd")
+                            .setUnitAmount(amountCents)
+                            .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                                    .setName(item.productName())
+                                    .build())
+                            .build())
+                    .build());
+        }
 
         if (metadata != null) {
             metadata.forEach(builder::putMetadata);
@@ -87,14 +114,16 @@ public class StripeService {
 
         try {
             Session session = Session.create(builder.build());
-            log.info("[Stripe] Checkout session created: id={} amount={} USD email={}",
-                    session.getId(), amountUsd, email);
+            log.info("[Stripe] Checkout session created: id={} lineItems={} email={}",
+                    session.getId(), lineItems.size(), email);
             return new StripeCheckoutResult(session.getId(), session.getUrl());
         } catch (StripeException e) {
             log.error("[Stripe] Failed to create checkout session: {}", e.getMessage());
             throw new BadRequestException("Payment initialization failed: " + e.getMessage());
         }
     }
+
+    public record LineItem(String productName, BigDecimal amountUsd) {}
 
     /**
      * Verifies the Stripe-Signature header and constructs the typed Event.

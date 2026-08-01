@@ -525,6 +525,43 @@ public class MgrService {
         return MgrContributionDto.from(contribution);
     }
 
+    /** Sum of this member's PENDING contribution amounts for their current slot — 0 if not in an active cycle. */
+    @Transactional(readOnly = true)
+    public BigDecimal outstandingContributionBalance(User member) {
+        return slotRepo.findByUser(member)
+                .map(slot -> contributionRepo.findBySlotOrderByContributionMonth(slot).stream()
+                        .filter(c -> c.getStatus() == ContributionStatus.PENDING)
+                        .map(MgrContribution::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .orElse(BigDecimal.ZERO);
+    }
+
+    /** Credits a confirmed Stripe payment-basket line toward this member's MGR contributions.
+     * Applies sequentially to the earliest PENDING months for their current slot — whole months
+     * only, since contribution amounts are fixed; any remainder that doesn't cover a full month
+     * is left unapplied (the aggregator should never offer a basket line larger than what's owed). */
+    @Transactional
+    public void applyContribution(User member, BigDecimal amountUsd) {
+        MgrSlot slot = slotRepo.findByUser(member).orElse(null);
+        if (slot == null) {
+            log.warn("Stripe basket tried to credit MGR contribution for {} but they have no active slot", member.getEmail());
+            return;
+        }
+        List<MgrContribution> pending = contributionRepo.findBySlotOrderByContributionMonth(slot).stream()
+                .filter(c -> c.getStatus() == ContributionStatus.PENDING)
+                .toList();
+
+        BigDecimal remaining = amountUsd;
+        for (MgrContribution c : pending) {
+            if (remaining.compareTo(c.getAmount()) < 0) break;
+            c.setPaymentMethod("STRIPE");
+            c.setPaidAt(LocalDateTime.now());
+            c.setStatus(ContributionStatus.PAID);
+            contributionRepo.save(c);
+            remaining = remaining.subtract(c.getAmount());
+        }
+    }
+
     @Transactional
     public MgrContributionDto waiveContribution(UUID contributionId, String reason) {
         MgrContribution contribution = contributionRepo.findById(contributionId)

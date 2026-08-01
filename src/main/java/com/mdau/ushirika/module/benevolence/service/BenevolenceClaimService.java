@@ -251,6 +251,20 @@ public class BenevolenceClaimService {
         return toReplenishmentDto(r);
     }
 
+    /** Credits a confirmed Stripe payment-basket line toward one specific replenishment obligation. */
+    @Transactional
+    public void applyReplenishmentPayment(UUID paymentId, BigDecimal amount) {
+        ReplenishmentPayment rp = replenPaymentRepo.findById(paymentId).orElse(null);
+        if (rp == null || rp.getStatus() != ReplenishmentPaymentStatus.PENDING) {
+            return;
+        }
+        rp.setAmountPaid(amount);
+        rp.setPaidAt(LocalDateTime.now());
+        rp.setPaymentMethod("STRIPE");
+        rp.setStatus(ReplenishmentPaymentStatus.PAID);
+        replenPaymentRepo.save(rp);
+    }
+
     @Transactional
     public ReplenishmentPaymentDto recordReplenishmentPayment(UUID replenishmentId,
                                                                RecordReplenishmentPaymentRequest req) {

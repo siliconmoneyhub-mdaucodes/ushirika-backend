@@ -6,6 +6,7 @@ import com.mdau.ushirika.module.program.enums.ProgramApplicationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -55,4 +56,10 @@ public class ProgramApplication extends BaseEntity {
 
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
+
+    /** Amount the applicant already paid toward this program's enrollment fee during onboarding,
+     * before the program's real enrollment record exists — transferred in on approval. */
+    @Column(name = "prepaid_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal prepaidAmount = BigDecimal.ZERO;
 }

@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.payment.controller;
 
 import com.mdau.ushirika.module.donation.service.DonationService;
 import com.mdau.ushirika.module.payment.service.ContributionService;
+import com.mdau.ushirika.module.payment.service.PaymentBasketService;
 import com.mdau.ushirika.module.payment.service.StripeService;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
@@ -23,6 +24,7 @@ public class StripeWebhookController {
     private final StripeService stripeService;
     private final ContributionService contributionService;
     private final DonationService donationService;
+    private final PaymentBasketService paymentBasketService;
 
     /**
      * Stripe sends all payment events here.
@@ -79,6 +81,7 @@ public class StripeWebhookController {
         switch (purpose) {
             case "CONTRIBUTION" -> contributionService.handleSessionCompleted(session);
             case "DONATION"     -> donationService.handleSessionCompleted(session);
+            case "BASKET"       -> paymentBasketService.handleSessionCompleted(session);
             default -> log.warn("Unrecognized payment purpose in Stripe webhook metadata: {}", purpose);
         }
     }

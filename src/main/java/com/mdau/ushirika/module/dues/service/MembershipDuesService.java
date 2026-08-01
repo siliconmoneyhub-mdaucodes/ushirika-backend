@@ -382,6 +382,15 @@ public class MembershipDuesService {
                 .toList();
     }
 
+    /** Outstanding balance on this year's dues — 0 if PAID/WAIVED or no due row exists yet. */
+    @Transactional(readOnly = true)
+    public BigDecimal outstandingBalance(User user) {
+        return dueRepository.findByUserAndYear(user, LocalDate.now().getYear())
+                .filter(d -> d.getStatus() != DuesStatus.PAID && d.getStatus() != DuesStatus.WAIVED)
+                .map(d -> ANNUAL_FEE.subtract(d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO).max(BigDecimal.ZERO))
+                .orElse(BigDecimal.ZERO);
+    }
+
     // ── Email notifications ───────────────────────────────────────────────────
 
     private void sendInstallmentVerifiedEmail(DuesPayment p, BigDecimal totalPaid) {
