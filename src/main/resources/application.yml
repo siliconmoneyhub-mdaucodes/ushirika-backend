@@ -129,6 +129,11 @@ app:
   stripe:
     secret-key: ${STRIPE_SECRET_KEY:NOT_SET}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:NOT_SET}
+    # Set STRIPE_ALLOW_DEV_FALLBACK=true on Railway to let checkout create a fake session
+    # (no real Stripe call) whenever STRIPE_SECRET_KEY is unset — pairs with the
+    # /admin/payments/simulate SUPERADMIN test tool. Leave unset/false once real Stripe
+    # keys are in place.
+    allow-dev-fallback: ${STRIPE_ALLOW_DEV_FALLBACK:false}
 
   # Superadmin seed credentials (first boot only)
   superadmin:

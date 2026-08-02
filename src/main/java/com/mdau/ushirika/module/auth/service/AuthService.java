@@ -132,6 +132,8 @@ public class AuthService {
 
     // ── Magic login (onboarding "Continue Your Application" link) ──────────────
 
+    private static final int ONBOARDING_LOGIN_TOKEN_MAX_USES = 5;
+
     @Transactional
     public AuthResponse magicLogin(MagicLoginRequest req) {
         User user = userRepository.findByOnboardingLoginToken(req.token())
@@ -142,9 +144,16 @@ public class AuthService {
             throw new BadRequestException("This link has expired. Please sign in with your email and password instead.");
         }
 
-        // Single-use — clear it immediately regardless of what happens next.
-        user.setOnboardingLoginToken(null);
-        user.setOnboardingLoginTokenExpiry(null);
+        // Tolerates a few false starts (closed tab, dropped connection) before fully
+        // spending the link — capped rather than single-use or unlimited.
+        int uses = user.getOnboardingLoginTokenUses() + 1;
+        if (uses >= ONBOARDING_LOGIN_TOKEN_MAX_USES) {
+            user.setOnboardingLoginToken(null);
+            user.setOnboardingLoginTokenExpiry(null);
+            user.setOnboardingLoginTokenUses(0);
+        } else {
+            user.setOnboardingLoginTokenUses(uses);
+        }
         userRepository.save(user);
 
         refreshTokenRepository.revokeAllUserTokens(user);

@@ -86,6 +86,12 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "onboarding_login_token_expiry")
     private LocalDateTime onboardingLoginTokenExpiry;
 
+    /** Allows the same magic-login link to survive a few false starts (closed tab, lost
+     * connection, browser crash) before it's fully spent — capped, not unlimited. */
+    @Column(name = "onboarding_login_token_uses")
+    @Builder.Default
+    private int onboardingLoginTokenUses = 0;
+
     /** SUPERADMIN can deactivate any account without deleting it. */
     @Column(name = "active", nullable = false)
     @Builder.Default

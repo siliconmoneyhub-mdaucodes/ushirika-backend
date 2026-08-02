@@ -320,6 +320,7 @@ public class MembershipService {
         String loginToken = generateLoginToken();
         user.setOnboardingLoginToken(loginToken);
         user.setOnboardingLoginTokenExpiry(LocalDateTime.now().plusHours(ONBOARDING_LOGIN_TOKEN_HOURS));
+        user.setOnboardingLoginTokenUses(0);
         userRepository.save(user);
 
         application.setStatus(ApplicationStatus.FORM_SENT);
@@ -360,6 +361,7 @@ public class MembershipService {
         String loginToken = generateLoginToken();
         user.setOnboardingLoginToken(loginToken);
         user.setOnboardingLoginTokenExpiry(LocalDateTime.now().plusHours(ONBOARDING_LOGIN_TOKEN_HOURS));
+        user.setOnboardingLoginTokenUses(0);
         userRepository.save(user);
 
         String continueUrl = siteUrl + "/login?token=" + loginToken;
