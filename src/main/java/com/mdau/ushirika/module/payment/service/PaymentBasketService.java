@@ -15,6 +15,7 @@ import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.payment.dto.BasketLineDto;
 import com.mdau.ushirika.module.payment.dto.OutstandingBalancesDto;
 import com.mdau.ushirika.module.payment.dto.PayBalancesLineDto;
+import com.mdau.ushirika.module.payment.dto.PaymentBasketSummaryDto;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
 import com.mdau.ushirika.module.payment.entity.PaymentBasket;
 import com.mdau.ushirika.module.payment.entity.PaymentBasketLine;
@@ -236,8 +237,32 @@ public class PaymentBasketService {
             log.warn("Webhook received for unknown payment basket session={} — skipping", sessionId);
             return;
         }
+        completeBasket(basket, "Stripe webhook");
+    }
+
+    /**
+     * SUPERADMIN-only test tool (see AdminPaymentSimulationController) — completes a PENDING
+     * basket exactly as the real Stripe webhook would, without any real payment. Exists so the
+     * card-only checkout flows can be tested end-to-end (including the confirmation emails and
+     * downstream allocation) without needing a real card or a completed Stripe Checkout session.
+     */
+    @Transactional
+    public void simulateSuccess(UUID basketId) {
+        PaymentBasket basket = basketRepository.findById(basketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment basket not found: " + basketId));
+        completeBasket(basket, "SIMULATED (test tool, no real payment)");
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentBasketSummaryDto> listPendingBaskets() {
+        return basketRepository.findAllByStatusOrderByCreatedAtDesc(PaymentStatus.PENDING).stream()
+                .map(PaymentBasketSummaryDto::from)
+                .toList();
+    }
+
+    private void completeBasket(PaymentBasket basket, String source) {
         if (basket.getStatus() == PaymentStatus.SUCCESS) {
-            log.info("Duplicate webhook for payment basket sessionId={} — skipped", sessionId);
+            log.info("Duplicate completion for payment basket id={} sessionId={} — skipped", basket.getId(), basket.getSessionId());
             return;
         }
 
@@ -254,8 +279,8 @@ public class PaymentBasketService {
             }
         }
 
-        log.info("Payment basket confirmed via Stripe: sessionId={} member={} lines={}",
-                sessionId, basket.getMember().getEmail(), basket.getLines().size());
+        log.info("Payment basket confirmed [{}]: id={} sessionId={} member={} lines={}",
+                source, basket.getId(), basket.getSessionId(), basket.getMember().getEmail(), basket.getLines().size());
     }
 
     private void allocate(User member, PaymentBasketLine line) {

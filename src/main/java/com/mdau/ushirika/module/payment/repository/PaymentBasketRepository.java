@@ -5,6 +5,7 @@ import com.mdau.ushirika.module.payment.enums.PaymentBasketLedger;
 import com.mdau.ushirika.module.payment.enums.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,4 +13,6 @@ public interface PaymentBasketRepository extends JpaRepository<PaymentBasket, UU
     Optional<PaymentBasket> findBySessionId(String sessionId);
 
     boolean existsByMemberIdAndStatusAndLines_Ledger(UUID memberId, PaymentStatus status, PaymentBasketLedger ledger);
+
+    List<PaymentBasket> findAllByStatusOrderByCreatedAtDesc(PaymentStatus status);
 }

@@ -149,7 +149,29 @@ public class OnboardingService {
         log.info("Registration submitted for application {} — awaiting payment verification and final approval",
                 application.getReferenceNumber());
 
+        sendRegistrationCompleteEmail(user, application.getReferenceNumber());
+
         return OnboardingStatusDto.from(application);
+    }
+
+    private void sendRegistrationCompleteEmail(User user, String referenceNumber) {
+        String html = """
+            <div style="font-family:sans-serif;max-width:520px;margin:auto">
+              <h2 style="color:#1A4731">Registration Complete ✓</h2>
+              <p>Hi %s,</p>
+              <p>Your registration form and payment have been received. Your application
+                 (reference <strong>%s</strong>) is now with the committee for final review.</p>
+              <p>You'll get another email as soon as your membership is approved and your
+                 portal access is activated.</p>
+              <p>— Ushirika Welfare Team</p>
+            </div>
+            """.formatted(user.getFirstName(), referenceNumber);
+        try {
+            emailService.sendPlain(user.getEmail(), user.getFullName(),
+                    "Registration Complete — Ushirika Welfare DFW", html);
+        } catch (Exception e) {
+            log.warn("Could not send registration-complete email to {}: {}", user.getEmail(), e.getMessage());
+        }
     }
 
     /** Registration fee (fixed $100) + an optional amount toward a Benevolence application

@@ -75,6 +75,14 @@ public class AdminMembershipController {
         return ResponseEntity.ok(ApiResponse.ok("Form sent to applicant", membershipService.sendForm(id, isSuperAdmin)));
     }
 
+    @PostMapping("/applications/{id}/resend-form")
+    @Operation(summary = "Resend onboarding login credentials to an applicant stuck mid-onboarding (lost email, forgot password, expired link)")
+    public ResponseEntity<ApiResponse<AdminApplicationDto>> resendForm(@PathVariable UUID id, Authentication auth) {
+        boolean isSuperAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_SUPERADMIN"));
+        return ResponseEntity.ok(ApiResponse.ok("Onboarding credentials resent", membershipService.resendFormCredentials(id, isSuperAdmin)));
+    }
+
     @PostMapping("/applications/{id}/approve-membership")
     @Operation(summary = "Grant full membership once the registration fee payment has been verified")
     public ResponseEntity<ApiResponse<AdminApplicationDto>> approveMembership(@PathVariable UUID id, Authentication auth) {

@@ -335,6 +335,41 @@ public class MembershipService {
     }
 
     /**
+     * Recovery path for an applicant who lost their onboarding email, forgot the temp
+     * password, or let the login link expire mid-onboarding. Issues a fresh temp password
+     * and a fresh magic-login token without resetting any onboarding progress already saved
+     * (email verification, additional info, bylaws, programs) — only credentials are reissued.
+     */
+    @Transactional
+    public AdminApplicationDto resendFormCredentials(UUID applicationId, boolean isSuperAdmin) {
+        MembershipApplication application = findApplicationById(applicationId);
+
+        if (application.getStatus() != ApplicationStatus.FORM_SENT
+                && application.getStatus() != ApplicationStatus.ONBOARDING_IN_PROGRESS) {
+            throw new BadRequestException(
+                    "Can only resend onboarding credentials to an applicant currently mid-onboarding. Current status: " + application.getStatus());
+        }
+
+        User user = application.getUser();
+        if (user == null) {
+            throw new BadRequestException("No account exists yet for this application — use Send Form instead.");
+        }
+
+        String tempPassword = generateTempPassword();
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        String loginToken = generateLoginToken();
+        user.setOnboardingLoginToken(loginToken);
+        user.setOnboardingLoginTokenExpiry(LocalDateTime.now().plusHours(ONBOARDING_LOGIN_TOKEN_HOURS));
+        userRepository.save(user);
+
+        String continueUrl = siteUrl + "/login?token=" + loginToken;
+        emailService.sendFormSentCredentials(user.getEmail(), user.getFirstName(), tempPassword, continueUrl);
+        log.info("Onboarding credentials resent for application {} — applicant={}", application.getReferenceNumber(), user.getEmail());
+
+        return AdminApplicationDto.from(application, isSuperAdmin);
+    }
+
+    /**
      * Final step: grants full membership once the applicant's onboarding is complete and their
      * registration fee payment has been verified. Flips the account's role from APPLICANT to MEMBER —
      * same login credentials, no new account issued.
