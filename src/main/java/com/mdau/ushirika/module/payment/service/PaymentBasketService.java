@@ -11,8 +11,10 @@ import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.attendance.enums.FineStatus;
 import com.mdau.ushirika.module.benevolence.enums.ReplenishmentPaymentStatus;
 import com.mdau.ushirika.module.mgr.service.MgrService;
+import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.payment.dto.BasketLineDto;
 import com.mdau.ushirika.module.payment.dto.OutstandingBalancesDto;
+import com.mdau.ushirika.module.payment.dto.PayBalancesLineDto;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
 import com.mdau.ushirika.module.payment.entity.PaymentBasket;
 import com.mdau.ushirika.module.payment.entity.PaymentBasketLine;
@@ -56,6 +58,7 @@ public class PaymentBasketService {
     private final FineService fineService;
     private final BenevolenceClaimService benevolenceClaimService;
     private final ProgramApplicationService programApplicationService;
+    private final ContributionService contributionService;
 
     private static final BigDecimal REGISTRATION_FEE_AMOUNT = new BigDecimal("100.00");
 
@@ -87,7 +90,79 @@ public class PaymentBasketService {
                 .map(f -> new OutstandingBalancesDto.FineItem(f.id(), f.amount(), f.reason(), true))
                 .toList();
 
-        return new OutstandingBalancesDto(duesBalance, benevolence, mgrBalance, replenishments, fines);
+        return new OutstandingBalancesDto(duesBalance, benevolence, mgrBalance, replenishments, fines,
+                contributionService.listActivePlans());
+    }
+
+    /**
+     * Builds a validated "pay my balances" basket. Every requested line is re-checked against
+     * the member's real outstanding balance — nothing from the request is trusted as-is:
+     *   - DUES / BENEVOLENCE_ENROLLMENT / MGR_CONTRIBUTION: amount capped at the real balance.
+     *   - FINE: ignored entirely — the member's actual PENDING fines are force-included below,
+     *     regardless of what was (or wasn't) requested, per the mandatory-fine requirement.
+     *   - BENEVOLENCE_REPLENISHMENT: must belong to the member, PENDING, amount must match exactly.
+     *   - GENERAL_CONTRIBUTION: no balance to cap against — any positive amount is accepted.
+     *   - REGISTRATION_FEE / PROGRAM_APPLICATION_PREPAY: onboarding-only, rejected here.
+     */
+    @Transactional
+    public PaymentInitDto startBalancesCheckout(List<PayBalancesLineDto> requested, String successUrl, String cancelUrl) {
+        User member = currentUser();
+        List<BasketLineDto> lines = new ArrayList<>();
+
+        for (PayBalancesLineDto req : requested != null ? requested : List.<PayBalancesLineDto>of()) {
+            switch (req.ledger()) {
+                case DUES -> {
+                    BigDecimal balance = membershipDuesService.outstandingBalance(member);
+                    lines.add(new BasketLineDto(PaymentBasketLedger.DUES, null, capped(req.amount(), balance, "dues")));
+                }
+                case BENEVOLENCE_ENROLLMENT -> {
+                    BenevolenceEnrollmentService.EnrollmentBalance bal = benevolenceEnrollmentService.outstandingBalance(member);
+                    BigDecimal balance = bal != null ? bal.balance() : BigDecimal.ZERO;
+                    lines.add(new BasketLineDto(PaymentBasketLedger.BENEVOLENCE_ENROLLMENT, null, capped(req.amount(), balance, "Benevolence enrollment")));
+                }
+                case MGR_CONTRIBUTION -> {
+                    BigDecimal balance = mgrService.outstandingContributionBalance(member);
+                    lines.add(new BasketLineDto(PaymentBasketLedger.MGR_CONTRIBUTION, null, capped(req.amount(), balance, "MGR contribution")));
+                }
+                case BENEVOLENCE_REPLENISHMENT -> {
+                    if (req.targetId() == null) {
+                        throw new BadRequestException("A replenishment obligation must be specified.");
+                    }
+                    var match = benevolenceClaimService.getMyReplenishments().stream()
+                            .filter(r -> r.id().equals(req.targetId()) && r.status() == ReplenishmentPaymentStatus.PENDING)
+                            .findFirst()
+                            .orElseThrow(() -> new BadRequestException("That replenishment obligation is not outstanding."));
+                    if (req.amount().compareTo(match.amountDue()) != 0) {
+                        throw new BadRequestException("Replenishment payments must be paid in full — expected $" + match.amountDue());
+                    }
+                    lines.add(new BasketLineDto(PaymentBasketLedger.BENEVOLENCE_REPLENISHMENT, req.targetId(), req.amount()));
+                }
+                case GENERAL_CONTRIBUTION -> lines.add(new BasketLineDto(PaymentBasketLedger.GENERAL_CONTRIBUTION, req.targetId(), req.amount()));
+                case FINE -> { /* fines are never client-selected — force-included below */ }
+                case REGISTRATION_FEE, PROGRAM_APPLICATION_PREPAY ->
+                        throw new BadRequestException("That item can only be paid during onboarding.");
+            }
+        }
+
+        // Fines are mandatory whenever a balances checkout is started — force-included, not optional.
+        for (FineDto fine : fineService.getMyFines()) {
+            if (FineStatus.PENDING.name().equals(fine.status())) {
+                lines.add(new BasketLineDto(PaymentBasketLedger.FINE, fine.id(), fine.amount()));
+            }
+        }
+
+        if (lines.isEmpty()) {
+            throw new BadRequestException("Nothing to pay — no balances selected and no outstanding fines.");
+        }
+
+        return startCheckout(lines, successUrl, cancelUrl);
+    }
+
+    private BigDecimal capped(BigDecimal requested, BigDecimal balance, String label) {
+        if (balance.signum() <= 0) {
+            throw new BadRequestException("You have no outstanding " + label + " balance.");
+        }
+        return requested.compareTo(balance) > 0 ? balance : requested;
     }
 
     /** Onboarding "Programs" + "Registration Fee" steps combined: a fixed $100 registration
@@ -195,6 +270,7 @@ public class PaymentBasketService {
             case FINE -> fineService.markPaid(line.getTargetId());
             case BENEVOLENCE_REPLENISHMENT -> benevolenceClaimService.applyReplenishmentPayment(line.getTargetId(), line.getAmount());
             case PROGRAM_APPLICATION_PREPAY -> programApplicationService.applyPrepayment(line.getTargetId(), member, line.getAmount());
+            case GENERAL_CONTRIBUTION -> contributionService.applyBasketContribution(member, line.getAmount(), line.getTargetId());
         }
     }
 
@@ -207,6 +283,7 @@ public class PaymentBasketService {
             case FINE -> "Ushirika Welfare — Fine";
             case BENEVOLENCE_REPLENISHMENT -> "Ushirika Welfare — Benevolence Replenishment";
             case PROGRAM_APPLICATION_PREPAY -> "Ushirika Welfare — Benevolence Enrollment (prepayment)";
+            case GENERAL_CONTRIBUTION -> "Ushirika Welfare — Contribution";
         };
     }
 

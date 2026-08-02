@@ -218,6 +218,22 @@ public class ContributionService {
                 amountUsd, period);
     }
 
+    /** Credits a confirmed Stripe payment-basket line as a general contribution (folded in from
+     * the "pay my balances" checkout) — planId is optional, null for a custom-amount gift. */
+    @Transactional
+    public void applyBasketContribution(User member, BigDecimal amount, UUID planId) {
+        ContributionPlan plan = planId != null ? planRepository.findById(planId).orElse(null) : null;
+
+        MemberContribution contribution = MemberContribution.builder()
+                .member(member)
+                .plan(plan)
+                .source(ContributionSource.STRIPE)
+                .amount(amount)
+                .currency("USD")
+                .build();
+        contributionRepository.save(contribution);
+    }
+
     // ----------------------------------------------------------------- Member queries
 
     @Transactional(readOnly = true)

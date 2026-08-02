@@ -9,7 +9,8 @@ public record OutstandingBalancesDto(
         BenevolenceBalance benevolence,
         BigDecimal mgrBalance,
         List<ReplenishmentItem> replenishments,
-        List<FineItem> fines
+        List<FineItem> fines,
+        List<ContributionPlanDto> contributionPlans
 ) {
     public record BenevolenceBalance(BigDecimal balance, String status) {}
     public record ReplenishmentItem(UUID id, BigDecimal amountDue) {}
