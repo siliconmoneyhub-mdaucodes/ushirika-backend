@@ -15,17 +15,22 @@ import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.notification.service.EmailService;
-import com.mdau.ushirika.module.payment.enums.PeerPaymentPurpose;
-import com.mdau.ushirika.module.payment.repository.PeerPaymentRepository;
+import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
+import com.mdau.ushirika.module.payment.enums.PaymentBasketLedger;
+import com.mdau.ushirika.module.payment.enums.PaymentStatus;
+import com.mdau.ushirika.module.payment.repository.PaymentBasketRepository;
+import com.mdau.ushirika.module.payment.service.PaymentBasketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Applicant-facing onboarding steps between "Send Form" and final membership approval.
@@ -42,7 +47,8 @@ public class OnboardingService {
     private final MemberProfileRepository profileRepository;
     private final UserRepository userRepository;
     private final GoverningDocumentRepository governingDocumentRepository;
-    private final PeerPaymentRepository peerPaymentRepository;
+    private final PaymentBasketRepository paymentBasketRepository;
+    private final PaymentBasketService paymentBasketService;
     private final EmailService emailService;
 
     @Transactional(readOnly = true)
@@ -131,8 +137,9 @@ public class OnboardingService {
         if (application.getBylawsAcceptedAt() == null) {
             throw new BadRequestException("Please read and accept the bylaws and constitution before continuing.");
         }
-        if (!peerPaymentRepository.existsByMemberAndPurpose(user, PeerPaymentPurpose.REGISTRATION_FEE)) {
-            throw new BadRequestException("Please report your registration fee payment before submitting.");
+        if (!paymentBasketRepository.existsByMemberIdAndStatusAndLines_Ledger(
+                user.getId(), PaymentStatus.SUCCESS, PaymentBasketLedger.REGISTRATION_FEE)) {
+            throw new BadRequestException("Please complete your registration fee payment before submitting.");
         }
 
         application.setStatus(ApplicationStatus.PAYMENT_SUBMITTED);
@@ -143,6 +150,14 @@ public class OnboardingService {
                 application.getReferenceNumber());
 
         return OnboardingStatusDto.from(application);
+    }
+
+    /** Registration fee (fixed $100) + an optional amount toward a Benevolence application
+     * already created in the "Programs" step — one combined Stripe Checkout session. */
+    @Transactional
+    public PaymentInitDto startRegistrationCheckout(BigDecimal benevolenceAmount, UUID benevolenceApplicationId,
+                                                      String successUrl, String cancelUrl) {
+        return paymentBasketService.startOnboardingCheckout(benevolenceAmount, benevolenceApplicationId, successUrl, cancelUrl);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

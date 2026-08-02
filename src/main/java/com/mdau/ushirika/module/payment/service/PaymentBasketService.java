@@ -19,6 +19,7 @@ import com.mdau.ushirika.module.payment.entity.PaymentBasketLine;
 import com.mdau.ushirika.module.payment.enums.PaymentBasketLedger;
 import com.mdau.ushirika.module.payment.enums.PaymentStatus;
 import com.mdau.ushirika.module.payment.repository.PaymentBasketRepository;
+import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import com.stripe.model.checkout.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,8 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Builds and settles multi-line-item Stripe Checkout Sessions that can cover several
@@ -52,6 +55,9 @@ public class PaymentBasketService {
     private final MgrService mgrService;
     private final FineService fineService;
     private final BenevolenceClaimService benevolenceClaimService;
+    private final ProgramApplicationService programApplicationService;
+
+    private static final BigDecimal REGISTRATION_FEE_AMOUNT = new BigDecimal("100.00");
 
     @Transactional(readOnly = true)
     public OutstandingBalancesDto myOutstandingBalances() {
@@ -82,6 +88,27 @@ public class PaymentBasketService {
                 .toList();
 
         return new OutstandingBalancesDto(duesBalance, benevolence, mgrBalance, replenishments, fines);
+    }
+
+    /** Onboarding "Programs" + "Registration Fee" steps combined: a fixed $100 registration
+     * fee plus an optional amount toward a Benevolence application the applicant already
+     * created — full $600, a partial installment, or omitted entirely to defer. */
+    @Transactional
+    public PaymentInitDto startOnboardingCheckout(BigDecimal benevolenceAmount, UUID benevolenceApplicationId,
+                                                    String successUrl, String cancelUrl) {
+        User applicant = currentUser();
+        List<BasketLineDto> lines = new ArrayList<>();
+        lines.add(new BasketLineDto(PaymentBasketLedger.REGISTRATION_FEE, null, REGISTRATION_FEE_AMOUNT));
+
+        if (benevolenceAmount != null && benevolenceAmount.signum() > 0) {
+            if (benevolenceApplicationId == null) {
+                throw new BadRequestException("Select which program application this payment is for.");
+            }
+            programApplicationService.validatePrepayable(benevolenceApplicationId, applicant, benevolenceAmount);
+            lines.add(new BasketLineDto(PaymentBasketLedger.PROGRAM_APPLICATION_PREPAY, benevolenceApplicationId, benevolenceAmount));
+        }
+
+        return startCheckout(lines, successUrl, cancelUrl);
     }
 
     @Transactional
@@ -167,6 +194,7 @@ public class PaymentBasketService {
             case MGR_CONTRIBUTION -> mgrService.applyContribution(member, line.getAmount());
             case FINE -> fineService.markPaid(line.getTargetId());
             case BENEVOLENCE_REPLENISHMENT -> benevolenceClaimService.applyReplenishmentPayment(line.getTargetId(), line.getAmount());
+            case PROGRAM_APPLICATION_PREPAY -> programApplicationService.applyPrepayment(line.getTargetId(), member, line.getAmount());
         }
     }
 
@@ -178,6 +206,7 @@ public class PaymentBasketService {
             case MGR_CONTRIBUTION -> "Ushirika Welfare — MGR Contribution";
             case FINE -> "Ushirika Welfare — Fine";
             case BENEVOLENCE_REPLENISHMENT -> "Ushirika Welfare — Benevolence Replenishment";
+            case PROGRAM_APPLICATION_PREPAY -> "Ushirika Welfare — Benevolence Enrollment (prepayment)";
         };
     }
 

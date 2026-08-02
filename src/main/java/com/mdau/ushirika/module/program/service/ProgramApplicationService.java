@@ -23,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +40,10 @@ public class ProgramApplicationService {
 
     private static final List<ProgramApplicationStatus> COORDINATOR_VISIBLE_STATUSES =
             List.of(ProgramApplicationStatus.PENDING_REVIEW, ProgramApplicationStatus.APPROVED, ProgramApplicationStatus.REJECTED);
+
+    /** Mirrors BenevolenceEnrollmentService's $600 total — kept here too since prepayment
+     * happens before any enrollment record exists to check against. */
+    private static final BigDecimal BENEVOLENCE_ENROLLMENT_TOTAL = new BigDecimal("600.00");
 
     // ── Applicant (onboarding) ──────────────────────────────────────────────
 
@@ -69,6 +74,43 @@ public class ProgramApplicationService {
         return applicationRepository.findAllByApplicant(currentUser()).stream()
                 .map(ProgramApplicationDto::from)
                 .toList();
+    }
+
+    /** Called before building an onboarding checkout basket — throws if this applicant can't
+     * prepay this amount toward this application (wrong owner, wrong program type, already
+     * decided, or would exceed the $600 Benevolence total). */
+    @Transactional(readOnly = true)
+    public void validatePrepayable(UUID applicationId, User applicant, BigDecimal amount) {
+        ProgramApplication app = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Program application not found: " + applicationId));
+        if (!app.getApplicant().getId().equals(applicant.getId())) {
+            throw new ForbiddenException("This application does not belong to you.");
+        }
+        if (app.getProgram().getType() != ProgramType.BENEVOLENCE) {
+            throw new BadRequestException("Prepayment during onboarding is currently only supported for Benevolence.");
+        }
+        if (app.getStatus() == ProgramApplicationStatus.APPROVED || app.getStatus() == ProgramApplicationStatus.REJECTED) {
+            throw new BadRequestException("This application has already been decided.");
+        }
+        BigDecimal existing = app.getPrepaidAmount() != null ? app.getPrepaidAmount() : BigDecimal.ZERO;
+        if (existing.add(amount).compareTo(BENEVOLENCE_ENROLLMENT_TOTAL) > 0) {
+            throw new BadRequestException("That would exceed the $600 Benevolence enrollment total.");
+        }
+    }
+
+    /** Credits a confirmed Stripe payment-basket line toward this application's prepaidAmount.
+     * Called from the webhook — no-ops rather than throwing if the application no longer
+     * belongs to this member or has already been decided (defense in depth; startCheckout
+     * already validated ownership via validatePrepayable at basket-creation time). */
+    @Transactional
+    public void applyPrepayment(UUID applicationId, User expectedApplicant, BigDecimal amount) {
+        ProgramApplication app = applicationRepository.findById(applicationId).orElse(null);
+        if (app == null || !app.getApplicant().getId().equals(expectedApplicant.getId())) {
+            return;
+        }
+        BigDecimal existing = app.getPrepaidAmount() != null ? app.getPrepaidAmount() : BigDecimal.ZERO;
+        app.setPrepaidAmount(existing.add(amount));
+        applicationRepository.save(app);
     }
 
     // ── Called by MembershipService.approveMembership() ─────────────────────

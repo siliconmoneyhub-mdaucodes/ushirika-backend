@@ -2,9 +2,11 @@ package com.mdau.ushirika.module.member.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
+import com.mdau.ushirika.module.member.dto.OnboardingCheckoutRequest;
 import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
 import com.mdau.ushirika.module.member.service.OnboardingService;
+import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
 import com.mdau.ushirika.module.program.dto.ApplyToProgramsRequest;
 import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
 import com.mdau.ushirika.module.program.service.ProgramApplicationService;
@@ -69,6 +71,13 @@ public class OnboardingController {
     @Operation(summary = "Final onboarding step — submit for membership approval once the registration fee is reported")
     public ResponseEntity<ApiResponse<OnboardingStatusDto>> submitRegistration() {
         return ResponseEntity.ok(ApiResponse.ok("Registration submitted for final approval", onboardingService.submitRegistration()));
+    }
+
+    @PostMapping("/checkout")
+    @Operation(summary = "Start the combined Stripe checkout — registration fee, plus an optional amount toward a Benevolence application")
+    public ResponseEntity<ApiResponse<PaymentInitDto>> checkout(@Valid @RequestBody OnboardingCheckoutRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok(onboardingService.startRegistrationCheckout(
+                req.benevolenceAmount(), req.benevolenceApplicationId(), req.successUrl(), req.cancelUrl())));
     }
 
     @PostMapping("/programs")

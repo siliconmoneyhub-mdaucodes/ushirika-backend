@@ -11,5 +11,8 @@ public enum PaymentBasketLedger {
     BENEVOLENCE_ENROLLMENT,
     MGR_CONTRIBUTION,
     FINE,
-    BENEVOLENCE_REPLENISHMENT
+    BENEVOLENCE_REPLENISHMENT,
+    /** Onboarding-only: credits ProgramApplication.prepaidAmount instead of a real
+     * BenevolenceEnrollment, since enrollment can't exist until a coordinator approves. */
+    PROGRAM_APPLICATION_PREPAY
 }
