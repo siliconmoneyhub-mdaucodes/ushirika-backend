@@ -43,12 +43,6 @@ public class AdminDuesController {
                 duesService.getMemberDuesHistory(userId)));
     }
 
-    @PostMapping("/record")
-    public ResponseEntity<ApiResponse<MembershipDueDto>> recordPayment(
-            @Valid @RequestBody RecordDuesPaymentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Payment recorded", duesService.recordPayment(req)));
-    }
-
     @PatchMapping("/{id}/waive")
     public ResponseEntity<ApiResponse<MembershipDueDto>> waive(
             @PathVariable UUID id,
@@ -82,19 +76,4 @@ public class AdminDuesController {
                 duesService.getInstallments(duesId)));
     }
 
-    @PatchMapping("/installments/{id}/verify")
-    public ResponseEntity<ApiResponse<DuesPaymentDto>> verifyInstallment(
-            @PathVariable UUID id,
-            @Valid @RequestBody VerifyDuesInstallmentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Installment verified",
-                duesService.verifyInstallment(id, req)));
-    }
-
-    @PatchMapping("/installments/{id}/reject")
-    public ResponseEntity<ApiResponse<DuesPaymentDto>> rejectInstallment(
-            @PathVariable UUID id,
-            @Valid @RequestBody RejectDuesInstallmentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Installment rejected",
-                duesService.rejectInstallment(id, req)));
-    }
 }

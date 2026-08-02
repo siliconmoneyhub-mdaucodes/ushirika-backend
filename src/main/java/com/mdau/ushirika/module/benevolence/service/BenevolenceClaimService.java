@@ -266,40 +266,6 @@ public class BenevolenceClaimService {
     }
 
     @Transactional
-    public ReplenishmentPaymentDto recordReplenishmentPayment(UUID replenishmentId,
-                                                               RecordReplenishmentPaymentRequest req) {
-        BenevolenceReplenishment replenishment = replenishmentRepo.findById(replenishmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Replenishment not found: " + replenishmentId));
-        BenevolenceEnrollment enrollment = enrollmentRepo.findById(req.enrollmentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found: " + req.enrollmentId()));
-
-        ReplenishmentPayment rp = replenPaymentRepo
-                .findByReplenishmentAndEnrollment(replenishment, enrollment)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "No replenishment obligation found for this member."));
-
-        if (rp.getStatus() == ReplenishmentPaymentStatus.PAID) {
-            throw new BadRequestException("This member has already paid for this replenishment.");
-        }
-
-        rp.setAmountPaid(req.amountPaid());
-        rp.setPaidAt(LocalDateTime.now());
-        rp.setPaymentMethod(req.paymentMethod());
-        rp.setPaymentReference(req.paymentReference());
-        rp.setStatus(ReplenishmentPaymentStatus.PAID);
-        replenPaymentRepo.save(rp);
-
-        long outstanding = replenPaymentRepo.countByReplenishmentAndStatus(
-                replenishment, ReplenishmentPaymentStatus.PENDING);
-        if (outstanding == 0) {
-            replenishment.setStatus(ReplenishmentStatus.COMPLETED);
-            replenishmentRepo.save(replenishment);
-        }
-
-        return ReplenishmentPaymentDto.from(rp, memberId(enrollment.getUser()));
-    }
-
-    @Transactional
     public ReplenishmentPaymentDto waiveReplenishmentPayment(UUID replenishmentPaymentId, String reason) {
         ReplenishmentPayment rp = replenPaymentRepo.findById(replenishmentPaymentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -323,45 +289,6 @@ public class BenevolenceClaimService {
                 .stream()
                 .map(rp -> ReplenishmentPaymentDto.from(rp, mid))
                 .toList();
-    }
-
-    @Transactional
-    public ReplenishmentPaymentDto submitMyReplenishmentPayment(UUID paymentId,
-                                                                MemberReplenishmentPayRequest req) {
-        User user = currentUser();
-        BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(user)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "You are not enrolled in the benevolence program."));
-
-        ReplenishmentPayment rp = replenPaymentRepo.findById(paymentId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Replenishment obligation not found: " + paymentId));
-
-        if (!rp.getEnrollment().getId().equals(enrollment.getId())) {
-            throw new BadRequestException("This replenishment obligation does not belong to your account.");
-        }
-        if (rp.getStatus() == ReplenishmentPaymentStatus.PAID) {
-            throw new BadRequestException("This obligation has already been marked as paid.");
-        }
-        if (rp.getStatus() == ReplenishmentPaymentStatus.WAIVED) {
-            throw new BadRequestException("This obligation has been waived and requires no payment.");
-        }
-
-        rp.setAmountPaid(rp.getAmountDue());
-        rp.setPaidAt(LocalDateTime.now());
-        rp.setPaymentMethod(req.paymentMethod());
-        rp.setPaymentReference(req.memberTxReference());
-        rp.setStatus(ReplenishmentPaymentStatus.PAID);
-        replenPaymentRepo.save(rp);
-
-        long outstanding = replenPaymentRepo.countByReplenishmentAndStatus(
-                rp.getReplenishment(), ReplenishmentPaymentStatus.PENDING);
-        if (outstanding == 0) {
-            rp.getReplenishment().setStatus(ReplenishmentStatus.COMPLETED);
-            replenishmentRepo.save(rp.getReplenishment());
-        }
-
-        return ReplenishmentPaymentDto.from(rp, memberId(user));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

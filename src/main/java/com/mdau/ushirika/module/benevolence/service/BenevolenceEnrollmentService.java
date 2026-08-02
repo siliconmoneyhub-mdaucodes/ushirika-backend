@@ -37,45 +37,6 @@ public class BenevolenceEnrollmentService {
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
 
-    // ── Admin: Enrollment Payments ────────────────────────────────────────────
-
-    @Transactional
-    public BenevolenceEnrollmentDto recordEnrollmentPayment(RecordEnrollmentPaymentRequest req) {
-        User user = userRepo.findById(req.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + req.userId()));
-
-        BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(user)
-                .orElseGet(() -> createEnrollment(user));
-
-        if (enrollment.getStatus() == EnrollmentStatus.ELIGIBLE) {
-            throw new BadRequestException("Enrollment fee already paid in full.");
-        }
-
-        EnrollmentPayment payment = EnrollmentPayment.builder()
-                .enrollment(enrollment)
-                .amount(req.amount())
-                .paymentMethod(req.paymentMethod())
-                .paymentReference(req.paymentReference())
-                .paidAt(LocalDateTime.now())
-                .notes(req.notes())
-                .build();
-        paymentRepo.save(payment);
-
-        BigDecimal newTotal = enrollment.getTotalPaid().add(req.amount());
-        if (newTotal.compareTo(ENROLLMENT_TOTAL) >= 0) {
-            newTotal = ENROLLMENT_TOTAL;
-            enrollment.setTotalPaid(newTotal);
-            enrollment.setCompletedAt(LocalDateTime.now());
-            enrollment.setProbationEndsAt(LocalDate.now().plusMonths(6));
-            enrollment.setStatus(EnrollmentStatus.PROBATION);
-        } else {
-            enrollment.setTotalPaid(newTotal);
-        }
-        enrollmentRepo.save(enrollment);
-
-        return toFullDto(enrollment);
-    }
-
     // ── Admin: List Enrollments ───────────────────────────────────────────────
 
     @Transactional(readOnly = true)

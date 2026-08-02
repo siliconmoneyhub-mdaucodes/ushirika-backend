@@ -55,12 +55,7 @@ public class AdminFineController {
         return ApiResponse.ok("Fine waived.", fineService.waiveFine(id, reason));
     }
 
-    @PatchMapping("/{id}/pay")
-    public ApiResponse<FineDto> markPaid(@PathVariable UUID id) {
-        return ApiResponse.ok("Fine marked as paid.", fineService.markPaid(id));
-    }
-
-    // ── Fine payment submissions (two-sided verification) ─────────────────────
+    // ── Fine payment submissions (historical — read-only) ──────────────────────
 
     @GetMapping("/payments")
     public ResponseEntity<ApiResponse<PagedResponse<FinePaymentDto>>> listPayments(
@@ -71,21 +66,5 @@ public class AdminFineController {
         return ResponseEntity.ok(ApiResponse.ok("Fine payment submissions fetched",
                 finePaymentService.listAll(fps,
                         PageRequest.of(page, size, Sort.by("createdAt").descending()))));
-    }
-
-    @PatchMapping("/payments/{id}/verify")
-    public ResponseEntity<ApiResponse<FinePaymentDto>> verifyPayment(
-            @PathVariable UUID id,
-            @Valid @RequestBody VerifyFinePaymentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Fine payment verified",
-                finePaymentService.verify(id, req)));
-    }
-
-    @PatchMapping("/payments/{id}/reject")
-    public ResponseEntity<ApiResponse<FinePaymentDto>> rejectPayment(
-            @PathVariable UUID id,
-            @Valid @RequestBody RejectFinePaymentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Fine payment rejected",
-                finePaymentService.reject(id, req)));
     }
 }

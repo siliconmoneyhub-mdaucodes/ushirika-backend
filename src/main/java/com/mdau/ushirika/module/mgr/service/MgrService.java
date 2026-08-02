@@ -499,32 +499,6 @@ public class MgrService {
 
     // ── Contributions ─────────────────────────────────────────────────────────
 
-    @Transactional
-    public MgrContributionDto recordContribution(RecordContributionRequest req) {
-        MgrSlot slot = findSlot(req.slotId());
-        if (slot.getCycle().getStatus() != CycleStatus.ACTIVE) {
-            throw new BadRequestException("Contributions can only be recorded for ACTIVE cycles.");
-        }
-
-        MgrContribution contribution = contributionRepo
-                .findBySlotAndContributionMonth(slot, req.month())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Contribution record not found for slot " + slot.getSlotNumber() + " month " + req.month()));
-
-        if (contribution.getStatus() == ContributionStatus.PAID) {
-            throw new BadRequestException("This contribution is already recorded as PAID.");
-        }
-
-        contribution.setAmount(req.amount());
-        contribution.setPaymentMethod(req.paymentMethod());
-        contribution.setPaymentReference(req.paymentReference());
-        contribution.setPaidAt(LocalDateTime.now());
-        contribution.setNotes(req.notes());
-        contribution.setStatus(ContributionStatus.PAID);
-        contributionRepo.save(contribution);
-        return MgrContributionDto.from(contribution);
-    }
-
     /** Sum of this member's PENDING contribution amounts for their current slot — 0 if not in an active cycle. */
     @Transactional(readOnly = true)
     public BigDecimal outstandingContributionBalance(User member) {

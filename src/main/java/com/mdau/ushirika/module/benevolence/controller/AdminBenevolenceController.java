@@ -48,12 +48,6 @@ public class AdminBenevolenceController {
         return ResponseEntity.ok(ApiResponse.ok(enrollmentService.getEnrollmentByUser(userId)));
     }
 
-    @PostMapping("/enrollments/payment")
-    public ResponseEntity<ApiResponse<BenevolenceEnrollmentDto>> recordEnrollmentPayment(
-            @Valid @RequestBody RecordEnrollmentPaymentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Payment recorded", enrollmentService.recordEnrollmentPayment(req)));
-    }
-
     @PostMapping("/enrollments/{id}/beneficiaries")
     public ResponseEntity<ApiResponse<BenevolenceBeneficiaryDto>> addBeneficiary(
             @PathVariable UUID id,
@@ -128,14 +122,6 @@ public class AdminBenevolenceController {
     public ResponseEntity<ApiResponse<BenevolenceReplenishmentDto>> createReplenishment(
             @Valid @RequestBody CreateReplenishmentRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Replenishment created", claimService.createReplenishment(req)));
-    }
-
-    @PostMapping("/replenishments/{id}/payments")
-    public ResponseEntity<ApiResponse<ReplenishmentPaymentDto>> recordReplenishmentPayment(
-            @PathVariable UUID id,
-            @Valid @RequestBody RecordReplenishmentPaymentRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Payment recorded",
-                claimService.recordReplenishmentPayment(id, req)));
     }
 
     @PatchMapping("/replenishments/payments/{paymentId}/waive")

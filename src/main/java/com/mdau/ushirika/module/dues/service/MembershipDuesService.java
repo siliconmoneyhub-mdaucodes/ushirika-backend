@@ -1,8 +1,6 @@
 package com.mdau.ushirika.module.dues.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
-import com.mdau.ushirika.common.exception.ConflictException;
-import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
@@ -18,7 +16,6 @@ import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.notification.service.EmailService;
-import com.mdau.ushirika.module.payment.enums.PaymentMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -78,46 +75,6 @@ public class MembershipDuesService {
                 .map(MembershipDue::getStatus);
     }
 
-    // ── Member: submit an installment payment ─────────────────────────────────
-
-    @Transactional
-    public DuesPaymentDto submitInstallment(SubmitDuesInstallmentRequest req) {
-        User member = currentUser();
-        MembershipDue due = dueRepository.findById(req.duesId())
-                .orElseThrow(() -> new ResourceNotFoundException("Dues record not found: " + req.duesId()));
-
-        if (!due.getUser().getId().equals(member.getId())) {
-            throw new ForbiddenException("You can only submit payments toward your own dues.");
-        }
-        if (due.getStatus() == DuesStatus.WAIVED) {
-            throw new BadRequestException("These dues have been waived — no payment needed.");
-        }
-        if (due.getStatus() == DuesStatus.PAID) {
-            throw new BadRequestException("Annual dues for " + due.getYear() + " are already fully paid.");
-        }
-
-        if (duesPaymentRepository.existsByMemberTxReferenceIgnoreCase(req.memberTxReference())) {
-            throw new ConflictException(
-                "This transaction reference has already been submitted. " +
-                "Each transaction reference can only be used once.");
-        }
-
-        DuesPayment payment = DuesPayment.builder()
-                .dues(due)
-                .member(member)
-                .amount(req.amount())
-                .paymentMode(req.paymentMode())
-                .memberTxReference(req.memberTxReference().strip())
-                .notes(req.notes())
-                .build();
-
-        duesPaymentRepository.save(payment);
-        log.info("Dues installment submitted: duesId={} member={} amount={}",
-                req.duesId(), member.getEmail(), req.amount());
-
-        return DuesPaymentDto.memberView(payment);
-    }
-
     // ── Member: view own installments ─────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -152,68 +109,7 @@ public class MembershipDuesService {
                 .map(DuesPaymentDto::from));
     }
 
-    // ── Admin: verify an installment ──────────────────────────────────────────
-
-    /**
-     * Admin enters the TX reference from their own Zelle/Venmo/CashApp.
-     * If it matches (case-insensitive) what the member submitted, the installment
-     * is VERIFIED and applied to the running paidAmount on the dues record.
-     * If paidAmount >= $100 the dues are automatically marked PAID.
-     */
-    @Transactional
-    public DuesPaymentDto verifyInstallment(UUID installmentId, VerifyDuesInstallmentRequest req) {
-        User admin = currentUser();
-        DuesPayment payment = findInstallmentById(installmentId);
-
-        if (payment.getStatus() != DuesPaymentStatus.PENDING) {
-            throw new BadRequestException(
-                "Only PENDING installments can be verified. Current status: " + payment.getStatus());
-        }
-
-        if (!payment.getMemberTxReference().strip()
-                    .equalsIgnoreCase(req.adminTxReference().strip())) {
-            throw new BadRequestException(
-                "Transaction reference mismatch. The reference you entered (" +
-                req.adminTxReference().strip() + ") does not match what the member submitted. " +
-                "Please check your " + label(payment.getPaymentMode()) + " app and try again, " +
-                "or reject this installment if the payment was not received.");
-        }
-
-        payment.setAdminTxReference(req.adminTxReference().strip());
-        payment.setStatus(DuesPaymentStatus.VERIFIED);
-        payment.setVerifiedBy(admin);
-        payment.setVerifiedAt(LocalDateTime.now());
-        duesPaymentRepository.save(payment);
-
-        // Re-derive paidAmount from DB sum of all VERIFIED installments (idempotent)
-        MembershipDue due = payment.getDues();
-        BigDecimal totalPaid = duesPaymentRepository.sumVerifiedAmount(due, DuesPaymentStatus.VERIFIED);
-        due.setPaidAmount(totalPaid);
-
-        if (totalPaid.compareTo(ANNUAL_FEE) >= 0 && due.getStatus() != DuesStatus.PAID) {
-            due.setStatus(DuesStatus.PAID);
-            due.setPaidAt(LocalDateTime.now());
-            reactivateIfNeeded(due.getUser(), "dues paid in full via installment");
-            log.info("Dues fully paid: duesId={} member={} year={} totalPaid={}",
-                    due.getId(), due.getUser().getEmail(), due.getYear(), totalPaid);
-        }
-        dueRepository.save(due);
-
-        log.info("Dues installment verified: id={} member={} amount={} totalPaid={} by={}",
-                installmentId, payment.getMember().getEmail(), payment.getAmount(), totalPaid, admin.getEmail());
-
-        auditLogService.log(admin, "DUES_INSTALLMENT_VERIFIED", "DuesPayment", installmentId,
-            String.format("Verified dues installment of $%s for %s (year %d). Total paid: $%s",
-                payment.getAmount().toPlainString(),
-                due.getUser().getFullName(),
-                due.getYear(),
-                totalPaid.toPlainString()));
-
-        sendInstallmentVerifiedEmail(payment, totalPaid);
-        return DuesPaymentDto.from(payment);
-    }
-
-    // ── Called by other verified-payment paths (e.g. PeerPaymentService) ──────
+    // ── Called by PaymentBasketService after a confirmed Stripe payment ───────
 
     /**
      * Credits a verified payment from outside the installment system (currently: a
@@ -241,68 +137,6 @@ public class MembershipDuesService {
             }
             dueRepository.save(due);
         });
-    }
-
-    // ── Admin: reject an installment ──────────────────────────────────────────
-
-    @Transactional
-    public DuesPaymentDto rejectInstallment(UUID installmentId, RejectDuesInstallmentRequest req) {
-        User admin = currentUser();
-        DuesPayment payment = findInstallmentById(installmentId);
-
-        if (payment.getStatus() != DuesPaymentStatus.PENDING) {
-            throw new BadRequestException(
-                "Only PENDING installments can be rejected. Current status: " + payment.getStatus());
-        }
-
-        payment.setStatus(DuesPaymentStatus.REJECTED);
-        payment.setRejectionReason(req.reason());
-        payment.setVerifiedBy(admin);
-        payment.setVerifiedAt(LocalDateTime.now());
-        duesPaymentRepository.save(payment);
-
-        log.info("Dues installment rejected: id={} member={} reason={} by={}",
-                installmentId, payment.getMember().getEmail(), req.reason(), admin.getEmail());
-
-        sendInstallmentRejectedEmail(payment, req.reason());
-        return DuesPaymentDto.from(payment);
-    }
-
-    // ── Admin: record payment (legacy direct-entry path) ─────────────────────
-
-    @Transactional
-    public MembershipDueDto recordPayment(RecordDuesPaymentRequest req) {
-        User user = userRepository.findById(UUID.fromString(req.userId()))
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + req.userId()));
-
-        MembershipDue due = dueRepository.findByUserAndYear(user, req.year())
-                .orElseGet(() -> MembershipDue.builder()
-                        .user(user)
-                        .year(req.year())
-                        .amount(ANNUAL_FEE)
-                        .dueDate(LocalDate.of(req.year(), 10, 31))
-                        .status(DuesStatus.PENDING)
-                        .build());
-
-        if (due.getStatus() == DuesStatus.PAID) {
-            throw new BadRequestException("Dues for " + req.year() + " are already marked PAID.");
-        }
-
-        due.setStatus(DuesStatus.PAID);
-        due.setPaidAt(LocalDateTime.now());
-        due.setPaidAmount(ANNUAL_FEE);
-        due.setPaymentMethod(req.paymentMethod());
-        due.setPaymentReference(req.paymentReference());
-        due.setNotes(req.notes());
-        dueRepository.save(due);
-        reactivateIfNeeded(user, "dues recorded by admin");
-
-        log.info("Dues paid (direct): user={} year={} method={}", user.getId(), req.year(), req.paymentMethod());
-        MembershipDueDto dto = MembershipDueDto.from(due, memberId(user));
-        auditLogService.log(currentUser(), "DUES_RECORDED", "MembershipDue", due.getId(),
-                String.format("Dues recorded for %s — year %d via %s",
-                        user.getFullName(), req.year(), req.paymentMethod()));
-        return dto;
     }
 
     // ── Admin: waive dues ─────────────────────────────────────────────────────
@@ -391,74 +225,6 @@ public class MembershipDuesService {
                 .orElse(BigDecimal.ZERO);
     }
 
-    // ── Email notifications ───────────────────────────────────────────────────
-
-    private void sendInstallmentVerifiedEmail(DuesPayment p, BigDecimal totalPaid) {
-        String name       = p.getMember().getFullName();
-        String email      = p.getMember().getEmail();
-        String method     = label(p.getPaymentMode());
-        String amount     = "$" + p.getAmount().toPlainString();
-        String total      = "$" + totalPaid.toPlainString();
-        BigDecimal remaining = ANNUAL_FEE.subtract(totalPaid).max(BigDecimal.ZERO);
-        boolean fullPaid  = remaining.compareTo(BigDecimal.ZERO) == 0;
-        String html = fullPaid ? """
-            <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">Dues Fully Paid ✓</h2>
-              <p>Hi %s,</p>
-              <p>Your <strong>%s</strong> payment of <strong>%s</strong> has been verified.
-                 Your annual dues for %d are now <strong>fully paid</strong>.</p>
-              <p style="color:#555">Transaction reference: <strong>%s</strong></p>
-              <p>Thank you for your timely contribution to Ushirika Welfare DFW.</p>
-              <p>— Ushirika Welfare Team</p>
-            </div>
-            """.formatted(name, method, amount, p.getDues().getYear(), p.getMemberTxReference())
-            : """
-            <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">Dues Installment Verified ✓</h2>
-              <p>Hi %s,</p>
-              <p>Your <strong>%s</strong> installment of <strong>%s</strong> has been verified
-                 and applied to your %d annual dues.</p>
-              <p style="color:#555">Transaction reference: <strong>%s</strong></p>
-              <p>Total paid so far: <strong>%s</strong> &nbsp;|&nbsp;
-                 Remaining: <strong>$%s</strong></p>
-              <p>— Ushirika Welfare Team</p>
-            </div>
-            """.formatted(name, method, amount, p.getDues().getYear(),
-                          p.getMemberTxReference(), total, remaining.toPlainString());
-        emailService.sendPlain(email, name, "Dues Installment Verified — Ushirika Welfare", html);
-    }
-
-    private void sendInstallmentRejectedEmail(DuesPayment p, String reason) {
-        String name   = p.getMember().getFullName();
-        String email  = p.getMember().getEmail();
-        String method = label(p.getPaymentMode());
-        String portal = siteUrl + "/portal";
-        String html = """
-            <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#B91C1C">Dues Installment Could Not Be Verified</h2>
-              <p>Hi %s,</p>
-              <p>Your <strong>%s</strong> payment submission of
-                 <strong>$%s</strong> toward your %d dues
-                 (reference: <strong>%s</strong>) could not be verified.</p>
-              <p><strong>Reason:</strong> %s</p>
-              <p>If you have already sent the payment, please log into your portal and
-                 re-submit the correct transaction reference from your %s app.</p>
-              <p>
-                <a href="%s"
-                   style="display:inline-block;background:#1A4731;color:#fff;padding:10px 22px;
-                          border-radius:999px;text-decoration:none;font-weight:600">
-                  Re-submit in Portal
-                </a>
-              </p>
-              <p>— Ushirika Welfare Team</p>
-            </div>
-            """.formatted(name, method, p.getAmount().toPlainString(),
-                          p.getDues().getYear(), p.getMemberTxReference(),
-                          reason, method, portal);
-        emailService.sendPlain(email, name,
-            "Action Required: Re-submit Dues Payment — Ushirika Welfare", html);
-    }
-
     // ── Membership activation helpers ─────────────────────────────────────────
 
     private void reactivateIfNeeded(User user, String reason) {
@@ -506,23 +272,10 @@ public class MembershipDuesService {
                 .orElseThrow(() -> new ResourceNotFoundException("Dues record not found: " + id));
     }
 
-    private DuesPayment findInstallmentById(UUID id) {
-        return duesPaymentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Dues installment not found: " + id));
-    }
-
     private String memberId(User user) {
         return profileRepository.findByUser(user)
                 .map(MemberProfile::getMemberId)
                 .orElse(null);
-    }
-
-    private static String label(PaymentMode mode) {
-        return switch (mode) {
-            case ZELLE   -> "Zelle";
-            case VENMO   -> "Venmo";
-            case CASHAPP -> "CashApp";
-        };
     }
 
     private User currentUser() {

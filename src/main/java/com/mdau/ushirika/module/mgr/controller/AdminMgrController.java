@@ -134,13 +134,6 @@ public class AdminMgrController {
 
     // ── Contributions ─────────────────────────────────────────────────────────
 
-    @PostMapping("/contributions")
-    public ResponseEntity<ApiResponse<MgrContributionDto>> recordContribution(
-            @Valid @RequestBody RecordContributionRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Contribution recorded",
-                mgrService.recordContribution(req)));
-    }
-
     @PatchMapping("/contributions/{id}/waive")
     public ResponseEntity<ApiResponse<MgrContributionDto>> waiveContribution(
             @PathVariable UUID id,
