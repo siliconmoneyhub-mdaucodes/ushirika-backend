@@ -5,10 +5,12 @@ import com.mdau.ushirika.module.attendance.dto.*;
 import com.mdau.ushirika.module.attendance.service.FinePaymentService;
 import com.mdau.ushirika.module.attendance.service.FineService;
 import com.mdau.ushirika.module.attendance.service.MeetingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,6 +23,11 @@ public class MemberAttendanceController {
     @GetMapping("/attendance/my")
     public ApiResponse<AttendanceSummaryDto> myAttendance() {
         return ApiResponse.ok(meetingService.getMyAttendanceSummary());
+    }
+
+    @PostMapping("/meetings/{id}/checkin")
+    public ApiResponse<CheckInResultDto> checkIn(@PathVariable UUID id, @Valid @RequestBody MemberCheckInRequest req) {
+        return ApiResponse.ok("Checked in.", meetingService.checkIn(id, req));
     }
 
     @GetMapping("/fines/my")

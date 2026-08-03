@@ -36,6 +36,29 @@ public class FineService {
     private final MemberProfileRepository profileRepository;
     private final AuditLogService auditLogService;
 
+    /**
+     * Creates a fine automatically from attendance (late arrival or unexcused absence), bypassing
+     * CreateFineRequest since there's no admin-entered reason/due-date here. dueDate defaults to
+     * two weeks after the meeting. actor/auditAction let the caller attribute the audit trail
+     * correctly (the checking-in member for a late fine, the admin who completed the meeting for
+     * an absence fine).
+     */
+    @Transactional
+    public Fine createAutoFine(User user, Meeting meeting, String reason, java.math.BigDecimal amount,
+                                User actor, String auditAction) {
+        Fine fine = Fine.builder()
+                .user(user)
+                .meeting(meeting)
+                .reason(reason)
+                .amount(amount)
+                .dueDate(meeting.getMeetingDate().toLocalDate().plusDays(14))
+                .build();
+        Fine saved = fineRepository.save(fine);
+        auditLogService.log(actor, auditAction, "Fine", saved.getId(),
+                String.format("Auto-fine of $%.2f — %s", amount, reason));
+        return saved;
+    }
+
     @Transactional
     public FineDto createFine(CreateFineRequest req) {
         User user = userRepository.findById(req.userId())

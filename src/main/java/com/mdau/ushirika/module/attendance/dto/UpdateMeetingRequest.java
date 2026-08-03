@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.attendance.dto;
 
 import com.mdau.ushirika.module.attendance.enums.MeetingType;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record UpdateMeetingRequest(
@@ -10,5 +11,13 @@ public record UpdateMeetingRequest(
         LocalDateTime meetingDate,
         String location,
         MeetingType type,
-        String notes
+        String notes,
+
+        LocalDateTime checkInOpensAt,
+        LocalDateTime seatedByAt,
+        BigDecimal lateFineAmount,
+        BigDecimal absentFineAmount,
+        Double venueLatitude,
+        Double venueLongitude,
+        Integer checkInRadiusMeters
 ) {}

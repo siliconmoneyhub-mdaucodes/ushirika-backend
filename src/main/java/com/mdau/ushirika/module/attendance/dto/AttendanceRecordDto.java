@@ -13,7 +13,8 @@ public record AttendanceRecordDto(
         String memberId,
         String status,
         LocalDateTime checkedInAt,
-        String notes
+        String notes,
+        UUID fineId
 ) {
     public static AttendanceRecordDto from(AttendanceRecord ar, String memberId) {
         return new AttendanceRecordDto(
@@ -24,7 +25,8 @@ public record AttendanceRecordDto(
                 memberId,
                 ar.getStatus().name(),
                 ar.getCheckedInAt(),
-                ar.getNotes()
+                ar.getNotes(),
+                ar.getFine() != null ? ar.getFine().getId() : null
         );
     }
 }

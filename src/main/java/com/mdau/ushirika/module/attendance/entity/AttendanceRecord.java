@@ -47,4 +47,15 @@ public class AttendanceRecord extends BaseEntity {
 
     @Column(length = 500)
     private String notes;
+
+    /** The auto-created late/absence fine tied to this record, if any — lets an approved apology find and waive it. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fine_id", foreignKey = @ForeignKey(name = "fk_ar_fine"))
+    private Fine fine;
+
+    @Column(name = "check_in_latitude")
+    private Double checkInLatitude;
+
+    @Column(name = "check_in_longitude")
+    private Double checkInLongitude;
 }

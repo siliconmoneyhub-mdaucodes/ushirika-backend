@@ -67,4 +67,9 @@ public class AdminMeetingController {
             @Valid @RequestBody BulkAttendanceRequest req) {
         return ApiResponse.ok("Attendance recorded.", meetingService.recordBulkAttendance(id, req));
     }
+
+    @GetMapping("/{id}/checkin-code")
+    public ApiResponse<CheckInCodeDto> checkInCode(@PathVariable UUID id) {
+        return ApiResponse.ok(meetingService.currentCheckInCode(id));
+    }
 }
