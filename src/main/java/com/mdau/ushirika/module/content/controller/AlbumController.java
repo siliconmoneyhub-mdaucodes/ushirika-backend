@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/albums")
+@RequestMapping("/public/albums")
 @RequiredArgsConstructor
 @Tag(name = "Albums — Public", description = "Browse published community photo albums")
 public class AlbumController {
