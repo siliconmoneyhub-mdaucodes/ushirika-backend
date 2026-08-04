@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.member.entity;
 
 import com.mdau.ushirika.common.entity.BaseEntity;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 import jakarta.persistence.*;
@@ -13,7 +14,7 @@ import java.time.LocalDate;
 @Table(
     name = "member_profiles",
     indexes = {
-        @Index(name = "idx_mp_county",       columnList = "county"),
+        @Index(name = "idx_mp_country",      columnList = "country"),
         @Index(name = "idx_mp_gender",       columnList = "gender"),
         @Index(name = "idx_mp_member_since", columnList = "member_since"),
         @Index(name = "idx_mp_tier",         columnList = "membership_tier")
@@ -32,24 +33,54 @@ public class MemberProfile extends BaseEntity {
     private User user;
 
     // ── Identity ──────────────────────────────────────────────────────────────
+    // Nullable at the DB level — a bare profile row is created before onboarding
+    // fills these in. Completeness is enforced as an application-layer gate in
+    // OnboardingService.submitRegistration(), not a DB constraint.
 
-    @Column(name = "id_number", unique = true, nullable = false, length = 20)
+    @Column(name = "id_number", unique = true, length = 20)
     private String idNumber;
 
-    @Column(name = "date_of_birth", nullable = false)
+    @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "gender", nullable = false, length = 20)
+    @Column(name = "gender", length = 20)
     private Gender gender;
 
     // ── Address ───────────────────────────────────────────────────────────────
 
-    @Column(name = "address", nullable = false, length = 500)
-    private String address;
+    @Column(name = "street", length = 300)
+    private String street;
 
-    @Column(name = "county", nullable = false, length = 100)
-    private String county;
+    @Column(name = "city", length = 150)
+    private String city;
+
+    @Column(name = "zip_code", length = 20)
+    private String zipCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "country", length = 10)
+    private Country country;
+
+    /** Required together when country = KENYA. */
+    @Column(name = "kenya_county", length = 100)
+    private String kenyaCounty;
+
+    @Column(name = "kenya_sub_county", length = 100)
+    private String kenyaSubCounty;
+
+    @Column(name = "kenya_village", length = 100)
+    private String kenyaVillage;
+
+    /** Required together when country = UGANDA. */
+    @Column(name = "uganda_province", length = 100)
+    private String ugandaProvince;
+
+    @Column(name = "uganda_county", length = 100)
+    private String ugandaCounty;
+
+    @Column(name = "uganda_village", length = 100)
+    private String ugandaVillage;
 
     @Column(name = "photo_url", length = 1000)
     private String photoUrl;

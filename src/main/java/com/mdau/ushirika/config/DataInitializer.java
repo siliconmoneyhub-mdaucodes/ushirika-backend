@@ -4,6 +4,7 @@ import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
@@ -128,8 +129,13 @@ public class DataInitializer implements ApplicationRunner {
                 .idNumber("TEST00000001")
                 .dateOfBirth(LocalDate.of(1988, 4, 15))
                 .gender(Gender.MALE)
-                .address("6702 Ambercrest Dr, Arlington, TX 76002")
-                .county("Vihiga")
+                .street("6702 Ambercrest Dr")
+                .city("Arlington")
+                .zipCode("76002")
+                .country(Country.KENYA)
+                .kenyaCounty("Vihiga")
+                .kenyaSubCounty("Sabatia")
+                .kenyaVillage("Chavakali")
                 .maritalStatus(MaritalStatus.MARRIED)
                 .spouseName("Aisha Wanjala")
                 .nextOfKinName("Peter Wanjala")

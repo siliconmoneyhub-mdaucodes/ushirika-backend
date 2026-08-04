@@ -102,8 +102,16 @@ public class UserController {
         }
         profile.setGender(req.gender());
         profile.setDateOfBirth(req.dateOfBirth());
-        profile.setAddress(req.address().trim());
-        profile.setCounty(req.county().trim());
+        profile.setStreet(req.street().trim());
+        profile.setCity(req.city().trim());
+        profile.setZipCode(req.zipCode().trim());
+        profile.setCountry(req.country());
+        profile.setKenyaCounty(trimOrNull(req.kenyaCounty()));
+        profile.setKenyaSubCounty(trimOrNull(req.kenyaSubCounty()));
+        profile.setKenyaVillage(trimOrNull(req.kenyaVillage()));
+        profile.setUgandaProvince(trimOrNull(req.ugandaProvince()));
+        profile.setUgandaCounty(trimOrNull(req.ugandaCounty()));
+        profile.setUgandaVillage(trimOrNull(req.ugandaVillage()));
         profile.setMaritalStatus(req.maritalStatus());
         profile.setSpouseName(req.spouseName() != null ? req.spouseName().trim() : null);
         profile.setNextOfKinName(req.nextOfKinName().trim());
@@ -136,6 +144,10 @@ public class UserController {
     public record PhotoUpdateRequest(String photoUrl) {}
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static String trimOrNull(String s) {
+        return s != null && !s.isBlank() ? s.trim() : null;
+    }
 
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

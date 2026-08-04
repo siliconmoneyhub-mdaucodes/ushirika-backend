@@ -15,7 +15,6 @@ import com.mdau.ushirika.module.member.dto.CreateMemberRequest;
 import com.mdau.ushirika.module.member.dto.UpdateMemberTierRequest;
 import com.mdau.ushirika.module.member.dto.UpdateRoleRequest;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
-import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.notification.service.EmailService;
@@ -185,16 +184,11 @@ public class AdminUserService {
         log.info("[createMember] memberId={}", memberId);
         String tier = (req.tier() != null && !req.tier().isBlank()) ? req.tier() : "Standard";
 
-        // Use a random suffix for idNumber placeholder — guaranteed unique, no dependency on user.getId()
-        String placeholderId = "P-" + UUID.randomUUID().toString().replace("-", "").substring(0, 18);
-        log.info("[createMember] building MemberProfile placeholderId={}", placeholderId);
+        // Identity/address fields are left null — an admin-direct-created member fills
+        // these in via their profile page, same as anyone whose onboarding is incomplete.
+        log.info("[createMember] building MemberProfile");
         MemberProfile profile = MemberProfile.builder()
                 .user(user)
-                .idNumber(placeholderId)
-                .dateOfBirth(LocalDate.of(1900, 1, 1))
-                .gender(Gender.PREFER_NOT_TO_SAY)
-                .address("Pending — please update after first login")
-                .county("Pending")
                 .nextOfKinName("Pending")
                 .nextOfKinPhone("Pending")
                 .nextOfKinRelationship("Pending")

@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.member.dto;
 
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 
@@ -25,8 +26,16 @@ public record FullMemberProfileDto(
         LocalDate   dateOfBirth,
 
         // address
-        String address,
-        String county,
+        String  street,
+        String  city,
+        String  zipCode,
+        Country country,
+        String  kenyaCounty,
+        String  kenyaSubCounty,
+        String  kenyaVillage,
+        String  ugandaProvince,
+        String  ugandaCounty,
+        String  ugandaVillage,
 
         // family
         MaritalStatus maritalStatus,
@@ -68,8 +77,16 @@ public record FullMemberProfileDto(
                 p != null ? p.getIdNumber()        : null,
                 p != null ? p.getGender()          : null,
                 p != null ? p.getDateOfBirth()     : null,
-                p != null ? p.getAddress()         : null,
-                p != null ? p.getCounty()          : null,
+                p != null ? p.getStreet()          : null,
+                p != null ? p.getCity()            : null,
+                p != null ? p.getZipCode()         : null,
+                p != null ? p.getCountry()         : null,
+                p != null ? p.getKenyaCounty()     : null,
+                p != null ? p.getKenyaSubCounty()  : null,
+                p != null ? p.getKenyaVillage()    : null,
+                p != null ? p.getUgandaProvince()  : null,
+                p != null ? p.getUgandaCounty()    : null,
+                p != null ? p.getUgandaVillage()   : null,
                 p != null ? p.getMaritalStatus()   : null,
                 p != null ? p.getSpouseName()      : null,
                 p != null ? p.getNextOfKinName()   : null,

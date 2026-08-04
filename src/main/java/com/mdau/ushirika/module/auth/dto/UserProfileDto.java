@@ -31,7 +31,7 @@ public record UserProfileDto(
         boolean membershipCeased,
         /** ISO date string (YYYY-MM-DD) — null until membership is approved. */
         LocalDate joinedAt,
-        /** Nearest city / county of residence — maps to MemberProfile.county. */
+        /** City of residence — maps to MemberProfile.city. */
         String city,
         String photoUrl
 ) {
@@ -50,7 +50,7 @@ public record UserProfileDto(
     public static UserProfileDto from(User user, MemberProfile profile, String duesStatus) {
         String memberId  = profile != null ? profile.getMemberId()    : null;
         LocalDate joined = profile != null ? profile.getMemberSince() : null;
-        String city      = profile != null ? profile.getCounty()      : null;
+        String city      = profile != null ? profile.getCity()        : null;
         String photoUrl  = profile != null ? profile.getPhotoUrl()    : null;
 
         String status;

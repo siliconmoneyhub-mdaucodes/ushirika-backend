@@ -13,7 +13,6 @@ import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.enums.ApprovalDecision;
-import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.repository.ApplicationApprovalRepository;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
@@ -102,8 +101,6 @@ public class MembershipService {
         profile.setIdNumber(req.idNumber());
         profile.setDateOfBirth(req.dateOfBirth());
         profile.setGender(req.gender());
-        profile.setAddress(req.address());
-        profile.setCounty(req.county());
         profile.setMaritalStatus(req.maritalStatus());
         profile.setSpouseName(req.spouseName());
         profile.setChildrenJson(serializeChildren(req.children()));
@@ -289,15 +286,10 @@ public class MembershipService {
                     .build();
             newUser = userRepository.saveAndFlush(newUser);
 
-            // Placeholder profile — real identity fields are collected once the applicant is a MEMBER;
-            // memberId/memberSince/tier are assigned only at final approval.
+            // Bare profile — identity/address/kin fields are collected during the
+            // onboarding wizard; memberId/memberSince/tier are assigned at final approval.
             MemberProfile profile = MemberProfile.builder()
                     .user(newUser)
-                    .idNumber("P-" + UUID.randomUUID().toString().replace("-", "").substring(0, 18))
-                    .dateOfBirth(LocalDate.of(1900, 1, 1))
-                    .gender(Gender.PREFER_NOT_TO_SAY)
-                    .address(application.getApplicantAddress() != null ? application.getApplicantAddress() : "Pending")
-                    .county(application.getApplicantCounty() != null ? application.getApplicantCounty() : "Pending")
                     .nextOfKinName("Pending")
                     .nextOfKinPhone("Pending")
                     .nextOfKinRelationship("Pending")

@@ -24,14 +24,6 @@ public record MembershipApplicationRequest(
         @NotNull(message = "Gender is required")
         Gender gender,
 
-        // ── Address ───────────────────────────────────────────────────────────
-
-        @NotBlank(message = "Residential address is required")
-        String address,
-
-        @NotBlank(message = "County is required")
-        String county,
-
         // ── Family ────────────────────────────────────────────────────────────
 
         MaritalStatus maritalStatus,
