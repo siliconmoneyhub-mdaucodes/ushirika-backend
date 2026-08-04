@@ -13,7 +13,9 @@ import com.mdau.ushirika.module.auth.service.AuthService;
 import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.member.dto.FullMemberProfileDto;
 import com.mdau.ushirika.module.member.dto.UpdateProfileRequest;
+import com.mdau.ushirika.module.member.entity.EmergencyContact;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.entity.NextOfKin;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -22,6 +24,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -78,6 +81,7 @@ public class UserController {
     }
 
     @PutMapping("/me/profile")
+    @Transactional
     @Operation(summary = "Update personal profile information", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<FullMemberProfileDto>> updateProfile(
             @Valid @RequestBody UpdateProfileRequest req) {
@@ -114,11 +118,31 @@ public class UserController {
         profile.setUgandaVillage(trimOrNull(req.ugandaVillage()));
         profile.setMaritalStatus(req.maritalStatus());
         profile.setSpouseName(req.spouseName() != null ? req.spouseName().trim() : null);
-        profile.setNextOfKinName(req.nextOfKinName().trim());
-        profile.setNextOfKinPhone(req.nextOfKinPhone().trim());
-        profile.setNextOfKinRelationship(req.nextOfKinRelationship().trim());
-        profile.setEmergencyContactName(req.emergencyContactName() != null ? req.emergencyContactName().trim() : null);
-        profile.setEmergencyContactPhone(req.emergencyContactPhone() != null ? req.emergencyContactPhone().trim() : null);
+
+        profile.getNextOfKin().clear();
+        for (int i = 0; i < req.nextOfKin().size(); i++) {
+            var k = req.nextOfKin().get(i);
+            profile.getNextOfKin().add(NextOfKin.builder()
+                    .memberProfile(profile)
+                    .position((short) (i + 1))
+                    .fullName(k.fullName().trim())
+                    .phone(k.phone().trim())
+                    .relationship(k.relationship().trim())
+                    .build());
+        }
+
+        profile.getEmergencyContacts().clear();
+        for (int i = 0; i < req.emergencyContacts().size(); i++) {
+            var c = req.emergencyContacts().get(i);
+            profile.getEmergencyContacts().add(EmergencyContact.builder()
+                    .memberProfile(profile)
+                    .position((short) (i + 1))
+                    .fullName(c.fullName().trim())
+                    .phone(c.phone().trim())
+                    .relationship(c.relationship().trim())
+                    .build());
+        }
+
         profile.setOccupation(req.occupation() != null ? req.occupation().trim() : null);
         profile.setEmployer(req.employer() != null ? req.employer().trim() : null);
         profileRepository.save(profile);

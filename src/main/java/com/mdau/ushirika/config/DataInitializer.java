@@ -3,7 +3,9 @@ package com.mdau.ushirika.config;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.member.entity.EmergencyContact;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.entity.NextOfKin;
 import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
@@ -138,11 +140,6 @@ public class DataInitializer implements ApplicationRunner {
                 .kenyaVillage("Chavakali")
                 .maritalStatus(MaritalStatus.MARRIED)
                 .spouseName("Aisha Wanjala")
-                .nextOfKinName("Peter Wanjala")
-                .nextOfKinPhone("+14695550143")
-                .nextOfKinRelationship("Sibling")
-                .emergencyContactName("Aisha Wanjala")
-                .emergencyContactPhone("+14695550144")
                 .occupation("Registered Nurse")
                 .employer("Texas Health Resources")
                 .heardAboutUs("Friend or member")
@@ -150,6 +147,23 @@ public class DataInitializer implements ApplicationRunner {
                 .memberSince(LocalDate.of(2022, 3, 14))
                 .membershipTier("Family")
                 .build();
+
+        profile.getNextOfKin().add(NextOfKin.builder()
+                .memberProfile(profile).position((short) 1)
+                .fullName("Peter Wanjala").phone("+14695550143").relationship("Sibling")
+                .build());
+        profile.getNextOfKin().add(NextOfKin.builder()
+                .memberProfile(profile).position((short) 2)
+                .fullName("Aisha Wanjala").phone("+14695550144").relationship("Spouse")
+                .build());
+        profile.getEmergencyContacts().add(EmergencyContact.builder()
+                .memberProfile(profile).position((short) 1)
+                .fullName("Aisha Wanjala").phone("+14695550144").relationship("Spouse")
+                .build());
+        profile.getEmergencyContacts().add(EmergencyContact.builder()
+                .memberProfile(profile).position((short) 2)
+                .fullName("Peter Wanjala").phone("+14695550143").relationship("Sibling")
+                .build());
 
         memberProfileRepository.save(profile);
         log.info("Test member seeded: {} / password configured via app.test-member.password", testMemberEmail);

@@ -104,11 +104,6 @@ public class MembershipService {
         profile.setMaritalStatus(req.maritalStatus());
         profile.setSpouseName(req.spouseName());
         profile.setChildrenJson(serializeChildren(req.children()));
-        profile.setNextOfKinName(req.nextOfKinName());
-        profile.setNextOfKinPhone(req.nextOfKinPhone());
-        profile.setNextOfKinRelationship(req.nextOfKinRelationship());
-        profile.setEmergencyContactName(req.emergencyContactName());
-        profile.setEmergencyContactPhone(req.emergencyContactPhone());
         profile.setOccupation(req.occupation());
         profile.setEmployer(req.employer());
         profile.setReference1Name(req.reference1Name());
@@ -290,9 +285,6 @@ public class MembershipService {
             // onboarding wizard; memberId/memberSince/tier are assigned at final approval.
             MemberProfile profile = MemberProfile.builder()
                     .user(newUser)
-                    .nextOfKinName("Pending")
-                    .nextOfKinPhone("Pending")
-                    .nextOfKinRelationship("Pending")
                     .build();
             profileRepository.save(profile);
 

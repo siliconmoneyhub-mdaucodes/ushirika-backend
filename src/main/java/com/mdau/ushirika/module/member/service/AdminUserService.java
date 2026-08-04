@@ -189,9 +189,6 @@ public class AdminUserService {
         log.info("[createMember] building MemberProfile");
         MemberProfile profile = MemberProfile.builder()
                 .user(user)
-                .nextOfKinName("Pending")
-                .nextOfKinPhone("Pending")
-                .nextOfKinRelationship("Pending")
                 .memberId(memberId)
                 .memberSince(LocalDate.now())
                 .membershipTier(tier)

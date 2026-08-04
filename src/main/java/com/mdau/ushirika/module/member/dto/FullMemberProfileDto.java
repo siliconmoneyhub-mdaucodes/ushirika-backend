@@ -7,6 +7,7 @@ import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /** Full editable profile returned by GET /users/me/full-profile. */
@@ -41,14 +42,9 @@ public record FullMemberProfileDto(
         MaritalStatus maritalStatus,
         String        spouseName,
 
-        // next of kin
-        String nextOfKinName,
-        String nextOfKinPhone,
-        String nextOfKinRelationship,
-
-        // emergency contact
-        String emergencyContactName,
-        String emergencyContactPhone,
+        // next of kin (exactly 2) / emergency contacts (exactly 2)
+        List<NextOfKinDto> nextOfKin,
+        List<EmergencyContactDto> emergencyContacts,
 
         // occupation
         String occupation,
@@ -89,11 +85,12 @@ public record FullMemberProfileDto(
                 p != null ? p.getUgandaVillage()   : null,
                 p != null ? p.getMaritalStatus()   : null,
                 p != null ? p.getSpouseName()      : null,
-                p != null ? p.getNextOfKinName()   : null,
-                p != null ? p.getNextOfKinPhone()  : null,
-                p != null ? p.getNextOfKinRelationship() : null,
-                p != null ? p.getEmergencyContactName()  : null,
-                p != null ? p.getEmergencyContactPhone() : null,
+                p != null ? p.getNextOfKin().stream()
+                        .map(k -> new NextOfKinDto(k.getFullName(), k.getPhone(), k.getRelationship()))
+                        .toList() : List.of(),
+                p != null ? p.getEmergencyContacts().stream()
+                        .map(c -> new EmergencyContactDto(c.getFullName(), c.getPhone(), c.getRelationship()))
+                        .toList() : List.of(),
                 p != null ? p.getOccupation()      : null,
                 p != null ? p.getEmployer()        : null,
                 p != null ? p.getMemberSince()     : null,

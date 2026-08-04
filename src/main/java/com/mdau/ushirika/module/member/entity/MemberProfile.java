@@ -9,6 +9,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -98,24 +100,20 @@ public class MemberProfile extends BaseEntity {
     @Column(name = "children_json", columnDefinition = "TEXT")
     private String childrenJson;
 
-    // ── Next of Kin ───────────────────────────────────────────────────────────
+    // ── Next of Kin / Emergency Contact ──────────────────────────────────────
+    // Exactly two of each, distinguished by position — see NextOfKin/EmergencyContact.
 
-    @Column(name = "next_of_kin_name", nullable = false, length = 150)
-    private String nextOfKinName;
+    // EAGER is deliberate here — capped at 2 rows each, and read outside a
+    // transactional boundary in several places (open-in-view is disabled).
+    @OneToMany(mappedBy = "memberProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("position ASC")
+    @Builder.Default
+    private List<NextOfKin> nextOfKin = new ArrayList<>();
 
-    @Column(name = "next_of_kin_phone", nullable = false, length = 20)
-    private String nextOfKinPhone;
-
-    @Column(name = "next_of_kin_relationship", nullable = false, length = 50)
-    private String nextOfKinRelationship;
-
-    // ── Emergency Contact ─────────────────────────────────────────────────────
-
-    @Column(name = "emergency_contact_name", length = 150)
-    private String emergencyContactName;
-
-    @Column(name = "emergency_contact_phone", length = 20)
-    private String emergencyContactPhone;
+    @OneToMany(mappedBy = "memberProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("position ASC")
+    @Builder.Default
+    private List<EmergencyContact> emergencyContacts = new ArrayList<>();
 
     // ── Occupation ────────────────────────────────────────────────────────────
 
