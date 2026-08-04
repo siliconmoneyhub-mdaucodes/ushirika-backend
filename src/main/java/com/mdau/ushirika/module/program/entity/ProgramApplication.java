@@ -2,12 +2,17 @@ package com.mdau.ushirika.module.program.entity;
 
 import com.mdau.ushirika.common.entity.BaseEntity;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.member.dto.BeneficiaryInfo;
 import com.mdau.ushirika.module.program.enums.ProgramApplicationStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An applicant's request, made during onboarding, to join a specific Program.
@@ -62,4 +67,14 @@ public class ProgramApplication extends BaseEntity {
     @Column(name = "prepaid_amount", precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal prepaidAmount = BigDecimal.ZERO;
+
+    /** Filled in when a verified member applies directly from the portal — reuses the same
+     * shape as the general onboarding beneficiaries list. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "beneficiaries", columnDefinition = "jsonb")
+    @Builder.Default
+    private List<BeneficiaryInfo> beneficiaries = new ArrayList<>();
+
+    @Column(name = "notes", length = 1000)
+    private String notes;
 }

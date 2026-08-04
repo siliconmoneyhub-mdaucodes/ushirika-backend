@@ -7,6 +7,7 @@ import com.mdau.ushirika.module.program.enums.ProgramApplicationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProgramApplicationRepository extends JpaRepository<ProgramApplication, UUID> {
@@ -18,4 +19,6 @@ public interface ProgramApplicationRepository extends JpaRepository<ProgramAppli
     boolean existsByProgramAndApplicant(Program program, User applicant);
 
     List<ProgramApplication> findAllByProgramIdAndStatusIn(UUID programId, List<ProgramApplicationStatus> statuses);
+
+    Optional<ProgramApplication> findByProgramIdAndApplicantId(UUID programId, UUID applicantId);
 }
