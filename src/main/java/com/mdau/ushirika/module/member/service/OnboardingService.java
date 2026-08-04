@@ -8,10 +8,16 @@ import com.mdau.ushirika.module.constitution.enums.DocumentStatus;
 import com.mdau.ushirika.module.constitution.enums.DocumentType;
 import com.mdau.ushirika.module.constitution.repository.GoverningDocumentRepository;
 import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
+import com.mdau.ushirika.module.member.dto.AddressInfoRequest;
+import com.mdau.ushirika.module.member.dto.EmergencyContactRequest;
+import com.mdau.ushirika.module.member.dto.IdentityInfoRequest;
+import com.mdau.ushirika.module.member.dto.NextOfKinRequest;
 import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
+import com.mdau.ushirika.module.member.entity.EmergencyContact;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
+import com.mdau.ushirika.module.member.entity.NextOfKin;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
@@ -109,6 +115,132 @@ public class OnboardingService {
         });
 
         return OnboardingStatusDto.from(application);
+    }
+
+    @Transactional
+    public OnboardingStatusDto submitIdentityInfo(IdentityInfoRequest req) {
+        User user = currentUser();
+        MembershipApplication application = findApplication(user);
+        MemberProfile profile = findOrCreateProfile(user);
+
+        profile.setIdNumber(req.idNumber());
+        profile.setDateOfBirth(req.dateOfBirth());
+        profile.setGender(req.gender());
+        profile.setMaritalStatus(req.maritalStatus());
+        profile.setSpouseName(req.spouseName());
+        profile.setChildrenJson(serializeChildren(req.children()));
+        profile.setOccupation(req.occupation());
+        profile.setEmployer(req.employer());
+        profileRepository.save(profile);
+
+        application.setIdentityInfoSubmittedAt(LocalDateTime.now());
+        advanceToOnboarding(application);
+        applicationRepository.save(application);
+
+        return OnboardingStatusDto.from(application);
+    }
+
+    @Transactional
+    public OnboardingStatusDto submitAddressInfo(AddressInfoRequest req) {
+        User user = currentUser();
+        MembershipApplication application = findApplication(user);
+        MemberProfile profile = findOrCreateProfile(user);
+
+        profile.setStreet(req.street());
+        profile.setCity(req.city());
+        profile.setZipCode(req.zipCode());
+        profile.setCountry(req.country());
+        profile.setKenyaCounty(req.kenyaCounty());
+        profile.setKenyaSubCounty(req.kenyaSubCounty());
+        profile.setKenyaVillage(req.kenyaVillage());
+        profile.setUgandaProvince(req.ugandaProvince());
+        profile.setUgandaCounty(req.ugandaCounty());
+        profile.setUgandaVillage(req.ugandaVillage());
+        profileRepository.save(profile);
+
+        application.setAddressInfoSubmittedAt(LocalDateTime.now());
+        advanceToOnboarding(application);
+        applicationRepository.save(application);
+
+        return OnboardingStatusDto.from(application);
+    }
+
+    @Transactional
+    public OnboardingStatusDto submitNextOfKin(NextOfKinRequest req) {
+        User user = currentUser();
+        MembershipApplication application = findApplication(user);
+        MemberProfile profile = findOrCreateProfile(user);
+
+        profile.getNextOfKin().clear();
+        for (int i = 0; i < req.nextOfKin().size(); i++) {
+            var dto = req.nextOfKin().get(i);
+            profile.getNextOfKin().add(NextOfKin.builder()
+                    .memberProfile(profile)
+                    .position((short) (i + 1))
+                    .fullName(dto.fullName())
+                    .phone(dto.phone())
+                    .relationship(dto.relationship())
+                    .build());
+        }
+        profileRepository.save(profile);
+
+        markKinContactsSubmittedIfComplete(profile, application);
+        applicationRepository.save(application);
+
+        return OnboardingStatusDto.from(application);
+    }
+
+    @Transactional
+    public OnboardingStatusDto submitEmergencyContacts(EmergencyContactRequest req) {
+        User user = currentUser();
+        MembershipApplication application = findApplication(user);
+        MemberProfile profile = findOrCreateProfile(user);
+
+        profile.getEmergencyContacts().clear();
+        for (int i = 0; i < req.emergencyContacts().size(); i++) {
+            var dto = req.emergencyContacts().get(i);
+            profile.getEmergencyContacts().add(EmergencyContact.builder()
+                    .memberProfile(profile)
+                    .position((short) (i + 1))
+                    .fullName(dto.fullName())
+                    .phone(dto.phone())
+                    .relationship(dto.relationship())
+                    .build());
+        }
+        profileRepository.save(profile);
+
+        markKinContactsSubmittedIfComplete(profile, application);
+        applicationRepository.save(application);
+
+        return OnboardingStatusDto.from(application);
+    }
+
+    /** Next-of-kin and emergency contacts are two separate steps/endpoints but one combined
+     * completion flag — only set once both sides hold their required two entries. */
+    private void markKinContactsSubmittedIfComplete(MemberProfile profile, MembershipApplication application) {
+        if (profile.getNextOfKin().size() == 2 && profile.getEmergencyContacts().size() == 2) {
+            application.setKinContactsSubmittedAt(LocalDateTime.now());
+            advanceToOnboarding(application);
+        }
+    }
+
+    private MemberProfile findOrCreateProfile(User user) {
+        return profileRepository.findByUser(user)
+                .orElse(MemberProfile.builder().user(user).build());
+    }
+
+    private String serializeChildren(List<IdentityInfoRequest.ChildRecord> children) {
+        if (children == null || children.isEmpty()) return "[]";
+        var sb = new StringBuilder("[");
+        for (int i = 0; i < children.size(); i++) {
+            var c = children.get(i);
+            if (i > 0) sb.append(",");
+            sb.append("{\"name\":\"").append(c.name() == null ? "" : c.name().replace("\"", "\\\""))
+              .append("\",\"dateOfBirth\":\"").append(c.dateOfBirth() == null ? "" : c.dateOfBirth())
+              .append("\"}");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     @Transactional

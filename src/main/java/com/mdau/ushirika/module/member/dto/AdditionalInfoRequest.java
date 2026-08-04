@@ -14,5 +14,13 @@ public record AdditionalInfoRequest(
         String heardAboutUs,
 
         @Valid
-        List<BeneficiaryInfo> beneficiaries
+        List<BeneficiaryInfo> beneficiaries,
+
+        // ── References (optional — member-to-member vouching) ───────────────────
+        String reference1Name,
+        /** Member ID of first reference, format UW-YYYY-XXXX. */
+        String reference1MemberId,
+        String reference2Name,
+        /** Member ID of second reference, format UW-YYYY-XXXX. */
+        String reference2MemberId
 ) {}

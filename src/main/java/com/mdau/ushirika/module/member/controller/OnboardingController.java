@@ -2,6 +2,10 @@ package com.mdau.ushirika.module.member.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
+import com.mdau.ushirika.module.member.dto.AddressInfoRequest;
+import com.mdau.ushirika.module.member.dto.EmergencyContactRequest;
+import com.mdau.ushirika.module.member.dto.IdentityInfoRequest;
+import com.mdau.ushirika.module.member.dto.NextOfKinRequest;
 import com.mdau.ushirika.module.member.dto.OnboardingCheckoutRequest;
 import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
@@ -47,6 +51,30 @@ public class OnboardingController {
     @Operation(summary = "Verify the onboarding email code")
     public ResponseEntity<ApiResponse<OnboardingStatusDto>> verifyEmailOtp(@Valid @RequestBody VerifyOnboardingEmailRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Email verified", onboardingService.verifyEmailOtp(req)));
+    }
+
+    @PostMapping("/identity-info")
+    @Operation(summary = "Submit identity details — ID number, date of birth, gender, marital status")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> identityInfo(@Valid @RequestBody IdentityInfoRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Identity details saved", onboardingService.submitIdentityInfo(req)));
+    }
+
+    @PostMapping("/address-info")
+    @Operation(summary = "Submit residential address")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> addressInfo(@Valid @RequestBody AddressInfoRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Address saved", onboardingService.submitAddressInfo(req)));
+    }
+
+    @PostMapping("/next-of-kin")
+    @Operation(summary = "Submit next-of-kin — exactly two required")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> nextOfKin(@Valid @RequestBody NextOfKinRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Next of kin saved", onboardingService.submitNextOfKin(req)));
+    }
+
+    @PostMapping("/emergency-contacts")
+    @Operation(summary = "Submit emergency contacts — exactly two required")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> emergencyContacts(@Valid @RequestBody EmergencyContactRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Emergency contacts saved", onboardingService.submitEmergencyContacts(req)));
     }
 
     @PostMapping("/additional-info")
