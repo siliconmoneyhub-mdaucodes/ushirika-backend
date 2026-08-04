@@ -241,7 +241,7 @@ public class MembershipDuesService {
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
               <h2 style="color:#B91C1C">Membership Status: Inactive</h2>
               <p>Hi %s,</p>
-              <p>Your Ushirika Welfare membership has been set to <strong>Inactive</strong>
+              <p>Your Ushirika Welfare Organization membership has been set to <strong>Inactive</strong>
                  because your annual dues ($100) were not paid by the October 31st deadline.</p>
               <p>To restore your Active status, please log in to your member portal and submit
                  your payment. Your access to programs and benefits is paused until dues are settled.</p>

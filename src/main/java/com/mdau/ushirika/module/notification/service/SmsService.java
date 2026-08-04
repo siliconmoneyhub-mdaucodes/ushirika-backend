@@ -18,7 +18,7 @@ public interface SmsService {
      */
     default void sendOtp(String phone, String name, String otp) {
         send(phone, name,
-                "Your Ushirika Welfare verification code is: " + otp +
+                "Your Ushirika Welfare Organization verification code is: " + otp +
                 ". It expires in 15 minutes. Do not share it.");
     }
 
@@ -27,7 +27,7 @@ public interface SmsService {
      */
     default void sendMembershipApproved(String phone, String name, String memberId) {
         send(phone, name,
-                "Congratulations " + name + "! Your Ushirika Welfare membership has been approved. " +
+                "Congratulations " + name + "! Your Ushirika Welfare Organization membership has been approved. " +
                 "Member ID: " + memberId + ". Log in to your member portal to get started.");
     }
 }

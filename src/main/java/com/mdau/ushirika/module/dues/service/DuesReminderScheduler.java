@@ -77,13 +77,13 @@ public class DuesReminderScheduler {
     private static String buildMessage(String name, int year, String dueDate, int days) {
         if (days == 0) {
             return String.format(
-                "Hi %s, your %d Ushirika Welfare annual membership dues ($100) are due TODAY (%s). " +
+                "Hi %s, your %d Ushirika Welfare Organization annual membership dues ($100) are due TODAY (%s). " +
                 "Please make your payment as soon as possible to maintain your active status. " +
                 "Log in to your member portal to pay: https://ushirikacommunity.site/portal/payments",
                 name, year, dueDate);
         }
         return String.format(
-            "Hi %s, your %d Ushirika Welfare annual membership dues ($100) are due on %s — that's %d day%s from now. " +
+            "Hi %s, your %d Ushirika Welfare Organization annual membership dues ($100) are due on %s — that's %d day%s from now. " +
             "Stay active by paying before the due date. " +
             "Log in to pay: https://ushirikacommunity.site/portal/payments",
             name, year, dueDate, days, days == 1 ? "" : "s");
@@ -92,7 +92,7 @@ public class DuesReminderScheduler {
     private static String toHtml(String text) {
         return """
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
-              <h2 style="color:#1A4731">Ushirika Welfare — Dues Reminder</h2>
+              <h2 style="color:#1A4731">Ushirika Welfare Organization — Dues Reminder</h2>
               <p>%s</p>
               <p style="color:#888;font-size:12px">
                 To stop receiving these reminders, pay your dues at

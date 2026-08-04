@@ -163,12 +163,12 @@ public class OnboardingService {
                  (reference <strong>%s</strong>) is now with the committee for final review.</p>
               <p>You'll get another email as soon as your membership is approved and your
                  portal access is activated.</p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>
             """.formatted(user.getFirstName(), referenceNumber);
         try {
             emailService.sendPlain(user.getEmail(), user.getFullName(),
-                    "Registration Complete — Ushirika Welfare DFW", html);
+                    "Registration Complete — Ushirika Welfare Organization", html);
         } catch (Exception e) {
             log.warn("Could not send registration-complete email to {}: {}", user.getEmail(), e.getMessage());
         }

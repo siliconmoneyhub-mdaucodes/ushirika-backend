@@ -17,10 +17,10 @@ public class OpenApiConfig {
         final String schemeName = "bearerAuth";
         return new OpenAPI()
                 .info(new Info()
-                        .title("Ushirika Welfare API")
-                        .description("REST API for Ushirika Welfare Foundation — members, welfare, scholarships, events, content and payments.")
+                        .title("Ushirika Welfare Organization API")
+                        .description("REST API for Ushirika Welfare Organization — members, welfare, scholarships, events, content and payments.")
                         .version("1.0.0")
-                        .contact(new Contact().name("Ushirika Welfare").email("hello@ushirikawelfare.org")))
+                        .contact(new Contact().name("Ushirika Welfare Organization").email("hello@ushirikawelfare.org")))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
                 .components(new Components()
                         .addSecuritySchemes(schemeName, new SecurityScheme()

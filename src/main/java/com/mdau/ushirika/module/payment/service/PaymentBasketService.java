@@ -301,14 +301,14 @@ public class PaymentBasketService {
 
     private String describe(PaymentBasketLedger ledger) {
         return switch (ledger) {
-            case REGISTRATION_FEE -> "Ushirika Welfare — Registration Fee";
-            case DUES -> "Ushirika Welfare — Annual Membership Dues";
-            case BENEVOLENCE_ENROLLMENT -> "Ushirika Welfare — Benevolence Enrollment";
-            case MGR_CONTRIBUTION -> "Ushirika Welfare — MGR Contribution";
-            case FINE -> "Ushirika Welfare — Fine";
-            case BENEVOLENCE_REPLENISHMENT -> "Ushirika Welfare — Benevolence Replenishment";
-            case PROGRAM_APPLICATION_PREPAY -> "Ushirika Welfare — Benevolence Enrollment (prepayment)";
-            case GENERAL_CONTRIBUTION -> "Ushirika Welfare — Contribution";
+            case REGISTRATION_FEE -> "Ushirika Welfare Organization — Registration Fee";
+            case DUES -> "Ushirika Welfare Organization — Annual Membership Dues";
+            case BENEVOLENCE_ENROLLMENT -> "Ushirika Welfare Organization — Benevolence Enrollment";
+            case MGR_CONTRIBUTION -> "Ushirika Welfare Organization — MGR Contribution";
+            case FINE -> "Ushirika Welfare Organization — Fine";
+            case BENEVOLENCE_REPLENISHMENT -> "Ushirika Welfare Organization — Benevolence Replenishment";
+            case PROGRAM_APPLICATION_PREPAY -> "Ushirika Welfare Organization — Benevolence Enrollment (prepayment)";
+            case GENERAL_CONTRIBUTION -> "Ushirika Welfare Organization — Contribution";
         };
     }
 

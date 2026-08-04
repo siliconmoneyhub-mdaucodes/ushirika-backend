@@ -103,7 +103,7 @@ public class ReinstatementService {
         String subject = "Your reinstatement request has been approved";
         String body = String.format(
             "Hi %s, your membership reinstatement request has been approved. " +
-            "Your account is now active again. Welcome back to Ushirika Welfare DFW! " +
+            "Your account is now active again. Welcome back to Ushirika Welfare Organization! " +
             "Log in at https://ushirikacommunity.site",
             member.getFullName());
 
@@ -150,7 +150,7 @@ public class ReinstatementService {
         String subject = "Your reinstatement request has been reviewed";
         String body = String.format(
             "Hi %s, your membership reinstatement request has been reviewed and was not approved at this time. %s" +
-            "Please contact the Ushirika Welfare DFW administrator if you have questions.",
+            "Please contact the Ushirika Welfare Organization administrator if you have questions.",
             member.getFullName(),
             adminNotes != null ? "Admin notes: " + adminNotes + ". " : "");
 
@@ -201,7 +201,7 @@ public class ReinstatementService {
                     style="background:#1A4731;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
                 Access Member Portal
               </a></p>
-              <p style="color:#888;font-size:12px">Welcome back to Ushirika Welfare DFW!</p>
+              <p style="color:#888;font-size:12px">Welcome back to Ushirika Welfare Organization!</p>
             </div>
             """.formatted(
                 name,
@@ -215,8 +215,8 @@ public class ReinstatementService {
               <p>Dear %s,</p>
               <p>Your membership reinstatement request has been reviewed and was <strong style="color:#C0392B">not approved</strong> at this time.</p>
               %s
-              <p>Please contact the Ushirika Welfare DFW administrator for more information or to discuss your situation.</p>
-              <p style="color:#888;font-size:12px">Ushirika Welfare DFW</p>
+              <p>Please contact the Ushirika Welfare Organization administrator for more information or to discuss your situation.</p>
+              <p style="color:#888;font-size:12px">Ushirika Welfare Organization</p>
             </div>
             """.formatted(
                 name,

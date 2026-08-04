@@ -115,11 +115,11 @@ public class ScholarshipService {
         // Acknowledge the inquiry
         emailService.sendPlain(
                 req.email(), req.fullName(),
-                "Scholarship Inquiry Received — Ushirika Welfare Foundation",
+                "Scholarship Inquiry Received — Ushirika Welfare Organization",
                 "Dear " + req.fullName() + ",\n\n" +
-                "Thank you for your interest in the Ushirika Welfare Foundation scholarship program. " +
+                "Thank you for your interest in the Ushirika Welfare Organization scholarship program. " +
                 "We have received your inquiry and will get back to you shortly.\n\n" +
-                "Regards,\nUshirika Welfare Foundation"
+                "Regards,\nUshirika Welfare Organization"
         );
     }
 
@@ -295,7 +295,7 @@ public class ScholarshipService {
         emailService.sendPlain(
                 application.getMember().getEmail(),
                 application.getMember().getFullName(),
-                "Scholarship Award — Ushirika Welfare Foundation",
+                "Scholarship Award — Ushirika Welfare Organization",
                 "Dear " + application.getMember().getFirstName() + ",\n\n" +
                 "Congratulations! The scholarship award for " + application.getBeneficiaryName() +
                 " (ref: " + application.getReferenceNumber() + ") of KES " + req.amountAwarded() +
@@ -304,7 +304,7 @@ public class ScholarshipService {
                         ? "Transaction reference: " + req.transactionReference() + "\n\n"
                         : "") +
                 "We wish " + application.getBeneficiaryName() + " success in their studies.\n\n" +
-                "Warmly,\nUshirika Welfare Foundation"
+                "Warmly,\nUshirika Welfare Organization"
         );
 
         log.info("Scholarship awarded: ref={} beneficiary={} amount={}",
@@ -322,13 +322,13 @@ public class ScholarshipService {
         emailService.sendPlain(
                 application.getMember().getEmail(),
                 application.getMember().getFullName(),
-                "Scholarship Application Update — Ushirika Welfare Foundation",
+                "Scholarship Application Update — Ushirika Welfare Organization",
                 "Dear " + application.getMember().getFirstName() + ",\n\n" +
                 "We regret to inform you that the scholarship application for " +
                 application.getBeneficiaryName() + " (ref: " + application.getReferenceNumber() +
                 ") was not approved at this time.\n\n" +
                 "You are welcome to apply for future programs. Please contact our office if you have questions.\n\n" +
-                "Regards,\nUshirika Welfare Foundation"
+                "Regards,\nUshirika Welfare Organization"
         );
         log.info("Scholarship application {} rejected.", application.getReferenceNumber());
     }
@@ -341,12 +341,12 @@ public class ScholarshipService {
         emailService.sendPlain(
                 application.getMember().getEmail(),
                 application.getMember().getFullName(),
-                "Scholarship Application Approved — Ushirika Welfare Foundation",
+                "Scholarship Application Approved — Ushirika Welfare Organization",
                 "Dear " + application.getMember().getFirstName() + ",\n\n" +
                 "Great news! The scholarship application for " + application.getBeneficiaryName() +
                 " (ref: " + application.getReferenceNumber() + ") has been approved.\n\n" +
                 "The award disbursement will be processed shortly.\n\n" +
-                "Warmly,\nUshirika Welfare Foundation"
+                "Warmly,\nUshirika Welfare Organization"
         );
         log.info("Scholarship application {} approved.", application.getReferenceNumber());
     }
@@ -363,7 +363,7 @@ public class ScholarshipService {
                         "Program: " + application.getProgram().getName() + "\n" +
                         "Reference: " + application.getReferenceNumber() + "\n\n" +
                         "Log in to the admin portal to cast your vote.\n\n" +
-                        "Ushirika Welfare Foundation"
+                        "Ushirika Welfare Organization"
                 )
         );
     }
@@ -378,7 +378,7 @@ public class ScholarshipService {
                 .orElse(false);
         if (!isApprovedMember) {
             throw new ForbiddenException(
-                    "You must be an approved Ushirika Welfare member to apply for a scholarship.");
+                    "You must be an approved Ushirika Welfare Organization member to apply for a scholarship.");
         }
     }
 

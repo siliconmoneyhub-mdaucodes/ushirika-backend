@@ -241,7 +241,7 @@ public class WelfareService {
         emailService.sendPlain(
                 request.getMember().getEmail(),
                 request.getMember().getFullName(),
-                "Welfare Disbursement — Ushirika Welfare Foundation",
+                "Welfare Disbursement — Ushirika Welfare Organization",
                 "Dear " + request.getMember().getFirstName() + ",\n\n" +
                 "Your welfare support of KES " + req.amountDisbursed() + " (ref: " +
                 request.getReferenceNumber() + ") has been disbursed via " +
@@ -249,8 +249,8 @@ public class WelfareService {
                 (req.transactionReference() != null
                         ? "Transaction reference: " + req.transactionReference() + "\n\n"
                         : "") +
-                "Thank you for being part of Ushirika Welfare Foundation.\n\n" +
-                "Regards,\nUshirika Welfare Foundation"
+                "Thank you for being part of Ushirika Welfare Organization.\n\n" +
+                "Regards,\nUshirika Welfare Organization"
         );
 
         log.info("Welfare request {} disbursed: KES {} via {}",
@@ -268,12 +268,12 @@ public class WelfareService {
         emailService.sendPlain(
                 request.getMember().getEmail(),
                 request.getMember().getFullName(),
-                "Welfare Request Update — Ushirika Welfare Foundation",
+                "Welfare Request Update — Ushirika Welfare Organization",
                 "Dear " + request.getMember().getFirstName() + ",\n\n" +
                 "We regret to inform you that your welfare request (ref: " +
                 request.getReferenceNumber() + ") has not been approved at this time.\n\n" +
                 "If you have questions or wish to appeal, please contact our office.\n\n" +
-                "Regards,\nUshirika Welfare Foundation"
+                "Regards,\nUshirika Welfare Organization"
         );
         log.info("Welfare request {} rejected.", request.getReferenceNumber());
     }
@@ -286,12 +286,12 @@ public class WelfareService {
         emailService.sendPlain(
                 request.getMember().getEmail(),
                 request.getMember().getFullName(),
-                "Welfare Request Approved — Ushirika Welfare Foundation",
+                "Welfare Request Approved — Ushirika Welfare Organization",
                 "Dear " + request.getMember().getFirstName() + ",\n\n" +
                 "Great news! Your welfare request (ref: " + request.getReferenceNumber() +
                 ") for KES " + request.getAmountRequested() + " has been approved.\n\n" +
                 "Disbursement will be processed shortly. You will receive a confirmation once done.\n\n" +
-                "Warmly,\nUshirika Welfare Foundation"
+                "Warmly,\nUshirika Welfare Organization"
         );
         log.info("Welfare request {} approved.", request.getReferenceNumber());
     }
@@ -308,7 +308,7 @@ public class WelfareService {
                         "Amount: KES " + request.getAmountRequested() + "\n" +
                         "Reference: " + request.getReferenceNumber() + "\n\n" +
                         "Log in to the admin portal to cast your vote.\n\n" +
-                        "Ushirika Welfare Foundation"
+                        "Ushirika Welfare Organization"
                 )
         );
     }

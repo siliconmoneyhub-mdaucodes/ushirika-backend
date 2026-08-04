@@ -240,11 +240,11 @@ public class AdminUserService {
     }
 
     private void sendWelcomeCredentials(String toEmail, String firstName, String memberId, String tempPassword) {
-        String subject = "Welcome to Ushirika Welfare Foundation — Your Member Account";
+        String subject = "Welcome to Ushirika Welfare Organization — Your Member Account";
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
                   <h2 style="color:#1a6b3c">Welcome, %s!</h2>
-                  <p>Your Ushirika Welfare Foundation member account has been created by the administrator. You can now sign in to your member portal.</p>
+                  <p>Your Ushirika Welfare Organization member account has been created by the administrator. You can now sign in to your member portal.</p>
                   <table style="border-collapse:collapse;width:100%%;margin:24px 0;border:1px solid #e5e7eb;border-radius:8px">
                     <tr style="background:#f9fafb">
                       <td style="padding:12px 16px;font-weight:600;width:160px">Member ID</td>

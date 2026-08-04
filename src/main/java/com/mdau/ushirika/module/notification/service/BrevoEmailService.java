@@ -38,7 +38,7 @@ public class BrevoEmailService implements EmailService {
     @Value("${app.brevo.sender-email:noreply@ushirikawelfare.org}")
     private String senderEmail;
 
-    @Value("${app.brevo.sender-name:Ushirika Welfare}")
+    @Value("${app.brevo.sender-name:Ushirika Welfare Organization}")
     private String senderName;
 
     @Value("${spring.mail.password:NOT_SET}")
@@ -58,12 +58,12 @@ public class BrevoEmailService implements EmailService {
     @Async
     @Override
     public void sendEmailVerificationOtp(String toEmail, String name, String otp) {
-        String subject = "Your Ushirika Welfare Verification Code";
+        String subject = "Your Ushirika Welfare Organization Verification Code";
         String html = """
                 <div style="font-family:sans-serif;max-width:480px;margin:auto">
                   <h2 style="color:#1A4731">Verify Your Email</h2>
                   <p>Hi %s,</p>
-                  <p>Use the code below to verify your Ushirika Welfare account. It expires in <strong>15 minutes</strong>.</p>
+                  <p>Use the code below to verify your Ushirika Welfare Organization account. It expires in <strong>15 minutes</strong>.</p>
                   <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1A4731;margin:24px 0">%s</div>
                   <p style="color:#888;font-size:13px">If you did not register, ignore this email.</p>
                 </div>
@@ -74,7 +74,7 @@ public class BrevoEmailService implements EmailService {
     @Async
     @Override
     public void sendPasswordResetOtp(String toEmail, String name, String otp) {
-        String subject = "Reset Your Ushirika Welfare Password";
+        String subject = "Reset Your Ushirika Welfare Organization Password";
         String html = """
                 <div style="font-family:sans-serif;max-width:480px;margin:auto">
                   <h2 style="color:#1A4731">Password Reset</h2>
@@ -90,14 +90,14 @@ public class BrevoEmailService implements EmailService {
     @Async
     @Override
     public void sendWelcome(String toEmail, String name, String memberId) {
-        String subject = "Welcome to Ushirika Welfare!";
+        String subject = "Welcome to Ushirika Welfare Organization!";
         String html = """
                 <div style="font-family:sans-serif;max-width:480px;margin:auto">
                   <h2 style="color:#1A4731">Welcome, %s!</h2>
                   <p>Your membership has been approved. Your Member ID is:</p>
                   <div style="font-size:24px;font-weight:700;color:#1A4731;margin:16px 0">%s</div>
                   <p>Log in to your member portal to view your dashboard, make contributions, and apply for welfare.</p>
-                  <p>— Ushirika Welfare Team</p>
+                  <p>— Ushirika Welfare Organization Team</p>
                 </div>
                 """.formatted(name, memberId);
         sendPlain(toEmail, name, subject, html);
@@ -106,7 +106,7 @@ public class BrevoEmailService implements EmailService {
     @Async
     @Override
     public void sendFormSentCredentials(String toEmail, String name, String tempPassword, String onboardingUrl) {
-        String subject = "Your Ushirika Welfare Application Has Been Accepted — Next Steps";
+        String subject = "Your Ushirika Welfare Organization Application Has Been Accepted — Next Steps";
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
                   <h2 style="color:#1A4731">Good news, %s!</h2>
@@ -134,14 +134,14 @@ public class BrevoEmailService implements EmailService {
     @Async
     @Override
     public void sendMembershipApproved(String toEmail, String name, String memberId) {
-        String subject = "You Are a Member Now! — Ushirika Welfare Foundation";
+        String subject = "You Are a Member Now! — Ushirika Welfare Organization";
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
                   <h2 style="color:#1A4731">Congratulations, %s — you are a member now!</h2>
                   <p>Your registration fee has been verified and your membership is fully approved. You can now
                      log in with the same credentials to access the full member portal.</p>
                   <p><strong>Your Member ID: %s</strong></p>
-                  <p>— Ushirika Welfare Foundation</p>
+                  <p>— Ushirika Welfare Organization</p>
                 </div>
                 """.formatted(name, memberId);
         sendPlain(toEmail, name, subject, html);

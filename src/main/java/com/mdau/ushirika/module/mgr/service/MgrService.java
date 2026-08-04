@@ -601,7 +601,7 @@ public class MgrService {
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Go to My MGR Portal
               </a></p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>""".formatted(subject, body, portalUrl);
 
         for (MgrSlot slot : slots) {
@@ -628,7 +628,7 @@ public class MgrService {
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  See the Reveal in Portal
               </a></p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>""".formatted(cycle.getName(), names, amount, payoutDate, portalUrl);
 
         for (MgrSlot slot : allSlots) {
@@ -652,12 +652,12 @@ public class MgrService {
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Confirm Receipt
               </a></p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>""".formatted(name, amount,
                 slot.getPaymentReference() != null ? "" : "the configured payment method",
                 slot.getPaymentReference() != null ? slot.getPaymentReference() : "N/A",
                 portal);
-        emailService.sendPlain(email, name, "Your MGR Payout Has Been Disbursed — Ushirika Welfare", html);
+        emailService.sendPlain(email, name, "Your MGR Payout Has Been Disbursed — Ushirika Welfare Organization", html);
     }
 
     private void sendApprovedJoinEmail(MgrJoinRequest r) {
@@ -675,7 +675,7 @@ public class MgrService {
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Go to MGR Portal
               </a></p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>""".formatted(name, r.getCycle().getName(), portal);
         emailService.sendPlain(r.getUser().getEmail(), name,
                 "MGR Join Request Approved — " + r.getCycle().getName(), html);
@@ -692,7 +692,7 @@ public class MgrService {
               <p>You are welcome to request to join a future cycle.
                  Contact <a href="mailto:info@ushirikacommunity.site">info@ushirikacommunity.site</a>
                  if you have questions.</p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>""".formatted(name, r.getCycle().getName(),
                 reason != null ? "<p><strong>Reason:</strong> " + reason + "</p>" : "");
         emailService.sendPlain(r.getUser().getEmail(), name,

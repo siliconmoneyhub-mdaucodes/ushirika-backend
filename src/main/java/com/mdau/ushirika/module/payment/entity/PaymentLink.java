@@ -32,7 +32,7 @@ public class PaymentLink extends BaseEntity {
     @Column(nullable = false, length = 500)
     private String handle;
 
-    /** Display name shown to the member, e.g. "Ushirika Welfare DFW". */
+    /** Display name shown to the member, e.g. "Ushirika Welfare Organization". */
     @Column(name = "display_name", length = 100)
     private String displayName;
 

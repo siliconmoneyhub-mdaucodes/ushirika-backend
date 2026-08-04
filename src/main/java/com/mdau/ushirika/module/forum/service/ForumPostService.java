@@ -194,7 +194,7 @@ public class ForumPostService {
               <h2 style="color:#1A4731">Your Story Is Live!</h2>
               <p>Hi %s,</p>
               <p>Your testimonial <strong>"%s"</strong> has been approved and is now
-                 visible to the public on the Ushirika Welfare website.</p>
+                 visible to the public on the Ushirika Welfare Organization website.</p>
               <p>Thank you for sharing your story — it helps others see the real
                  impact our community makes.</p>
               <p>
@@ -204,10 +204,10 @@ public class ForumPostService {
                   View It Live
                 </a>
               </p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>
             """.formatted(name, p.getTitle(), url);
-        emailService.sendPlain(email, name, "Your Story Is Now Live — Ushirika Welfare", html);
+        emailService.sendPlain(email, name, "Your Story Is Now Live — Ushirika Welfare Organization", html);
     }
 
     private void sendRejectedEmail(ForumPost p, String reason) {
@@ -228,10 +228,10 @@ public class ForumPostService {
                   Go to My Stories
                 </a>
               </p>
-              <p>— Ushirika Welfare Team</p>
+              <p>— Ushirika Welfare Organization Team</p>
             </div>
             """.formatted(name, p.getTitle(), reason != null ? reason : "No specific reason provided.", portal);
-        emailService.sendPlain(email, name, "Story Under Review — Ushirika Welfare", html);
+        emailService.sendPlain(email, name, "Story Under Review — Ushirika Welfare Organization", html);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────

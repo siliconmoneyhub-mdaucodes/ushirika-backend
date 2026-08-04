@@ -436,22 +436,22 @@ public class MembershipService {
         if (applicant != null) {
             emailService.sendPlain(
                     applicant.getEmail(), applicant.getFullName(),
-                    "Membership Application Update — Ushirika Welfare",
+                    "Membership Application Update — Ushirika Welfare Organization",
                     "Dear " + applicant.getFirstName() + ",\n\n" +
                     "We regret to inform you that your membership application (ref: " +
                     application.getReferenceNumber() + ") has not been approved at this time.\n\n" +
                     "You are welcome to reapply. If you have questions, please contact our office.\n\n" +
-                    "Regards,\nUshirika Welfare Foundation"
+                    "Regards,\nUshirika Welfare Organization"
             );
         } else if (application.getApplicantEmail() != null) {
             emailService.sendPlain(
                     application.getApplicantEmail(), application.getApplicantName(),
-                    "Membership Enquiry Update — Ushirika Welfare",
+                    "Membership Enquiry Update — Ushirika Welfare Organization",
                     "Dear " + application.getApplicantName() + ",\n\n" +
                     "We have reviewed your membership enquiry (ref: " +
                     application.getReferenceNumber() + ") and are unable to proceed at this time.\n\n" +
                     "You are welcome to reapply. If you have questions, please contact our office.\n\n" +
-                    "Regards,\nUshirika Welfare Foundation"
+                    "Regards,\nUshirika Welfare Organization"
             );
         }
         log.info("Membership application {} rejected.", application.getReferenceNumber());
@@ -475,7 +475,7 @@ public class MembershipService {
     private void sendApplicantConfirmation(String toEmail, String toName, String referenceNumber) {
         emailService.sendPlain(
                 toEmail, toName,
-                "We received your membership application — Ushirika Welfare DFW",
+                "We received your membership application — Ushirika Welfare Organization",
                 """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
                   <h2 style="color:#1A4731">Thank you, %s!</h2>
@@ -485,7 +485,7 @@ public class MembershipService {
                      our website and clicking <em>Track Application</em>.</p>
                   <p>The committee will be in touch within 5 business days. If you have any questions in the
                      meantime, please reply to this email.</p>
-                  <p>— Ushirika Welfare Foundation DFW</p>
+                  <p>— Ushirika Welfare Organization</p>
                 </div>
                 """.formatted(toName, referenceNumber)
         );
@@ -502,7 +502,7 @@ public class MembershipService {
                         "Email: " + application.getApplicantEmail() + "\n" +
                         "Reference: " + application.getReferenceNumber() + "\n\n" +
                         "Log in to the admin portal to review this application.\n\n" +
-                        "Ushirika Welfare Foundation"
+                        "Ushirika Welfare Organization"
                 )
         );
     }
@@ -517,7 +517,7 @@ public class MembershipService {
                         "Applicant: " + applicant.getFullName() + "\n" +
                         "Reference: " + application.getReferenceNumber() + "\n\n" +
                         "Log in to the admin portal to cast your vote.\n\n" +
-                        "Ushirika Welfare Foundation"
+                        "Ushirika Welfare Organization"
                 )
         );
     }

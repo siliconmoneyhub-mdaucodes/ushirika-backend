@@ -128,8 +128,8 @@ public class ContributionService {
 
         String planId = plan != null ? plan.getId().toString() : null;
         String productName = plan != null
-                ? "Ushirika Welfare — " + plan.getName()
-                : "Ushirika Welfare — Contribution (" + req.period() + ")";
+                ? "Ushirika Welfare Organization — " + plan.getName()
+                : "Ushirika Welfare Organization — Contribution (" + req.period() + ")";
 
         Map<String, String> metadata = new java.util.HashMap<>();
         metadata.put("purpose", PaymentPurpose.CONTRIBUTION.name());

@@ -309,7 +309,7 @@ public class EventService {
                 (event.getOnlineLink() != null ? "Online link: " + event.getOnlineLink() + "\n" : "") +
                 "\nYour check-in reference code: " + ref + "\n\n" +
                 "We look forward to seeing you there.\n\n" +
-                "Ushirika Welfare Foundation"
+                "Ushirika Welfare Organization"
         );
     }
 

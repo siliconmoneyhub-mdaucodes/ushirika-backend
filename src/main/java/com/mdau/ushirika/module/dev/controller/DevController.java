@@ -48,7 +48,7 @@ public class DevController {
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a;border:1px solid #e5e7eb;border-radius:8px;padding:32px">
                   <h2 style="color:#1A4731;margin-top:0">Email Delivery Test</h2>
-                  <p>This is a test message sent from the Ushirika Welfare Foundation developer tools panel.</p>
+                  <p>This is a test message sent from the Ushirika Welfare Organization developer tools panel.</p>
                   <table style="border-collapse:collapse;width:100%%;margin:20px 0;font-size:13px">
                     <tr>
                       <td style="padding:8px 12px;background:#f9fafb;font-weight:600;width:140px;border:1px solid #e5e7eb">Sent at</td>
@@ -60,7 +60,7 @@ public class DevController {
                     </tr>
                   </table>
                   <p style="color:#16a34a;font-weight:600">If you received this message, email delivery is working correctly.</p>
-                  <p style="color:#6b7280;font-size:12px;margin-bottom:0">— Ushirika Welfare Foundation Admin Panel</p>
+                  <p style="color:#6b7280;font-size:12px;margin-bottom:0">— Ushirika Welfare Organization Admin Panel</p>
                 </div>
                 """.formatted(now, req.to());
 

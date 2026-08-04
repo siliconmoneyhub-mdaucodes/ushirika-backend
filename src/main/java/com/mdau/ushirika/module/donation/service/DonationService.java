@@ -167,8 +167,8 @@ public class DonationService {
         metadata.put("donorName", name);
 
         String productName = campaign != null
-                ? "Ushirika Welfare — " + campaign.getTitle()
-                : "Ushirika Welfare — General Donation";
+                ? "Ushirika Welfare Organization — " + campaign.getTitle()
+                : "Ushirika Welfare Organization — General Donation";
 
         StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
                 email, req.amount(), productName, req.successUrl(), req.cancelUrl(), metadata);
@@ -213,14 +213,14 @@ public class DonationService {
 
         emailService.sendPlain(
                 donation.getDonorEmail(), donation.getDonorName(),
-                "Thank You for Your Donation — Ushirika Welfare Foundation",
+                "Thank You for Your Donation — Ushirika Welfare Organization",
                 "Dear " + firstWord(donation.getDonorName()) + ",\n\n" +
                 "We have received your donation of USD " + amountUsd +
                 (donation.getCampaign() != null
                         ? " towards \"" + donation.getCampaign().getTitle() + "\""
                         : " (General Donation)") + ".\n\n" +
                 "Your generosity makes a real difference to our community. Thank you!\n\n" +
-                "Warmly,\nUshirika Welfare Foundation"
+                "Warmly,\nUshirika Welfare Organization"
         );
 
         log.info("Donation completed via Stripe: sessionId={} amount={} USD donor={}",
