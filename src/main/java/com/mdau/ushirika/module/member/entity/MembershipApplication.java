@@ -133,8 +133,23 @@ public class MembershipApplication extends BaseEntity {
     @Column(name = "email_reverified_at")
     private LocalDateTime emailReverifiedAt;
 
+    @Column(name = "constitution_accepted_at")
+    private LocalDateTime constitutionAcceptedAt;
+
     @Column(name = "bylaws_accepted_at")
     private LocalDateTime bylawsAcceptedAt;
+
+    /** Set once the new onboarding Identity step (idNumber/DOB/gender/marital/occupation) is submitted. */
+    @Column(name = "identity_info_submitted_at")
+    private LocalDateTime identityInfoSubmittedAt;
+
+    /** Set once the new onboarding Address step is submitted. */
+    @Column(name = "address_info_submitted_at")
+    private LocalDateTime addressInfoSubmittedAt;
+
+    /** Set once both next-of-kin entries and both emergency contacts are submitted. */
+    @Column(name = "kin_contacts_submitted_at")
+    private LocalDateTime kinContactsSubmittedAt;
 
     @Column(name = "registration_submitted_at")
     private LocalDateTime registrationSubmittedAt;

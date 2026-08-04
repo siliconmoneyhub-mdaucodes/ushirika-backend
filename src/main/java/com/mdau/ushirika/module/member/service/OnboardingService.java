@@ -10,8 +10,10 @@ import com.mdau.ushirika.module.constitution.repository.GoverningDocumentReposit
 import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
 import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
+import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
+import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.notification.service.EmailService;
@@ -110,13 +112,29 @@ public class OnboardingService {
     }
 
     @Transactional
+    public OnboardingStatusDto acceptConstitution() {
+        MembershipApplication application = findApplication(currentUser());
+
+        boolean publishedExists = governingDocumentRepository.existsByStatusAndDocumentTypeIn(
+                DocumentStatus.PUBLISHED, List.of(DocumentType.CONSTITUTION));
+        if (!publishedExists) {
+            throw new BadRequestException("No published constitution document is available yet.");
+        }
+
+        application.setConstitutionAcceptedAt(LocalDateTime.now());
+        advanceToOnboarding(application);
+        applicationRepository.save(application);
+        return OnboardingStatusDto.from(application);
+    }
+
+    @Transactional
     public OnboardingStatusDto acceptBylaws() {
         MembershipApplication application = findApplication(currentUser());
 
         boolean publishedExists = governingDocumentRepository.existsByStatusAndDocumentTypeIn(
-                DocumentStatus.PUBLISHED, List.of(DocumentType.BYLAWS, DocumentType.CONSTITUTION));
+                DocumentStatus.PUBLISHED, List.of(DocumentType.BYLAWS));
         if (!publishedExists) {
-            throw new BadRequestException("No published bylaws or constitution document is available yet.");
+            throw new BadRequestException("No published bylaws document is available yet.");
         }
 
         application.setBylawsAcceptedAt(LocalDateTime.now());
@@ -133,9 +151,13 @@ public class OnboardingService {
         if (application.getEmailReverifiedAt() == null) {
             throw new BadRequestException("Please verify your email before continuing.");
         }
+        requireCompleteProfile(user);
         // Document upload is disabled for now — no requirement here until the spec is finalized.
+        if (application.getConstitutionAcceptedAt() == null) {
+            throw new BadRequestException("Please read and accept the constitution before continuing.");
+        }
         if (application.getBylawsAcceptedAt() == null) {
-            throw new BadRequestException("Please read and accept the bylaws and constitution before continuing.");
+            throw new BadRequestException("Please read and accept the bylaws before continuing.");
         }
         if (!paymentBasketRepository.existsByMemberIdAndStatusAndLines_Ledger(
                 user.getId(), PaymentStatus.SUCCESS, PaymentBasketLedger.REGISTRATION_FEE)) {
@@ -183,6 +205,39 @@ public class OnboardingService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** The single source of truth for "onboarding actually collected everything" —
+     * replaces the old placeholder-value approach where a profile could look complete
+     * without any of it being real. */
+    private void requireCompleteProfile(User user) {
+        MemberProfile p = profileRepository.findByUser(user)
+                .orElseThrow(() -> new BadRequestException("Profile not found. Please complete the earlier onboarding steps first."));
+
+        if (p.getIdNumber() == null || p.getDateOfBirth() == null || p.getGender() == null) {
+            throw new BadRequestException("Please complete your identity details before continuing.");
+        }
+        if (isBlank(p.getStreet()) || isBlank(p.getCity()) || isBlank(p.getZipCode()) || p.getCountry() == null) {
+            throw new BadRequestException("Please complete your address before continuing.");
+        }
+        if (p.getCountry() == Country.KENYA
+                && (isBlank(p.getKenyaCounty()) || isBlank(p.getKenyaSubCounty()) || isBlank(p.getKenyaVillage()))) {
+            throw new BadRequestException("Please complete your county, sub-county, and village before continuing.");
+        }
+        if (p.getCountry() == Country.UGANDA
+                && (isBlank(p.getUgandaProvince()) || isBlank(p.getUgandaCounty()) || isBlank(p.getUgandaVillage()))) {
+            throw new BadRequestException("Please complete your province, county, and village before continuing.");
+        }
+        if (p.getNextOfKin().size() != 2) {
+            throw new BadRequestException("Please provide exactly two next-of-kin entries before continuing.");
+        }
+        if (p.getEmergencyContacts().size() != 2) {
+            throw new BadRequestException("Please provide exactly two emergency contacts before continuing.");
+        }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
 
     private void advanceToOnboarding(MembershipApplication application) {
         if (application.getStatus() == ApplicationStatus.FORM_SENT) {

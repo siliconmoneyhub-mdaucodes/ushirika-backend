@@ -7,9 +7,6 @@ import com.mdau.ushirika.module.member.dto.OnboardingStatusDto;
 import com.mdau.ushirika.module.member.dto.VerifyOnboardingEmailRequest;
 import com.mdau.ushirika.module.member.service.OnboardingService;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
-import com.mdau.ushirika.module.program.dto.ApplyToProgramsRequest;
-import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
-import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,8 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * Applicant onboarding steps between "Send Form" and final membership approval.
@@ -30,11 +25,10 @@ import java.util.List;
 @PreAuthorize("hasRole('APPLICANT')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
-@Tag(name = "Onboarding", description = "Applicant onboarding: additional info, bylaws acceptance, registration payment")
+@Tag(name = "Onboarding", description = "Applicant onboarding: identity, address, kin/contacts, constitution/bylaws, registration payment")
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
-    private final ProgramApplicationService programApplicationService;
 
     @GetMapping("/status")
     @Operation(summary = "Current onboarding progress for the logged-in applicant")
@@ -61,8 +55,14 @@ public class OnboardingController {
         return ResponseEntity.ok(ApiResponse.ok("Additional information saved", onboardingService.submitAdditionalInfo(req)));
     }
 
+    @PostMapping("/accept-constitution")
+    @Operation(summary = "Confirm you have read and accept the constitution")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> acceptConstitution() {
+        return ResponseEntity.ok(ApiResponse.ok("Constitution acceptance recorded", onboardingService.acceptConstitution()));
+    }
+
     @PostMapping("/accept-bylaws")
-    @Operation(summary = "Confirm you have read and accept the bylaws and constitution")
+    @Operation(summary = "Confirm you have read and accept the bylaws")
     public ResponseEntity<ApiResponse<OnboardingStatusDto>> acceptBylaws() {
         return ResponseEntity.ok(ApiResponse.ok("Bylaws acceptance recorded", onboardingService.acceptBylaws()));
     }
@@ -78,17 +78,5 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<PaymentInitDto>> checkout(@Valid @RequestBody OnboardingCheckoutRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(onboardingService.startRegistrationCheckout(
                 req.benevolenceAmount(), req.benevolenceApplicationId(), req.successUrl(), req.cancelUrl())));
-    }
-
-    @PostMapping("/programs")
-    @Operation(summary = "Apply to join one or more programs (MGR, Benevolence, etc.) — visible to the program's coordinator only once membership is approved")
-    public ResponseEntity<ApiResponse<List<ProgramApplicationDto>>> applyToPrograms(@Valid @RequestBody ApplyToProgramsRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Program application(s) submitted", programApplicationService.applyToPrograms(req)));
-    }
-
-    @GetMapping("/programs")
-    @Operation(summary = "List the programs this applicant has applied to")
-    public ResponseEntity<ApiResponse<List<ProgramApplicationDto>>> myProgramApplications() {
-        return ResponseEntity.ok(ApiResponse.ok(programApplicationService.listMyApplications()));
     }
 }
