@@ -76,15 +76,17 @@ public class PaymentBasketService {
 
         BigDecimal mgrBalance = mgrService.outstandingContributionBalance(member);
 
-        List<OutstandingBalancesDto.ReplenishmentItem> replenishments;
-        try {
-            replenishments = benevolenceClaimService.getMyReplenishments().stream()
-                    .filter(r -> r.status() == ReplenishmentPaymentStatus.PENDING)
-                    .map(r -> new OutstandingBalancesDto.ReplenishmentItem(r.id(), r.amountDue()))
-                    .toList();
-        } catch (ResourceNotFoundException e) {
-            replenishments = List.of(); // not enrolled in Benevolence — no replenishment obligations
-        }
+        // getMyReplenishments() throws ResourceNotFoundException when not enrolled, and it's
+        // itself @Transactional — letting that propagate (even caught here) marks this method's
+        // shared physical transaction rollback-only, surfacing as UnexpectedRollbackException at
+        // commit. benBalance != null already tells us enrollment status, so skip the call
+        // entirely rather than relying on a same-transaction catch to "recover" from it.
+        List<OutstandingBalancesDto.ReplenishmentItem> replenishments = benBalance != null
+                ? benevolenceClaimService.getMyReplenishments().stream()
+                        .filter(r -> r.status() == ReplenishmentPaymentStatus.PENDING)
+                        .map(r -> new OutstandingBalancesDto.ReplenishmentItem(r.id(), r.amountDue()))
+                        .toList()
+                : List.of();
 
         List<OutstandingBalancesDto.FineItem> fines = fineService.getMyFines().stream()
                 .filter(f -> FineStatus.PENDING.name().equals(f.status()))
