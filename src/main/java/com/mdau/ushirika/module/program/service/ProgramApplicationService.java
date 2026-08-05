@@ -8,7 +8,6 @@ import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.program.dto.ApplyToProgramRequest;
-import com.mdau.ushirika.module.program.dto.ApplyToProgramsRequest;
 import com.mdau.ushirika.module.program.dto.DecideProgramApplicationRequest;
 import com.mdau.ushirika.module.program.dto.MyProgramDto;
 import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
@@ -51,37 +50,6 @@ public class ProgramApplicationService {
     /** Mirrors BenevolenceEnrollmentService's $600 total — kept here too since prepayment
      * happens before any enrollment record exists to check against. */
     private static final BigDecimal BENEVOLENCE_ENROLLMENT_TOTAL = new BigDecimal("600.00");
-
-    // ── Applicant (onboarding) ──────────────────────────────────────────────
-
-    @Transactional
-    public List<ProgramApplicationDto> applyToPrograms(ApplyToProgramsRequest req) {
-        User applicant = currentUser();
-        List<ProgramApplication> created = req.programIds().stream()
-                .distinct()
-                .map(programId -> {
-                    Program program = programRepository.findById(programId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Program not found: " + programId));
-                    if (applicationRepository.existsByProgramAndApplicant(program, applicant)) {
-                        throw new ConflictException("You have already applied to " + program.getName());
-                    }
-                    return applicationRepository.save(ProgramApplication.builder()
-                            .program(program)
-                            .applicant(applicant)
-                            .status(ProgramApplicationStatus.PENDING_MEMBERSHIP)
-                            .appliedAt(LocalDateTime.now())
-                            .build());
-                })
-                .toList();
-        return created.stream().map(ProgramApplicationDto::from).toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<ProgramApplicationDto> listMyApplications() {
-        return applicationRepository.findAllByApplicant(currentUser()).stream()
-                .map(ProgramApplicationDto::from)
-                .toList();
-    }
 
     // ── Member (portal) ──────────────────────────────────────────────────────
 
