@@ -50,6 +50,12 @@ public record FullMemberProfileDto(
         String occupation,
         String employer,
 
+        // references
+        String reference1Name,
+        String reference1MemberId,
+        String reference2Name,
+        String reference2MemberId,
+
         // membership (read-only)
         LocalDate memberSince,
         String    membershipTier
@@ -93,6 +99,10 @@ public record FullMemberProfileDto(
                         .toList() : List.of(),
                 p != null ? p.getOccupation()      : null,
                 p != null ? p.getEmployer()        : null,
+                p != null ? p.getReference1Name()      : null,
+                p != null ? p.getReference1MemberId()  : null,
+                p != null ? p.getReference2Name()      : null,
+                p != null ? p.getReference2MemberId()  : null,
                 p != null ? p.getMemberSince()     : null,
                 p != null ? p.getMembershipTier()  : null
         );

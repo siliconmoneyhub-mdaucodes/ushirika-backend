@@ -111,6 +111,10 @@ public class OnboardingService {
 
         profileRepository.findByUser(user).ifPresent(profile -> {
             profile.setHeardAboutUs(req.heardAboutUs());
+            profile.setReference1Name(req.reference1Name());
+            profile.setReference1MemberId(req.reference1MemberId());
+            profile.setReference2Name(req.reference2Name());
+            profile.setReference2MemberId(req.reference2MemberId());
             profileRepository.save(profile);
         });
 
