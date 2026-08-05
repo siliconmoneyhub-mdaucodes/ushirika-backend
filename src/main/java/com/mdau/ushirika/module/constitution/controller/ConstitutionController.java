@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.constitution.controller;
 
+import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.constitution.dto.GoverningDocumentDto;
 import com.mdau.ushirika.module.constitution.service.ConstitutionService;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,7 @@ public class ConstitutionController {
     private final ConstitutionService service;
 
     @GetMapping
-    public ResponseEntity<List<GoverningDocumentDto>> listPublished() {
-        return ResponseEntity.ok(service.listPublished());
+    public ResponseEntity<ApiResponse<List<GoverningDocumentDto>>> listPublished() {
+        return ResponseEntity.ok(ApiResponse.ok("Governing documents retrieved", service.listPublished()));
     }
 }
