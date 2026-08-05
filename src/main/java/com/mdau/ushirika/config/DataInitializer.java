@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,7 @@ public class DataInitializer implements ApplicationRunner {
     private final ProgramRepository programRepository;
     private final GoverningDocumentRepository governingDocumentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.superadmin.email:admin@ushirikawelfare.org}")
     private String superAdminEmail;
@@ -68,11 +70,31 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        fixLegacyGenderValues();
         seedSuperAdmin();
         seedTestMember();
         seedContributionPlans();
         seedPrograms();
         seedGoverningDocuments();
+    }
+
+    /**
+     * Gender was narrowed from a 3-value enum (including PREFER_NOT_TO_SAY) to MALE/FEMALE-only
+     * during the onboarding refactor, but existing rows written under the old enum were never
+     * migrated. Hibernate throws IllegalArgumentException hydrating any now-invalid value --
+     * which happens on MemberProfile load (e.g. during login), locking those members out
+     * entirely. Runs via JdbcTemplate (raw SQL, not the repository/entity) specifically because
+     * loading the row through JPA to fix it would hit the exact same crash.
+     */
+    private void fixLegacyGenderValues() {
+        int updated = jdbcTemplate.update(
+                "UPDATE member_profiles SET gender = NULL WHERE gender IS NOT NULL AND gender NOT IN ('MALE', 'FEMALE')"
+        );
+        if (updated > 0) {
+            log.warn("Cleared legacy/invalid gender value on {} member_profiles row(s) (e.g. PREFER_NOT_TO_SAY) " +
+                    "that predated the Gender enum being narrowed to MALE/FEMALE -- those members can log in " +
+                    "again; the profile-completeness check will prompt them to set a real value.", updated);
+        }
     }
 
     private void seedSuperAdmin() {
