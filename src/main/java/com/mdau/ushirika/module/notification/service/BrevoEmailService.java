@@ -61,10 +61,10 @@ public class BrevoEmailService implements EmailService {
         String subject = "Your Ushirika Welfare Organization Verification Code";
         String html = """
                 <div style="font-family:sans-serif;max-width:480px;margin:auto">
-                  <h2 style="color:#1A4731">Verify Your Email</h2>
+                  <h2 style="color:#007834">Verify Your Email</h2>
                   <p>Hi %s,</p>
                   <p>Use the code below to verify your Ushirika Welfare Organization account. It expires in <strong>15 minutes</strong>.</p>
-                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1A4731;margin:24px 0">%s</div>
+                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#007834;margin:24px 0">%s</div>
                   <p style="color:#888;font-size:13px">If you did not register, ignore this email.</p>
                 </div>
                 """.formatted(name, otp);
@@ -77,10 +77,10 @@ public class BrevoEmailService implements EmailService {
         String subject = "Reset Your Ushirika Welfare Organization Password";
         String html = """
                 <div style="font-family:sans-serif;max-width:480px;margin:auto">
-                  <h2 style="color:#1A4731">Password Reset</h2>
+                  <h2 style="color:#007834">Password Reset</h2>
                   <p>Hi %s,</p>
                   <p>Use this code to reset your password. It expires in <strong>15 minutes</strong>.</p>
-                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1A4731;margin:24px 0">%s</div>
+                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#007834;margin:24px 0">%s</div>
                   <p style="color:#888;font-size:13px">If you did not request this, ignore this email.</p>
                 </div>
                 """.formatted(name, otp);
@@ -93,9 +93,9 @@ public class BrevoEmailService implements EmailService {
         String subject = "Welcome to Ushirika Welfare Organization!";
         String html = """
                 <div style="font-family:sans-serif;max-width:480px;margin:auto">
-                  <h2 style="color:#1A4731">Welcome, %s!</h2>
+                  <h2 style="color:#007834">Welcome, %s!</h2>
                   <p>Your membership has been approved. Your Member ID is:</p>
-                  <div style="font-size:24px;font-weight:700;color:#1A4731;margin:16px 0">%s</div>
+                  <div style="font-size:24px;font-weight:700;color:#007834;margin:16px 0">%s</div>
                   <p>Log in to your member portal to view your dashboard, make contributions, and apply for welfare.</p>
                   <p>— Ushirika Welfare Organization Team</p>
                 </div>
@@ -109,7 +109,7 @@ public class BrevoEmailService implements EmailService {
         String subject = "Your Ushirika Welfare Organization Application Has Been Accepted — Next Steps";
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
-                  <h2 style="color:#1A4731">Good news, %s!</h2>
+                  <h2 style="color:#007834">Good news, %s!</h2>
                   <p>Your membership application has been accepted in principle. To become a full member, please
                      log in and complete a short onboarding process: set your password, upload some additional
                      information, review our bylaws, and pay your registration fee.</p>
@@ -123,7 +123,7 @@ public class BrevoEmailService implements EmailService {
                       <td style="padding:12px 16px;border-top:1px solid #e5e7eb;font-family:monospace;font-weight:700;font-size:16px">%s</td>
                     </tr>
                   </table>
-                  <p><a href="%s" style="display:inline-block;padding:12px 24px;background:#1a6b3c;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">Continue Your Application</a></p>
+                  <p><a href="%s" style="display:inline-block;padding:12px 24px;background:#007834;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">Continue Your Application</a></p>
                   <p style="color:#666;font-size:13px">You will be asked to set a new password on your first login. Questions? Contact
                      <a href="mailto:info@ushirikacommunity.site">info@ushirikacommunity.site</a></p>
                 </div>
@@ -137,7 +137,7 @@ public class BrevoEmailService implements EmailService {
         String subject = "You Are a Member Now! — Ushirika Welfare Organization";
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
-                  <h2 style="color:#1A4731">Congratulations, %s — you are a member now!</h2>
+                  <h2 style="color:#007834">Congratulations, %s — you are a member now!</h2>
                   <p>Your registration fee has been verified and your membership is fully approved. You can now
                      log in with the same credentials to access the full member portal.</p>
                   <p><strong>Your Member ID: %s</strong></p>
@@ -161,10 +161,12 @@ public class BrevoEmailService implements EmailService {
                         .build()
         );
 
+        String wrappedHtml = EmailTemplate.wrap(htmlBody);
+
         // Primary: Brevo REST API over HTTPS (port 443 — never blocked by Railway)
         if (!"NOT_SET".equals(apiKey)) {
             try {
-                sendViaBrevoApi(toEmail, toName, subject, htmlBody);
+                sendViaBrevoApi(toEmail, toName, subject, wrappedHtml);
                 log.info("Email sent via Brevo API to {}", toEmail);
                 logEntry.setStatus(NotificationStatus.SENT);
                 logRepository.save(logEntry);
@@ -183,7 +185,7 @@ public class BrevoEmailService implements EmailService {
         }
 
         try {
-            sendViaSMTP(toEmail, toName, subject, htmlBody);
+            sendViaSMTP(toEmail, toName, subject, wrappedHtml);
             log.info("Email sent via Brevo SMTP to {}", toEmail);
             logEntry.setStatus(NotificationStatus.SENT);
             logRepository.save(logEntry);
