@@ -18,10 +18,9 @@ import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.notification.service.EmailService;
-import com.mdau.ushirika.module.payment.entity.PeerPayment;
-import com.mdau.ushirika.module.payment.enums.PeerPaymentPurpose;
-import com.mdau.ushirika.module.payment.enums.PeerPaymentStatus;
-import com.mdau.ushirika.module.payment.repository.PeerPaymentRepository;
+import com.mdau.ushirika.module.payment.enums.PaymentBasketLedger;
+import com.mdau.ushirika.module.payment.enums.PaymentStatus;
+import com.mdau.ushirika.module.payment.repository.PaymentBasketRepository;
 import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +50,7 @@ public class MembershipService {
     private final EmailService emailService;
     private final MembershipDuesService membershipDuesService;
     private final PasswordEncoder passwordEncoder;
-    private final PeerPaymentRepository peerPaymentRepository;
+    private final PaymentBasketRepository paymentBasketRepository;
     private final ProgramApplicationService programApplicationService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
@@ -374,13 +373,9 @@ public class MembershipService {
             throw new ResourceNotFoundException("No applicant account linked to this application.");
         }
 
-        PeerPayment registrationPayment = peerPaymentRepository
-                .findFirstByMemberAndPurposeOrderByCreatedAtDesc(user, PeerPaymentPurpose.REGISTRATION_FEE)
-                .orElseThrow(() -> new BadRequestException("No registration fee payment found for this applicant."));
-        if (registrationPayment.getStatus() != PeerPaymentStatus.VERIFIED) {
-            throw new BadRequestException(
-                    "The registration fee payment must be verified before membership can be approved. " +
-                    "Current payment status: " + registrationPayment.getStatus());
+        if (!paymentBasketRepository.existsByMemberIdAndStatusAndLines_Ledger(
+                user.getId(), PaymentStatus.SUCCESS, PaymentBasketLedger.REGISTRATION_FEE)) {
+            throw new BadRequestException("No verified registration fee payment found for this applicant.");
         }
 
         MemberProfile profile = profileRepository.findByUser(user)
