@@ -595,9 +595,9 @@ public class MgrService {
         String portalUrl = siteUrl + "/portal/mgr";
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">%s</h2>
+              <h2 style="color:#007834">%s</h2>
               <p>%s</p>
-              <p><a href="%s" style="display:inline-block;background:#1A4731;color:#fff;
+              <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Go to My MGR Portal
               </a></p>
@@ -618,13 +618,13 @@ public class MgrService {
 
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">This Month's MGR Beneficiaries Have Been Selected!</h2>
+              <h2 style="color:#007834">This Month's MGR Beneficiaries Have Been Selected!</h2>
               <p>The monthly Merry-Go-Round draw for <strong>%s</strong> has been completed.</p>
-              <p style="font-size:18px;font-weight:600;color:#1A4731">%s</p>
+              <p style="font-size:18px;font-weight:600;color:#007834">%s</p>
               <p>Each beneficiary will receive <strong>%s</strong> on or around
                  <strong>%s</strong>. Beneficiaries must confirm receipt in the portal once paid.</p>
               <p>Visit your member portal to see the full animation reveal:</p>
-              <p><a href="%s" style="display:inline-block;background:#1A4731;color:#fff;
+              <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  See the Reveal in Portal
               </a></p>
@@ -643,12 +643,12 @@ public class MgrService {
         String amount = "$" + slot.getPayoutAmount().toPlainString();
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">Your MGR Payout Has Been Sent!</h2>
+              <h2 style="color:#007834">Your MGR Payout Has Been Sent!</h2>
               <p>Hi %s,</p>
               <p>Your Merry-Go-Round payout of <strong>%s</strong> has been disbursed
                  via <strong>%s</strong> (reference: %s).</p>
               <p>Please confirm receipt in your member portal so the cycle records stay accurate.</p>
-              <p><a href="%s" style="display:inline-block;background:#1A4731;color:#fff;
+              <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Confirm Receipt
               </a></p>
@@ -665,13 +665,13 @@ public class MgrService {
         String portal = siteUrl + "/portal/mgr";
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">You're In! MGR Join Request Approved</h2>
+              <h2 style="color:#007834">You're In! MGR Join Request Approved</h2>
               <p>Hi %s,</p>
               <p>Your request to join <strong>%s</strong> has been approved.
                  You have been enrolled in the cycle.</p>
               <p>Once the cycle is activated, you will receive a notification with your
                  contribution schedule. Log in to your portal to track your status.</p>
-              <p><a href="%s" style="display:inline-block;background:#1A4731;color:#fff;
+              <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Go to MGR Portal
               </a></p>

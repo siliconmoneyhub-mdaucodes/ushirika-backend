@@ -191,7 +191,7 @@ public class ForumPostService {
         String url   = siteUrl + "/#stories";
         String html  = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">Your Story Is Live!</h2>
+              <h2 style="color:#007834">Your Story Is Live!</h2>
               <p>Hi %s,</p>
               <p>Your testimonial <strong>"%s"</strong> has been approved and is now
                  visible to the public on the Ushirika Welfare Organization website.</p>
@@ -199,7 +199,7 @@ public class ForumPostService {
                  impact our community makes.</p>
               <p>
                 <a href="%s"
-                   style="display:inline-block;background:#1A4731;color:#fff;padding:10px 22px;
+                   style="display:inline-block;background:#007834;color:#fff;padding:10px 22px;
                           border-radius:999px;text-decoration:none;font-weight:600">
                   View It Live
                 </a>
@@ -223,7 +223,7 @@ public class ForumPostService {
               <p>You are welcome to revise and re-submit your story through your member portal.</p>
               <p>
                 <a href="%s"
-                   style="display:inline-block;background:#1A4731;color:#fff;padding:10px 22px;
+                   style="display:inline-block;background:#007834;color:#fff;padding:10px 22px;
                           border-radius:999px;text-decoration:none;font-weight:600">
                   Go to My Stories
                 </a>

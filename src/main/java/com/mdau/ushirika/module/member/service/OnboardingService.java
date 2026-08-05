@@ -315,7 +315,7 @@ public class OnboardingService {
     private void sendRegistrationCompleteEmail(User user, String referenceNumber) {
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#1A4731">Registration Complete ✓</h2>
+              <h2 style="color:#007834">Registration Complete ✓</h2>
               <p>Hi %s,</p>
               <p>Your registration form and payment have been received. Your application
                  (reference <strong>%s</strong>) is now with the committee for final review.</p>

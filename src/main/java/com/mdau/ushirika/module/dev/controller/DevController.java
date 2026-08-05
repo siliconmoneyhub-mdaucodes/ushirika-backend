@@ -47,7 +47,7 @@ public class DevController {
 
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a;border:1px solid #e5e7eb;border-radius:8px;padding:32px">
-                  <h2 style="color:#1A4731;margin-top:0">Email Delivery Test</h2>
+                  <h2 style="color:#007834;margin-top:0">Email Delivery Test</h2>
                   <p>This is a test message sent from the Ushirika Welfare Organization developer tools panel.</p>
                   <table style="border-collapse:collapse;width:100%%;margin:20px 0;font-size:13px">
                     <tr>

@@ -109,7 +109,7 @@ public class ReplenishmentReminderScheduler {
         String when = days == 0 ? "TODAY" : "in " + days + " day" + (days == 1 ? "" : "s");
         return """
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
-              <h2 style="color:#1A4731">Benevolence Replenishment Reminder</h2>
+              <h2 style="color:#007834">Benevolence Replenishment Reminder</h2>
               <p>A replenishment contribution is due to maintain the welfare fund balance.</p>
               <table style="width:100%;border-collapse:collapse;margin:16px 0">
                 <tr><td style="padding:8px;color:#666">Amount Due</td><td style="padding:8px;font-weight:600;color:#C0392B">$%s</td></tr>
@@ -119,7 +119,7 @@ public class ReplenishmentReminderScheduler {
               </table>
               <p>Please arrange payment to keep your benevolence eligibility active.</p>
               <p><a href="https://ushirikacommunity.site/portal/benevolence"
-                    style="background:#1A4731;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
+                    style="background:#007834;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
                 View Benevolence Dashboard
               </a></p>
             </div>

@@ -92,7 +92,7 @@ public class DuesReminderScheduler {
     private static String toHtml(String text) {
         return """
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
-              <h2 style="color:#1A4731">Ushirika Welfare Organization — Dues Reminder</h2>
+              <h2 style="color:#007834">Ushirika Welfare Organization — Dues Reminder</h2>
               <p>%s</p>
               <p style="color:#888;font-size:12px">
                 To stop receiving these reminders, pay your dues at

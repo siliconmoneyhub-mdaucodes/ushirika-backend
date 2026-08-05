@@ -95,7 +95,7 @@ public class FineReminderScheduler {
               </table>
               <p>Please arrange payment to avoid additional penalties.</p>
               <p><a href="https://ushirikacommunity.site/portal/meetings"
-                    style="background:#1A4731;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
+                    style="background:#007834;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
                 View Fine Details
               </a></p>
             </div>

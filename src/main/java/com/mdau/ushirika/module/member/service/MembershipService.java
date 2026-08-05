@@ -462,7 +462,7 @@ public class MembershipService {
                 "We received your membership application — Ushirika Welfare Organization",
                 """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
-                  <h2 style="color:#1A4731">Thank you, %s!</h2>
+                  <h2 style="color:#007834">Thank you, %s!</h2>
                   <p>We have received your membership application and it is now under review by our committee.</p>
                   <p><strong>Your reference number is: %s</strong></p>
                   <p>You can use this reference number to track your application status at any time by visiting

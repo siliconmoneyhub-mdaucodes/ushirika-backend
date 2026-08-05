@@ -247,7 +247,7 @@ public class MembershipDuesService {
                  your payment. Your access to programs and benefits is paused until dues are settled.</p>
               <p>
                 <a href="%s/portal/payments"
-                   style="display:inline-block;background:#1A4731;color:#fff;padding:10px 22px;
+                   style="display:inline-block;background:#007834;color:#fff;padding:10px 22px;
                           border-radius:999px;text-decoration:none;font-weight:600">
                   Pay Now &rarr;
                 </a>

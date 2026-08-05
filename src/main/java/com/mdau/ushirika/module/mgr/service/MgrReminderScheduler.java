@@ -159,7 +159,7 @@ public class MgrReminderScheduler {
 
     private static String toHtml(MgrCycle cycle, int month, String cutoff, int days, boolean pastDue) {
         String when = days == 0 ? "TODAY" : "in " + days + " day" + (days == 1 ? "" : "s");
-        String color = pastDue ? "#C0392B" : "#1A4731";
+        String color = pastDue ? "#C0392B" : "#007834";
         return """
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
               <h2 style="color:%s">MGR Contribution Reminder</h2>

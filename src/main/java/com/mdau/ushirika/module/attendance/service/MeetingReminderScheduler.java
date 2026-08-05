@@ -101,7 +101,7 @@ public class MeetingReminderScheduler {
                 ? "<p><strong>Location:</strong> " + meeting.getLocation() + "</p>" : "";
         return """
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
-              <h2 style="color:#1A4731">Meeting Reminder</h2>
+              <h2 style="color:#007834">Meeting Reminder</h2>
               <p><strong>%s</strong> — %s %s</p>
               <p><strong>Date:</strong> %s</p>
               %s

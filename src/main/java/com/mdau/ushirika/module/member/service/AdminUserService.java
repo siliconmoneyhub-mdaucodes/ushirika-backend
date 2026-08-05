@@ -234,7 +234,7 @@ public class AdminUserService {
         String subject = "Welcome to Ushirika Welfare Organization — Your Member Account";
         String html = """
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
-                  <h2 style="color:#1a6b3c">Welcome, %s!</h2>
+                  <h2 style="color:#007834">Welcome, %s!</h2>
                   <p>Your Ushirika Welfare Organization member account has been created by the administrator. You can now sign in to your member portal.</p>
                   <table style="border-collapse:collapse;width:100%%;margin:24px 0;border:1px solid #e5e7eb;border-radius:8px">
                     <tr style="background:#f9fafb">
@@ -253,7 +253,7 @@ public class AdminUserService {
                   <div style="padding:16px;background:#fff3cd;border-left:4px solid #ffc107;border-radius:4px;margin-bottom:24px">
                     <strong>Important:</strong> This is a temporary password. Please change it immediately after your first login via <strong>Settings → Change Password</strong>.
                   </div>
-                  <p><a href="https://ushirikacommunity.site/login" style="display:inline-block;padding:12px 24px;background:#1a6b3c;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">Sign in to your portal</a></p>
+                  <p><a href="https://ushirikacommunity.site/login" style="display:inline-block;padding:12px 24px;background:#007834;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">Sign in to your portal</a></p>
                   <p style="margin-top:24px;color:#666;font-size:13px">Questions? Contact us at <a href="mailto:admin@ushirikawelfare.org">admin@ushirikawelfare.org</a></p>
                 </div>
                 """.formatted(firstName, memberId, toEmail, tempPassword);
@@ -301,7 +301,7 @@ public class AdminUserService {
                     "Your Ushirika account credentials have been updated",
                     """
                     <div style="font-family:sans-serif;max-width:480px;margin:auto;color:#1a1a1a">
-                      <h2 style="color:#1A4731">Account Credentials Updated</h2>
+                      <h2 style="color:#007834">Account Credentials Updated</h2>
                       <p>Hi %s,</p>
                       <p>An administrator has updated your login credentials.</p>
                       %s

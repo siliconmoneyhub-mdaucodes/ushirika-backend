@@ -192,13 +192,13 @@ public class ReinstatementService {
     private static String toApprovalHtml(String name, String adminNotes) {
         return """
             <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
-              <h2 style="color:#1A4731">Membership Reinstated</h2>
+              <h2 style="color:#007834">Membership Reinstated</h2>
               <p>Dear %s,</p>
-              <p>We are pleased to inform you that your membership reinstatement request has been <strong style="color:#1A4731">approved</strong>.</p>
+              <p>We are pleased to inform you that your membership reinstatement request has been <strong style="color:#007834">approved</strong>.</p>
               <p>Your account is now active again. You can log in and access all member services.</p>
               %s
               <p><a href="https://ushirikacommunity.site/portal"
-                    style="background:#1A4731;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
+                    style="background:#007834;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">
                 Access Member Portal
               </a></p>
               <p style="color:#888;font-size:12px">Welcome back to Ushirika Welfare Organization!</p>
