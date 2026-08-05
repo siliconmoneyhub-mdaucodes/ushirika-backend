@@ -56,7 +56,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ignored) {
-            // Invalid token — SecurityContext stays empty; Spring Security will enforce 401
+            // Invalid/expired token — SecurityContext stays empty; RestAuthenticationEntryPoint
+            // (registered in SecurityConfig) turns that into a proper 401.
         }
 
         chain.doFilter(request, response);
