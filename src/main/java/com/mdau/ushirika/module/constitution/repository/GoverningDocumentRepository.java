@@ -18,4 +18,9 @@ public interface GoverningDocumentRepository extends JpaRepository<GoverningDocu
 
     /** Onboarding gate — is there a published bylaws/constitution document to accept? */
     boolean existsByStatusAndDocumentTypeIn(DocumentStatus status, List<DocumentType> documentTypes);
+
+    /** Startup seed guard — has any document of this type ever been created (any status)? */
+    boolean existsByDocumentType(DocumentType documentType);
+
+    List<GoverningDocument> findAllByDocumentType(DocumentType documentType);
 }

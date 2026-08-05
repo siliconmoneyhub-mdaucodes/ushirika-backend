@@ -3,6 +3,10 @@ package com.mdau.ushirika.config;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.constitution.entity.GoverningDocument;
+import com.mdau.ushirika.module.constitution.enums.DocumentStatus;
+import com.mdau.ushirika.module.constitution.enums.DocumentType;
+import com.mdau.ushirika.module.constitution.repository.GoverningDocumentRepository;
 import com.mdau.ushirika.module.member.entity.EmergencyContact;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.entity.NextOfKin;
@@ -22,12 +26,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -39,6 +47,7 @@ public class DataInitializer implements ApplicationRunner {
     private final MemberProfileRepository memberProfileRepository;
     private final ContributionPlanRepository planRepository;
     private final ProgramRepository programRepository;
+    private final GoverningDocumentRepository governingDocumentRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.superadmin.email:admin@ushirikawelfare.org}")
@@ -63,6 +72,7 @@ public class DataInitializer implements ApplicationRunner {
         seedTestMember();
         seedContributionPlans();
         seedPrograms();
+        seedGoverningDocuments();
     }
 
     private void seedSuperAdmin() {
@@ -253,5 +263,75 @@ public class DataInitializer implements ApplicationRunner {
                 .build();
         programRepository.save(program);
         log.info("Seeded program: {}", name);
+    }
+
+    /**
+     * One-time seed for the real Constitution/Bylaws text, interim pending the org's annual
+     * meeting review. Guarded so it only ever touches a document once: the Constitution seed
+     * skips if any CONSTITUTION row already exists, and the Bylaws seed only replaces a row
+     * whose title still contains "PLACEHOLDER" — once an admin edits it (through the app, which
+     * changes the title), this stops matching and redeploys never touch it again.
+     */
+    private void seedGoverningDocuments() {
+        seedConstitutionIfMissing();
+        seedOrFixBylaws();
+    }
+
+    private void seedConstitutionIfMissing() {
+        if (governingDocumentRepository.existsByDocumentType(DocumentType.CONSTITUTION)) return;
+
+        GoverningDocument doc = GoverningDocument.builder()
+                .title("Ushirika Welfare Organization Constitution")
+                .documentType(DocumentType.CONSTITUTION)
+                .description("Interim constitution pending review at the upcoming annual meeting.")
+                .contentText(readSeedText("constitution.txt"))
+                .status(DocumentStatus.PUBLISHED)
+                .publishedAt(LocalDateTime.now())
+                .sortOrder(0)
+                .build();
+        governingDocumentRepository.save(doc);
+        log.info("Seeded published Constitution document from resources/seed/constitution.txt");
+    }
+
+    private void seedOrFixBylaws() {
+        List<GoverningDocument> placeholders = governingDocumentRepository.findAllByDocumentType(DocumentType.BYLAWS).stream()
+                .filter(d -> d.getTitle() != null && d.getTitle().contains("PLACEHOLDER"))
+                .toList();
+
+        if (!placeholders.isEmpty()) {
+            String text = readSeedText("bylaws.txt");
+            for (GoverningDocument doc : placeholders) {
+                doc.setTitle("Ushirika Welfare Organization Bylaws");
+                doc.setDescription("Interim bylaws pending review at the upcoming annual meeting.");
+                doc.setContentText(text);
+                doc.setStatus(DocumentStatus.PUBLISHED);
+                doc.setPublishedAt(LocalDateTime.now());
+            }
+            governingDocumentRepository.saveAll(placeholders);
+            log.info("Replaced {} placeholder Bylaws document(s) with the real text", placeholders.size());
+            return;
+        }
+
+        if (governingDocumentRepository.existsByDocumentType(DocumentType.BYLAWS)) return;
+
+        GoverningDocument doc = GoverningDocument.builder()
+                .title("Ushirika Welfare Organization Bylaws")
+                .documentType(DocumentType.BYLAWS)
+                .description("Interim bylaws pending review at the upcoming annual meeting.")
+                .contentText(readSeedText("bylaws.txt"))
+                .status(DocumentStatus.PUBLISHED)
+                .publishedAt(LocalDateTime.now())
+                .sortOrder(0)
+                .build();
+        governingDocumentRepository.save(doc);
+        log.info("Seeded published Bylaws document from resources/seed/bylaws.txt");
+    }
+
+    private String readSeedText(String resourceName) {
+        try (var is = new ClassPathResource("seed/" + resourceName).getInputStream()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read seed resource: " + resourceName, e);
+        }
     }
 }
