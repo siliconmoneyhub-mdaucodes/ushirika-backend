@@ -1,11 +1,16 @@
 package com.mdau.ushirika.module.constitution.service;
 
+import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.constitution.dto.GoverningDocumentDto;
 import com.mdau.ushirika.module.constitution.dto.GoverningDocumentRequest;
 import com.mdau.ushirika.module.constitution.entity.GoverningDocument;
 import com.mdau.ushirika.module.constitution.enums.DocumentStatus;
 import com.mdau.ushirika.module.constitution.repository.GoverningDocumentRepository;
+import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +24,8 @@ import java.util.UUID;
 public class ConstitutionService {
 
     private final GoverningDocumentRepository repo;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     public List<GoverningDocumentDto> listPublished() {
         return repo.findAllByStatusOrderBySortOrderAscCreatedAtDesc(DocumentStatus.PUBLISHED)
@@ -66,24 +73,46 @@ public class ConstitutionService {
         GoverningDocument doc = findOrThrow(id);
         doc.setStatus(DocumentStatus.PUBLISHED);
         if (doc.getPublishedAt() == null) doc.setPublishedAt(LocalDateTime.now());
-        return GoverningDocumentDto.from(repo.save(doc));
+        repo.save(doc);
+
+        User admin = currentUser();
+        auditLogService.log(admin, "DOCUMENT_PUBLISHED", "GoverningDocument", doc.getId(),
+                "Published " + doc.getDocumentType() + " \"" + doc.getTitle() + "\" (v" + doc.getDocumentVersion()
+                        + ") by " + admin.getFullName());
+
+        return GoverningDocumentDto.from(doc);
     }
 
     @Transactional
     public GoverningDocumentDto unpublish(UUID id) {
         GoverningDocument doc = findOrThrow(id);
         doc.setStatus(DocumentStatus.DRAFT);
-        return GoverningDocumentDto.from(repo.save(doc));
+        repo.save(doc);
+
+        User admin = currentUser();
+        auditLogService.log(admin, "DOCUMENT_UNPUBLISHED", "GoverningDocument", doc.getId(),
+                "Unpublished " + doc.getDocumentType() + " \"" + doc.getTitle() + "\" by " + admin.getFullName());
+
+        return GoverningDocumentDto.from(doc);
     }
 
     @Transactional
     public void delete(UUID id) {
         GoverningDocument doc = findOrThrow(id);
+        User admin = currentUser();
+        auditLogService.log(admin, "DOCUMENT_DELETED", "GoverningDocument", doc.getId(),
+                "Deleted " + doc.getDocumentType() + " \"" + doc.getTitle() + "\" by " + admin.getFullName());
         repo.delete(doc);
     }
 
     private GoverningDocument findOrThrow(UUID id) {
         return repo.findById(id)
                    .orElseThrow(() -> new IllegalArgumentException("Document not found: " + id));
+    }
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
     }
 }

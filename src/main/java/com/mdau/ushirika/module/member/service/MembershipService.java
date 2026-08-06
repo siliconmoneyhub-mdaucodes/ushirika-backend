@@ -232,6 +232,10 @@ public class MembershipService {
 
         applyRejection(application);
         applicationRepository.save(application);
+
+        auditLogService.log(admin, "APPLICATION_REJECTED", "MembershipApplication", application.getId(),
+                "Application " + application.getReferenceNumber() + " rejected by " + admin.getFullName());
+
         return AdminApplicationDto.from(application, isSuperAdmin);
     }
 
@@ -317,6 +321,10 @@ public class MembershipService {
         emailService.sendFormSentCredentials(applicantEmail, applicantFirstName, tempPassword, continueUrl);
         log.info("Form sent for application {} — applicant={}", application.getReferenceNumber(), applicantEmail);
 
+        User admin = currentUser();
+        auditLogService.log(admin, "FORM_SENT", "MembershipApplication", application.getId(),
+                "Onboarding form sent for application " + application.getReferenceNumber() + " by " + admin.getFullName());
+
         return AdminApplicationDto.from(application, isSuperAdmin);
     }
 
@@ -352,6 +360,10 @@ public class MembershipService {
         String continueUrl = siteUrl + "/login?token=" + loginToken;
         emailService.sendFormSentCredentials(user.getEmail(), user.getFirstName(), tempPassword, continueUrl);
         log.info("Onboarding credentials resent for application {} — applicant={}", application.getReferenceNumber(), user.getEmail());
+
+        User admin = currentUser();
+        auditLogService.log(admin, "FORM_CREDENTIALS_RESENT", "MembershipApplication", application.getId(),
+                "Onboarding credentials resent for application " + application.getReferenceNumber() + " by " + admin.getFullName());
 
         return AdminApplicationDto.from(application, isSuperAdmin);
     }
@@ -423,6 +435,9 @@ public class MembershipService {
         log.info("Membership approved for application {} — memberId={}{}",
                 application.getReferenceNumber(), profile.getMemberId(), waiving ? " (registration fee waived)" : "");
 
+        auditLogService.log(admin, "MEMBERSHIP_APPROVED", "MembershipApplication", application.getId(),
+                "Membership approved for " + user.getFullName() + " (ref " + application.getReferenceNumber()
+                        + ", memberId " + profile.getMemberId() + ") by " + admin.getFullName());
         if (waiving) {
             auditLogService.log(admin, "REGISTRATION_FEE_WAIVED", "MembershipApplication", application.getId(),
                     "Registration fee waived for " + user.getFullName() + " (ref " + application.getReferenceNumber()

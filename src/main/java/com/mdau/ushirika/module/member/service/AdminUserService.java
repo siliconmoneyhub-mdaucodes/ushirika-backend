@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.dto.UserDto;
 import com.mdau.ushirika.module.auth.dto.UserProfileDto;
 import com.mdau.ushirika.module.auth.entity.User;
@@ -42,6 +43,7 @@ public class AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final MembershipDuesService membershipDuesService;
+    private final AuditLogService auditLogService;
 
     private static final int MAX_SUPERADMINS = 5;
 
@@ -103,9 +105,15 @@ public class AdminUserService {
             throw new ForbiddenException("Cannot promote to SUPERADMIN — the maximum of " + MAX_SUPERADMINS + " has been reached.");
         }
 
+        UserRole previousRole = target.getRole();
         target.setRole(req.role());
         target.setOfficialTitle(req.officialTitle());
         userRepository.save(target);
+
+        auditLogService.log(actor, "ROLE_CHANGED", "User", target.getId(),
+                "Changed " + target.getFullName() + "'s role from " + previousRole + " to " + req.role()
+                        + " (by " + actor.getFullName() + ")");
+
         return UserDto.from(target);
     }
 
@@ -128,6 +136,10 @@ public class AdminUserService {
 
         target.setActive(active);
         userRepository.save(target);
+
+        auditLogService.log(actor, active ? "ACCOUNT_ACTIVATED" : "ACCOUNT_DEACTIVATED", "User", target.getId(),
+                (active ? "Activated " : "Deactivated ") + target.getFullName() + "'s account (by " + actor.getFullName() + ")");
+
         return UserDto.from(target);
     }
 
@@ -271,6 +283,7 @@ public class AdminUserService {
         }
 
         User target = findById(userId);
+        User actor = currentUser();
 
         if (target.getRole() == UserRole.SUPERADMIN) {
             throw new ForbiddenException("Cannot reset credentials for the SUPERADMIN account.");
@@ -317,6 +330,11 @@ public class AdminUserService {
         } catch (Exception e) {
             log.warn("Credential-reset notification failed for {}: {}", notifyEmail, e.getMessage());
         }
+
+        auditLogService.log(actor, "CREDENTIALS_RESET", "User", target.getId(),
+                "Reset credentials for " + target.getFullName() + " (by " + actor.getFullName() + ")"
+                        + (req.newEmail() != null ? " — email changed to " + target.getEmail() : "")
+                        + (req.newPassword() != null ? " — password reset" : ""));
 
         log.info("Superadmin reset credentials for user {} ({})", target.getId(), target.getEmail());
         return UserDto.from(target);

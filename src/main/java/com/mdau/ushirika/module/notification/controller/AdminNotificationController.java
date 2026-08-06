@@ -1,7 +1,11 @@
 package com.mdau.ushirika.module.notification.controller;
 
+import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
 import com.mdau.ushirika.module.notification.dto.NotificationLogDto;
 import com.mdau.ushirika.module.notification.enums.NotificationChannel;
@@ -17,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,6 +34,8 @@ public class AdminNotificationController {
 
     private final NotificationLogRepository  logRepository;
     private final InAppNotificationService   notificationService;
+    private final UserRepository             userRepository;
+    private final AuditLogService            auditLogService;
 
     @GetMapping("/logs")
     @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
@@ -56,8 +63,15 @@ public class AdminNotificationController {
     @PostMapping("/broadcast")
     @Operation(summary = "Send an announcement to all members (in-app always; email/SMS optional)")
     public ResponseEntity<ApiResponse<Void>> broadcast(
-            @Valid @RequestBody BroadcastRequest req) {
+            @Valid @RequestBody BroadcastRequest req, Authentication auth) {
         notificationService.broadcast(req);
+
+        User admin = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
+        auditLogService.log(admin, "BROADCAST_SENT", "Notification", null,
+                "Broadcast \"" + req.title() + "\" sent to all members by " + admin.getFullName()
+                        + (req.channels() != null && !req.channels().isEmpty() ? " via " + req.channels() : ""));
+
         return ResponseEntity.ok(ApiResponse.ok("Broadcast queued for all members"));
     }
 
