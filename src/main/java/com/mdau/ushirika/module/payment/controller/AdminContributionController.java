@@ -21,7 +21,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/admin/contributions")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 @Tag(name = "Contributions — Admin", description = "Manage contribution plans and view all payments")

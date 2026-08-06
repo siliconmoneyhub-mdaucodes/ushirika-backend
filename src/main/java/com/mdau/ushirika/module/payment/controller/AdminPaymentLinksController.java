@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/admin/payment-links")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 @Tag(name = "Payment Links — Admin", description = "Manage Zelle, Venmo, CashApp and Stripe payment handles")

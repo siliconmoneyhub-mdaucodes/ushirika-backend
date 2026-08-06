@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/admin/members")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','SECRETARY')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
-@Tag(name = "Members — Admin", description = "Read-only member directory accessible to ADMIN and SUPERADMIN")
+@Tag(name = "Members — Admin", description = "Read-only member directory — SecurityConfig further restricts FINANCIAL_ADMIN/SECRETARY to GET only")
 public class AdminMembersController {
 
     private final AdminUserService adminUserService;

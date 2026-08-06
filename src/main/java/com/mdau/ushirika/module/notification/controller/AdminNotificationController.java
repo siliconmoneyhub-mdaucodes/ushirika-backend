@@ -31,6 +31,7 @@ public class AdminNotificationController {
     private final InAppNotificationService   notificationService;
 
     @GetMapping("/logs")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
     @Operation(summary = "List notification logs, optionally filtered by channel and/or status")
     public ResponseEntity<ApiResponse<PagedResponse<NotificationLogDto>>> logs(
             @RequestParam(required = false) NotificationChannel channel,
@@ -61,6 +62,7 @@ public class AdminNotificationController {
     }
 
     @GetMapping("/logs/recipient")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
     @Operation(summary = "Look up all notifications sent to a specific email or phone")
     public ResponseEntity<ApiResponse<PagedResponse<NotificationLogDto>>> byRecipient(
             @RequestParam String recipient,

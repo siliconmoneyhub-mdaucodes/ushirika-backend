@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
  * so admins can still look back at reports made before the card-only payment migration. */
 @RestController
 @RequestMapping("/admin/peer-payments")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 @Tag(name = "Peer Payments — Admin",

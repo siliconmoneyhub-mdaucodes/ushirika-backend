@@ -27,12 +27,14 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/admin/dashboard")
+    @PreAuthorize("hasAnyRole('FINANCIAL_ADMIN','ADMIN','SUPERADMIN')")
     @Operation(summary = "Full KPI snapshot — members, welfare, scholarships, finance, events, content, notifications")
     public ResponseEntity<ApiResponse<DashboardSummaryDto>> dashboard() {
         return ResponseEntity.ok(ApiResponse.ok("Dashboard loaded", dashboardService.getDashboard()));
     }
 
     @GetMapping("/admin/reports/financial")
+    @PreAuthorize("hasAnyRole('FINANCIAL_ADMIN','ADMIN','SUPERADMIN')")
     @Operation(summary = "Monthly contributions and donations for the last N months (default 12)",
                description = "Returns two time-series arrays: contributions and donations. Suitable for bar/line charts.")
     public ResponseEntity<ApiResponse<MonthlySeriesDto>> financialReport(
