@@ -140,6 +140,19 @@ public class DataInitializer implements ApplicationRunner {
                 "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS registration_fee_waived_at TIMESTAMP");
         jdbcTemplate.execute(
                 "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS registration_fee_waived_by VARCHAR(200)");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS member_credit_balances (
+                    id UUID PRIMARY KEY,
+                    user_id UUID NOT NULL UNIQUE REFERENCES users(id),
+                    credit_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+                    created_by VARCHAR(150),
+                    updated_by VARCHAR(150),
+                    version BIGINT NOT NULL DEFAULT 0
+                )
+                """);
     }
 
     /**

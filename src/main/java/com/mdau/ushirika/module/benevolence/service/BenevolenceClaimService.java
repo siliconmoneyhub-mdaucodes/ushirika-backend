@@ -265,6 +265,16 @@ public class BenevolenceClaimService {
         replenPaymentRepo.save(rp);
     }
 
+    /** This member's outstanding replenishment obligations, oldest first — used by
+     * PaymentAllocationService to settle them in priority order. Empty if not enrolled. */
+    @Transactional(readOnly = true)
+    public List<ReplenishmentPayment> getPendingReplenishmentsForMember(User member) {
+        return enrollmentRepo.findByUser(member)
+                .map(enrollment -> replenPaymentRepo.findByEnrollmentAndStatusOrderByCreatedAtAsc(
+                        enrollment, ReplenishmentPaymentStatus.PENDING))
+                .orElse(List.of());
+    }
+
     @Transactional
     public ReplenishmentPaymentDto waiveReplenishmentPayment(UUID replenishmentPaymentId, String reason) {
         ReplenishmentPayment rp = replenPaymentRepo.findById(replenishmentPaymentId)

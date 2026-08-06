@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface ReplenishmentPaymentRepository extends JpaRepository<ReplenishmentPayment, UUID> {
     List<ReplenishmentPayment> findByReplenishment(BenevolenceReplenishment replenishment);
     List<ReplenishmentPayment> findByEnrollmentOrderByCreatedAtDesc(BenevolenceEnrollment enrollment);
+    List<ReplenishmentPayment> findByEnrollmentAndStatusOrderByCreatedAtAsc(
+            BenevolenceEnrollment enrollment, ReplenishmentPaymentStatus status);
     Optional<ReplenishmentPayment> findByReplenishmentAndEnrollment(
             BenevolenceReplenishment replenishment, BenevolenceEnrollment enrollment);
     long countByReplenishmentAndStatus(BenevolenceReplenishment replenishment, ReplenishmentPaymentStatus status);

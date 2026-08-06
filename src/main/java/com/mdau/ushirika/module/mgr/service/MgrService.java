@@ -510,16 +510,16 @@ public class MgrService {
                 .orElse(BigDecimal.ZERO);
     }
 
-    /** Credits a confirmed Stripe payment-basket line toward this member's MGR contributions.
-     * Applies sequentially to the earliest PENDING months for their current slot — whole months
-     * only, since contribution amounts are fixed; any remainder that doesn't cover a full month
-     * is left unapplied (the aggregator should never offer a basket line larger than what's owed). */
+    /** Credits a confirmed payment toward this member's MGR contributions. Applies sequentially
+     * to the earliest PENDING months for their current slot — whole months only, since
+     * contribution amounts are fixed. Returns whatever didn't cover a full month so the caller
+     * (PaymentAllocationService) can keep it as member credit instead of losing it. */
     @Transactional
-    public void applyContribution(User member, BigDecimal amountUsd) {
+    public BigDecimal applyContribution(User member, BigDecimal amountUsd) {
         MgrSlot slot = slotRepo.findByUser(member).orElse(null);
         if (slot == null) {
-            log.warn("Stripe basket tried to credit MGR contribution for {} but they have no active slot", member.getEmail());
-            return;
+            log.warn("Payment tried to credit MGR contribution for {} but they have no active slot", member.getEmail());
+            return amountUsd;
         }
         List<MgrContribution> pending = contributionRepo.findBySlotOrderByContributionMonth(slot).stream()
                 .filter(c -> c.getStatus() == ContributionStatus.PENDING)
@@ -534,6 +534,7 @@ public class MgrService {
             contributionRepo.save(c);
             remaining = remaining.subtract(c.getAmount());
         }
+        return remaining;
     }
 
     @Transactional

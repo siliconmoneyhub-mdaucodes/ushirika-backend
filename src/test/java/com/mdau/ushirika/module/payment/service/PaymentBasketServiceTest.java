@@ -65,6 +65,7 @@ class PaymentBasketServiceTest {
     @Mock private ProgramApplicationService programApplicationService;
     @Mock private ContributionService contributionService;
     @Mock private PlatformSettingsService platformSettingsService;
+    @Mock private PaymentAllocationService paymentAllocationService;
 
     private PaymentBasketService service;
     private User member;
@@ -75,7 +76,7 @@ class PaymentBasketServiceTest {
                 basketRepository, stripeService, userRepository,
                 membershipDuesService, benevolenceEnrollmentService, mgrService,
                 fineService, benevolenceClaimService, programApplicationService, contributionService,
-                platformSettingsService);
+                platformSettingsService, paymentAllocationService);
 
         when(platformSettingsService.getRegistrationFeeAmount()).thenReturn(new BigDecimal("100.00"));
 
@@ -257,12 +258,14 @@ class PaymentBasketServiceTest {
     }
 
     @Test
-    void webhook_success_dispatchesEveryLedgerToItsCreditMethod() {
+    void webhook_success_poolsWalletLedgersAndDispatchesTheRest() {
         UUID replenishmentId = UUID.randomUUID();
         UUID fineId = UUID.randomUUID();
         UUID applicationId = UUID.randomUUID();
         UUID planId = UUID.randomUUID();
 
+        // Dues/enrollment/MGR/fine/replenishment all represent real obligations and are pooled
+        // through PaymentAllocationService; program-prepay and general-contribution are not.
         PaymentBasket basket = basketOf(member, PaymentStatus.PENDING,
                 line(PaymentBasketLedger.DUES, null, new BigDecimal("50.00")),
                 line(PaymentBasketLedger.BENEVOLENCE_ENROLLMENT, null, new BigDecimal("200.00")),
@@ -277,11 +280,8 @@ class PaymentBasketServiceTest {
 
         service.handleSessionCompleted(session);
 
-        verify(membershipDuesService).applyExternalPayment(member, new BigDecimal("50.00"));
-        verify(benevolenceEnrollmentService).applyPayment(member, new BigDecimal("200.00"));
-        verify(mgrService).applyContribution(member, new BigDecimal("100.00"));
-        verify(fineService).markPaid(fineId);
-        verify(benevolenceClaimService).applyReplenishmentPayment(replenishmentId, new BigDecimal("60.00"));
+        verify(paymentAllocationService).applyPayment(member, new BigDecimal("435.00"));
+        verifyNoInteractions(membershipDuesService, benevolenceEnrollmentService, mgrService, fineService, benevolenceClaimService);
         verify(programApplicationService).applyPrepayment(applicationId, member, new BigDecimal("150.00"));
         verify(contributionService).applyBasketContribution(member, new BigDecimal("20.00"), planId);
         assertEquals(PaymentStatus.SUCCESS, basket.getStatus());
@@ -289,20 +289,22 @@ class PaymentBasketServiceTest {
     }
 
     @Test
-    void webhook_oneLedgerThrows_othersStillCredited() {
+    void webhook_pooledAllocationThrows_nonPooledLinesStillCredited() {
+        UUID planId = UUID.randomUUID();
         PaymentBasket basket = basketOf(member, PaymentStatus.PENDING,
                 line(PaymentBasketLedger.DUES, null, new BigDecimal("50.00")),
-                line(PaymentBasketLedger.MGR_CONTRIBUTION, null, new BigDecimal("100.00")));
+                line(PaymentBasketLedger.MGR_CONTRIBUTION, null, new BigDecimal("100.00")),
+                line(PaymentBasketLedger.GENERAL_CONTRIBUTION, planId, new BigDecimal("20.00")));
         when(basketRepository.findBySessionId("cs_partial_fail")).thenReturn(Optional.of(basket));
         Session session = mock(Session.class);
         when(session.getId()).thenReturn("cs_partial_fail");
 
-        doThrow(new RuntimeException("dues ledger blew up")).when(membershipDuesService).applyExternalPayment(any(), any());
+        doThrow(new RuntimeException("allocation blew up")).when(paymentAllocationService).applyPayment(any(), any());
 
         assertDoesNotThrow(() -> service.handleSessionCompleted(session));
 
-        // The failing line doesn't stop the rest of the basket from being allocated.
-        verify(mgrService).applyContribution(member, new BigDecimal("100.00"));
+        // The pooled allocation failing doesn't stop the independent general-contribution line.
+        verify(contributionService).applyBasketContribution(member, new BigDecimal("20.00"), planId);
         assertEquals(PaymentStatus.SUCCESS, basket.getStatus(), "basket is still marked paid — Stripe was actually charged");
     }
 

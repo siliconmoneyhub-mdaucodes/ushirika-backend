@@ -61,6 +61,7 @@ public class PaymentBasketService {
     private final ProgramApplicationService programApplicationService;
     private final ContributionService contributionService;
     private final PlatformSettingsService platformSettingsService;
+    private final PaymentAllocationService paymentAllocationService;
 
     @Transactional(readOnly = true)
     public OutstandingBalancesDto myOutstandingBalances() {
@@ -143,6 +144,8 @@ public class PaymentBasketService {
                 case FINE -> { /* fines are never client-selected — force-included below */ }
                 case REGISTRATION_FEE, PROGRAM_APPLICATION_PREPAY ->
                         throw new BadRequestException("That item can only be paid during onboarding.");
+                case CASH_PAYMENT ->
+                        throw new BadRequestException("Cash payments are processed by an admin, not selected here.");
             }
         }
 
@@ -271,17 +274,47 @@ public class PaymentBasketService {
         basket.setPaidAt(LocalDateTime.now());
         basketRepository.save(basket);
 
+        // Dues/MGR/fines/replenishment/Benevolence-enrollment all represent real obligations, so
+        // their amounts are pooled and settled together through PaymentAllocationService in a
+        // fixed priority order (fines, dues, MGR, replenishment, enrollment) rather than each
+        // being credited to the exact line it arrived on — this is what lets one payment settle
+        // whatever's oldest/most pressing regardless of which balance the payer thought they were
+        // paying, and what lets any leftover become credit instead of being silently dropped.
+        BigDecimal walletEligibleTotal = BigDecimal.ZERO;
         for (PaymentBasketLine line : basket.getLines()) {
             try {
-                allocate(basket.getMember(), line);
+                if (isWalletEligible(line.getLedger())) {
+                    walletEligibleTotal = walletEligibleTotal.add(line.getAmount());
+                } else {
+                    allocate(basket.getMember(), line);
+                }
             } catch (Exception e) {
                 log.error("Failed to allocate payment basket line ledger={} targetId={} basket={}",
                         line.getLedger(), line.getTargetId(), basket.getId(), e);
             }
         }
+        if (walletEligibleTotal.signum() > 0) {
+            try {
+                paymentAllocationService.applyPayment(basket.getMember(), walletEligibleTotal);
+            } catch (Exception e) {
+                log.error("Failed to settle pooled payment amount={} basket={}", walletEligibleTotal, basket.getId(), e);
+            }
+        }
 
         log.info("Payment basket confirmed [{}]: id={} sessionId={} member={} lines={}",
                 source, basket.getId(), basket.getSessionId(), basket.getMember().getEmail(), basket.getLines().size());
+    }
+
+    /** Obligations settled through the pooled PaymentAllocationService rather than credited to
+     * the specific line they arrived on. Registration fee, program prepayment, and general
+     * contributions stay outside the pool — the first two are one-time onboarding gates, and
+     * contributions are voluntary with no fixed amount owed, so they're never redirected to pay
+     * down something else. */
+    private boolean isWalletEligible(PaymentBasketLedger ledger) {
+        return switch (ledger) {
+            case DUES, MGR_CONTRIBUTION, FINE, BENEVOLENCE_REPLENISHMENT, BENEVOLENCE_ENROLLMENT, CASH_PAYMENT -> true;
+            case REGISTRATION_FEE, PROGRAM_APPLICATION_PREPAY, GENERAL_CONTRIBUTION -> false;
+        };
     }
 
     private void allocate(User member, PaymentBasketLine line) {
@@ -290,13 +323,9 @@ public class PaymentBasketService {
                 // Nothing further to credit — OnboardingService checks for a SUCCESS basket
                 // containing a REGISTRATION_FEE line directly (see Phase 1).
             }
-            case DUES -> membershipDuesService.applyExternalPayment(member, line.getAmount());
-            case BENEVOLENCE_ENROLLMENT -> benevolenceEnrollmentService.applyPayment(member, line.getAmount());
-            case MGR_CONTRIBUTION -> mgrService.applyContribution(member, line.getAmount());
-            case FINE -> fineService.markPaid(line.getTargetId());
-            case BENEVOLENCE_REPLENISHMENT -> benevolenceClaimService.applyReplenishmentPayment(line.getTargetId(), line.getAmount());
             case PROGRAM_APPLICATION_PREPAY -> programApplicationService.applyPrepayment(line.getTargetId(), member, line.getAmount());
             case GENERAL_CONTRIBUTION -> contributionService.applyBasketContribution(member, line.getAmount(), line.getTargetId());
+            default -> throw new IllegalStateException("Ledger " + line.getLedger() + " should have been routed through the pooled allocator");
         }
     }
 
@@ -310,6 +339,7 @@ public class PaymentBasketService {
             case BENEVOLENCE_REPLENISHMENT -> "Ushirika Welfare Organization — Benevolence Replenishment";
             case PROGRAM_APPLICATION_PREPAY -> "Ushirika Welfare Organization — Benevolence Enrollment (prepayment)";
             case GENERAL_CONTRIBUTION -> "Ushirika Welfare Organization — Contribution";
+            case CASH_PAYMENT -> "Ushirika Welfare Organization — Cash Payment";
         };
     }
 

@@ -17,5 +17,9 @@ public enum PaymentBasketLedger {
     PROGRAM_APPLICATION_PREPAY,
     /** General/discretionary giving, optionally tied to a ContributionPlan — folded into the
      * "pay my balances" basket instead of the old standalone Contribute flow. */
-    GENERAL_CONTRIBUTION
+    GENERAL_CONTRIBUTION,
+    /** An admin processing a cash payment on a member's behalf — the admin is the actual Stripe
+     * payer, but the amount settles the named member's obligations via PaymentAllocationService,
+     * same as any other pooled ledger. */
+    CASH_PAYMENT
 }
