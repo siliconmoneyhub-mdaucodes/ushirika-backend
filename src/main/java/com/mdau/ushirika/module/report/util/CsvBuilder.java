@@ -1,10 +1,7 @@
 package com.mdau.ushirika.module.report.util;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /** Builds a UTF-8 CSV byte array with BOM so Excel opens it correctly. */
-public final class CsvBuilder {
+public final class CsvBuilder implements TableBuilder {
 
     private static final byte[] BOM = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
 
@@ -15,14 +12,14 @@ public final class CsvBuilder {
 
     public static CsvBuilder create() { return new CsvBuilder(); }
 
-    /** Write header row and move to next row. */
+    @Override
     public CsvBuilder header(String... cols) {
         for (String c : cols) col(c);
         newRow();
         return this;
     }
 
-    /** Append a single cell value (null becomes empty string). */
+    @Override
     public CsvBuilder col(Object value) {
         if (!firstCol) sb.append(',');
         firstCol = false;
@@ -36,13 +33,14 @@ public final class CsvBuilder {
         return this;
     }
 
-    /** End the current row. */
+    @Override
     public CsvBuilder newRow() {
         sb.append("\r\n");
         firstCol = true;
         return this;
     }
 
+    @Override
     public byte[] toBytes() {
         byte[] body = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] out = new byte[BOM.length + body.length];
