@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.payment.service;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.attendance.service.FineService;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimService;
@@ -12,7 +13,12 @@ import com.mdau.ushirika.module.attendance.enums.FineStatus;
 import com.mdau.ushirika.module.benevolence.enums.ReplenishmentPaymentStatus;
 import com.mdau.ushirika.module.mgr.service.MgrService;
 import com.mdau.ushirika.module.attendance.dto.FineDto;
+import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
+import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
+import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.payment.dto.AdminCashPaymentRequest;
 import com.mdau.ushirika.module.payment.dto.BasketLineDto;
+import com.mdau.ushirika.module.payment.dto.MemberBalanceDto;
 import com.mdau.ushirika.module.payment.dto.OutstandingBalancesDto;
 import com.mdau.ushirika.module.payment.dto.PayBalancesLineDto;
 import com.mdau.ushirika.module.payment.dto.PaymentBasketSummaryDto;
@@ -35,6 +41,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -62,6 +69,8 @@ public class PaymentBasketService {
     private final ContributionService contributionService;
     private final PlatformSettingsService platformSettingsService;
     private final PaymentAllocationService paymentAllocationService;
+    private final AuditLogService auditLogService;
+    private final InAppNotificationService notificationService;
 
     @Transactional(readOnly = true)
     public OutstandingBalancesDto myOutstandingBalances() {
@@ -191,6 +200,59 @@ public class PaymentBasketService {
         return startCheckout(lines, successUrl, cancelUrl);
     }
 
+    @Transactional(readOnly = true)
+    public MemberBalanceDto myBalance() {
+        return paymentAllocationService.getBalance(currentUser());
+    }
+
+    /**
+     * An admin processing cash they physically received: the admin pays this exact amount
+     * themselves via the resulting Stripe Checkout session (their own card, not the member's —
+     * nobody can type someone else's card into a form on their behalf) and the member is only
+     * credited once that real charge succeeds. Reuses the same webhook/allocation path as every
+     * other payment; the only difference from a self-checkout is who the Stripe payer is.
+     */
+    @Transactional
+    public PaymentInitDto startAdminCashCheckout(AdminCashPaymentRequest req) {
+        User admin = currentUser();
+        User targetMember = userRepository.findById(req.memberId())
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + req.memberId()));
+
+        List<StripeService.LineItem> stripeLines = List.of(
+                new StripeService.LineItem("Ushirika Welfare Organization — Cash Payment for " + targetMember.getFullName(), req.amount()));
+
+        Map<String, String> metadata = Map.of(
+                "purpose", "BASKET",
+                "memberId", targetMember.getId().toString()
+        );
+
+        // The admin's email is the Stripe customer/payer of record — the basket's "member" is
+        // still the person being credited, same as every other basket.
+        StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
+                admin.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata);
+
+        PaymentBasket basket = PaymentBasket.builder()
+                .member(targetMember)
+                .sessionId(result.sessionId())
+                .build();
+        basket.getLines().add(PaymentBasketLine.builder()
+                .basket(basket)
+                .ledger(PaymentBasketLedger.CASH_PAYMENT)
+                // Piggybacks targetId to record who processed it — there's no other obligation
+                // this line targets, and completeBasket() needs this admin's identity at webhook
+                // time, when there's no authenticated request to read it from.
+                .targetId(admin.getId())
+                .description("Cash payment processed by " + admin.getFullName())
+                .amount(req.amount())
+                .build());
+        basketRepository.save(basket);
+
+        log.info("Cash payment checkout created: sessionId={} member={} admin={} amount={} USD",
+                result.sessionId(), targetMember.getEmail(), admin.getEmail(), req.amount());
+
+        return new PaymentInitDto(result.sessionId(), result.checkoutUrl(), req.amount(), "USD");
+    }
+
     @Transactional
     public PaymentInitDto startCheckout(List<BasketLineDto> lines, String successUrl, String cancelUrl) {
         User member = currentUser();
@@ -301,8 +363,36 @@ public class PaymentBasketService {
             }
         }
 
+        basket.getLines().stream()
+                .filter(l -> l.getLedger() == PaymentBasketLedger.CASH_PAYMENT)
+                .findFirst()
+                .ifPresent(cashLine -> notifyCashPaymentProcessed(basket.getMember(), cashLine));
+
         log.info("Payment basket confirmed [{}]: id={} sessionId={} member={} lines={}",
                 source, basket.getId(), basket.getSessionId(), basket.getMember().getEmail(), basket.getLines().size());
+    }
+
+    /** Cash-payment-specific side effects once the pooled allocation above has already run:
+     * confirm to the member (in-app + email) and record who processed it for accounting. */
+    private void notifyCashPaymentProcessed(User member, PaymentBasketLine cashLine) {
+        try {
+            notificationService.notifyMember(member.getId(), new BroadcastRequest(
+                    InAppNotificationCategory.GENERAL,
+                    "Cash Payment Confirmed",
+                    "Your cash payment of $" + cashLine.getAmount() + " has been processed and applied to your account.",
+                    null,
+                    Set.of("EMAIL")
+            ));
+        } catch (Exception e) {
+            log.warn("Cash payment confirmation notification failed for {}: {}", member.getEmail(), e.getMessage());
+        }
+
+        User admin = cashLine.getTargetId() != null ? userRepository.findById(cashLine.getTargetId()).orElse(null) : null;
+        if (admin != null) {
+            auditLogService.log(admin, "CASH_PAYMENT_PROCESSED", "User", member.getId(),
+                    "Cash payment of $" + cashLine.getAmount() + " processed for " + member.getFullName()
+                            + " by " + admin.getFullName());
+        }
     }
 
     /** Obligations settled through the pooled PaymentAllocationService rather than credited to

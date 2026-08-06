@@ -66,6 +66,8 @@ class PaymentBasketServiceTest {
     @Mock private ContributionService contributionService;
     @Mock private PlatformSettingsService platformSettingsService;
     @Mock private PaymentAllocationService paymentAllocationService;
+    @Mock private com.mdau.ushirika.module.audit.service.AuditLogService auditLogService;
+    @Mock private com.mdau.ushirika.module.notification.service.InAppNotificationService notificationService;
 
     private PaymentBasketService service;
     private User member;
@@ -76,7 +78,7 @@ class PaymentBasketServiceTest {
                 basketRepository, stripeService, userRepository,
                 membershipDuesService, benevolenceEnrollmentService, mgrService,
                 fineService, benevolenceClaimService, programApplicationService, contributionService,
-                platformSettingsService, paymentAllocationService);
+                platformSettingsService, paymentAllocationService, auditLogService, notificationService);
 
         when(platformSettingsService.getRegistrationFeeAmount()).thenReturn(new BigDecimal("100.00"));
 

@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.payment.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
+import com.mdau.ushirika.module.payment.dto.MemberBalanceDto;
 import com.mdau.ushirika.module.payment.dto.OutstandingBalancesDto;
 import com.mdau.ushirika.module.payment.dto.PayBalancesRequest;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
@@ -26,6 +27,11 @@ public class MemberPaymentsController {
     @GetMapping("/outstanding")
     public ResponseEntity<ApiResponse<OutstandingBalancesDto>> outstanding() {
         return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.myOutstandingBalances()));
+    }
+
+    @GetMapping("/balance")
+    public ResponseEntity<ApiResponse<MemberBalanceDto>> balance() {
+        return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.myBalance()));
     }
 
     @PostMapping("/checkout")
