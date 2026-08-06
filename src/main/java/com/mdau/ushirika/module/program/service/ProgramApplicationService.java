@@ -166,6 +166,25 @@ public class ProgramApplicationService {
                 .toList();
     }
 
+    /** Roster for coordinator-initiated notifications/messages — everyone actually enrolled. */
+    @Transactional(readOnly = true)
+    public List<User> listApprovedMembersForProgram(UUID programId) {
+        requireCoordinatorAccess(programId);
+        return applicationRepository.findAllByProgramIdAndStatusIn(programId, List.of(ProgramApplicationStatus.APPROVED)).stream()
+                .map(ProgramApplication::getApplicant)
+                .toList();
+    }
+
+    /** Confirms the given member has applied to this program (any status) before a coordinator
+     * messages/notifies them directly — prevents a coordinator reaching members outside their program. */
+    @Transactional(readOnly = true)
+    public User requireProgramApplicant(UUID programId, UUID memberId) {
+        requireCoordinatorAccess(programId);
+        return applicationRepository.findByProgramIdAndApplicantId(programId, memberId)
+                .orElseThrow(() -> new ForbiddenException("This member has not applied to this program."))
+                .getApplicant();
+    }
+
     @Transactional
     public ProgramApplicationDto decide(UUID applicationId, DecideProgramApplicationRequest req) {
         ProgramApplication application = applicationRepository.findById(applicationId)

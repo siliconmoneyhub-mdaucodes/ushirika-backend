@@ -24,6 +24,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/admin/notifications")
 @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
@@ -73,6 +75,20 @@ public class AdminNotificationController {
                         + (req.channels() != null && !req.channels().isEmpty() ? " via " + req.channels() : ""));
 
         return ResponseEntity.ok(ApiResponse.ok("Broadcast queued for all members"));
+    }
+
+    @PostMapping("/members/{memberId}")
+    @Operation(summary = "Send a notification to one specific member (in-app always; email/SMS optional)")
+    public ResponseEntity<ApiResponse<Void>> notifyMember(
+            @PathVariable UUID memberId, @Valid @RequestBody BroadcastRequest req, Authentication auth) {
+        notificationService.notifyMember(memberId, req);
+
+        User admin = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
+        auditLogService.log(admin, "MEMBER_NOTIFIED", "User", memberId,
+                "Notification \"" + req.title() + "\" sent to one member by " + admin.getFullName());
+
+        return ResponseEntity.ok(ApiResponse.ok("Notification sent"));
     }
 
     @GetMapping("/logs/recipient")

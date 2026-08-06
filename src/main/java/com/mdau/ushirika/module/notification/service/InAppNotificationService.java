@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.notification.service;
 
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
@@ -80,18 +81,34 @@ public class InAppNotificationService {
                 .build());
     }
 
-    // ── Admin broadcast ────────────────────────────────────────────────────────
+    // ── Admin broadcast (all members) ─────────────────────────────────────────
 
     @Async
     @Transactional
     public void broadcast(BroadcastRequest req) {
-        List<com.mdau.ushirika.module.auth.entity.User> members =
-                userRepository.findAllByRole(UserRole.MEMBER);
+        List<User> members = userRepository.findAllByRole(UserRole.MEMBER);
+        notifyUsers(members, req);
+        log.info("Broadcast '{}' sent to {} members", req.title(), members.size());
+    }
 
+    // ── Targeted notifications (one member, or a pre-resolved roster e.g. a program's members) ──
+
+    @Async
+    @Transactional
+    public void notifyMember(UUID memberId, BroadcastRequest req) {
+        User target = userRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + memberId));
+        notifyUsers(List.of(target), req);
+        log.info("Direct notification '{}' sent to {}", req.title(), target.getEmail());
+    }
+
+    @Async
+    @Transactional
+    public void notifyUsers(List<User> recipients, BroadcastRequest req) {
         boolean sendEmail = req.channels() != null && req.channels().contains("EMAIL");
         boolean sendSms   = req.channels() != null && req.channels().contains("SMS");
 
-        for (var user : members) {
+        for (var user : recipients) {
             // Always create in-app notification
             inAppRepo.save(InAppNotification.builder()
                     .userId(user.getId())
@@ -105,7 +122,7 @@ public class InAppNotificationService {
                 try {
                     emailService.sendPlain(user.getEmail(), user.getFullName(), req.title(), toHtml(req.body()));
                 } catch (Exception e) {
-                    log.warn("Broadcast email failed for {}: {}", user.getEmail(), e.getMessage());
+                    log.warn("Notification email failed for {}: {}", user.getEmail(), e.getMessage());
                 }
             }
 
@@ -113,13 +130,10 @@ public class InAppNotificationService {
                 try {
                     smsService.send(user.getPhone(), user.getFullName(), req.title() + "\n" + req.body());
                 } catch (Exception e) {
-                    log.warn("Broadcast SMS failed for {}: {}", user.getPhone(), e.getMessage());
+                    log.warn("Notification SMS failed for {}: {}", user.getPhone(), e.getMessage());
                 }
             }
         }
-
-        log.info("Broadcast '{}' sent to {} members (email={}, sms={})",
-                req.title(), members.size(), sendEmail, sendSms);
     }
 
     private static String toHtml(String text) {

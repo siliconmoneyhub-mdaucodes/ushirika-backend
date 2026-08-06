@@ -1,6 +1,8 @@
 package com.mdau.ushirika.module.program.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
+import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
+import com.mdau.ushirika.module.notification.service.InAppNotificationService;
 import com.mdau.ushirika.module.program.dto.DecideProgramApplicationRequest;
 import com.mdau.ushirika.module.program.dto.ProgramApplicationDto;
 import com.mdau.ushirika.module.program.dto.ProgramDto;
@@ -28,6 +30,7 @@ public class ProgramAdminController {
 
     private final ProgramService programService;
     private final ProgramApplicationService programApplicationService;
+    private final InAppNotificationService notificationService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProgramDto>>> myPrograms() {
@@ -49,5 +52,21 @@ public class ProgramAdminController {
     public ResponseEntity<ApiResponse<ProgramApplicationDto>> decide(
             @PathVariable UUID applicationId, @Valid @RequestBody DecideProgramApplicationRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Decision recorded", programApplicationService.decide(applicationId, req)));
+    }
+
+    @PostMapping("/{id}/notifications/broadcast")
+    public ResponseEntity<ApiResponse<Void>> notifyProgramMembers(
+            @PathVariable UUID id, @Valid @RequestBody BroadcastRequest req) {
+        List<com.mdau.ushirika.module.auth.entity.User> recipients = programApplicationService.listApprovedMembersForProgram(id);
+        notificationService.notifyUsers(recipients, req);
+        return ResponseEntity.ok(ApiResponse.ok(recipients.size() + " member(s) notified"));
+    }
+
+    @PostMapping("/{id}/notifications/members/{memberId}")
+    public ResponseEntity<ApiResponse<Void>> notifyProgramMember(
+            @PathVariable UUID id, @PathVariable UUID memberId, @Valid @RequestBody BroadcastRequest req) {
+        com.mdau.ushirika.module.auth.entity.User member = programApplicationService.requireProgramApplicant(id, memberId);
+        notificationService.notifyMember(member.getId(), req);
+        return ResponseEntity.ok(ApiResponse.ok("Notification sent"));
     }
 }
