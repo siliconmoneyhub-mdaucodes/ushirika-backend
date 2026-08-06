@@ -115,6 +115,18 @@ public class MessagingService {
         threadRepository.save(thread);
     }
 
+    /** Admin/superadmin starts (or continues) a general conversation with a specific member. */
+    @Transactional
+    public ThreadDetailDto startGeneralThreadWithMember(UUID memberId, String body) {
+        User member = requireMemberRecipient(memberId);
+        User staff = currentUser();
+        ConversationThread thread = findOrCreateThread(member, null);
+        postMessage(thread, staff, false, body);
+        thread.setStaffLastReadAt(LocalDateTime.now());
+        threadRepository.save(thread);
+        return toDetail(thread);
+    }
+
     // ── Staff: program coordinator inbox ────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -149,6 +161,19 @@ public class MessagingService {
         ConversationThread thread = requireThreadOnProgram(threadId, programId);
         thread.setStaffLastReadAt(LocalDateTime.now());
         threadRepository.save(thread);
+    }
+
+    /** A program's coordinator starts (or continues) a conversation with a specific member. */
+    @Transactional
+    public ThreadDetailDto startProgramThreadWithMember(UUID programId, UUID memberId, String body) {
+        requireCoordinatorAccess(programId);
+        User member = requireMemberRecipient(memberId);
+        User staff = currentUser();
+        ConversationThread thread = findOrCreateThread(member, programId);
+        postMessage(thread, staff, false, body);
+        thread.setStaffLastReadAt(LocalDateTime.now());
+        threadRepository.save(thread);
+        return toDetail(thread);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -200,6 +225,11 @@ public class MessagingService {
     private ConversationThread findThread(UUID threadId) {
         return threadRepository.findById(threadId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation not found: " + threadId));
+    }
+
+    private User requireMemberRecipient(UUID memberId) {
+        return userRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + memberId));
     }
 
     private void requireCoordinatorAccess(UUID programId) {

@@ -24,6 +24,12 @@ public class AdminMessagingController {
         return ResponseEntity.ok(ApiResponse.ok(messagingService.listGeneralThreads()));
     }
 
+    @PostMapping("/threads")
+    public ResponseEntity<ApiResponse<ThreadDetailDto>> startThread(@Valid @RequestBody StartStaffThreadRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Message sent",
+                messagingService.startGeneralThreadWithMember(req.memberId(), req.body())));
+    }
+
     @GetMapping("/threads/{id}")
     public ResponseEntity<ApiResponse<ThreadDetailDto>> getThread(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(messagingService.getGeneralThread(id)));

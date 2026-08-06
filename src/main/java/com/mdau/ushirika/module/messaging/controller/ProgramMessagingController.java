@@ -24,6 +24,13 @@ public class ProgramMessagingController {
         return ResponseEntity.ok(ApiResponse.ok(messagingService.listProgramThreads(programId)));
     }
 
+    @PostMapping("/threads")
+    public ResponseEntity<ApiResponse<ThreadDetailDto>> startThread(
+            @PathVariable UUID programId, @Valid @RequestBody StartStaffThreadRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Message sent",
+                messagingService.startProgramThreadWithMember(programId, req.memberId(), req.body())));
+    }
+
     @GetMapping("/threads/{id}")
     public ResponseEntity<ApiResponse<ThreadDetailDto>> getThread(
             @PathVariable UUID programId, @PathVariable UUID id) {
