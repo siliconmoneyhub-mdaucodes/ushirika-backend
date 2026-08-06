@@ -74,6 +74,7 @@ public class DataInitializer implements ApplicationRunner {
         fixLegacyGenderValues();
         seedSuperAdmin();
         seedTestMember();
+        seedTestOfficials();
         seedContributionPlans();
         seedPrograms();
         seedGoverningDocuments();
@@ -262,6 +263,36 @@ public class DataInitializer implements ApplicationRunner {
 
         memberProfileRepository.save(profile);
         log.info("Test member seeded: {} / password configured via app.test-member.password", testMemberEmail);
+    }
+
+    /**
+     * Dev-only accounts for exercising the Secretary/Chief Whip/Compliance officials roles and
+     * their dashboards before real officials are seeded. Deliberately named and emailed so they
+     * are unmistakably test data ("test.*@ushirika.test" — the .test TLD is reserved and never
+     * resolves) and easy to bulk-remove once real officials replace them -- see task tracking
+     * "Seed real leadership officials as system users".
+     */
+    private void seedTestOfficials() {
+        seedTestOfficial("test.secretary@ushirika.test", "Test", "Secretary", UserRole.SECRETARY);
+        seedTestOfficial("test.chiefwhip@ushirika.test", "Test", "ChiefWhip", UserRole.CHIEF_WHIP);
+        seedTestOfficial("test.compliance@ushirika.test", "Test", "Compliance", UserRole.COMPLIANCE);
+    }
+
+    private void seedTestOfficial(String email, String firstName, String lastName, UserRole role) {
+        if (userRepository.existsByEmail(email)) return;
+
+        User official = User.builder()
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(email)
+                .phone("+10000000000")
+                .password(passwordEncoder.encode(testMemberPassword))
+                .role(role)
+                .emailVerified(true)
+                .active(true)
+                .build();
+        userRepository.save(official);
+        log.info("Test official seeded: {} ({}) / password configured via app.test-member.password", email, role);
     }
 
     private void seedContributionPlans() {
