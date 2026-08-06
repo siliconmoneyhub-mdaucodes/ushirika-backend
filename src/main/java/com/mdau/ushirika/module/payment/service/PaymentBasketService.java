@@ -60,8 +60,7 @@ public class PaymentBasketService {
     private final BenevolenceClaimService benevolenceClaimService;
     private final ProgramApplicationService programApplicationService;
     private final ContributionService contributionService;
-
-    private static final BigDecimal REGISTRATION_FEE_AMOUNT = new BigDecimal("100.00");
+    private final PlatformSettingsService platformSettingsService;
 
     @Transactional(readOnly = true)
     public OutstandingBalancesDto myOutstandingBalances() {
@@ -176,7 +175,7 @@ public class PaymentBasketService {
                                                     String successUrl, String cancelUrl) {
         User applicant = currentUser();
         List<BasketLineDto> lines = new ArrayList<>();
-        lines.add(new BasketLineDto(PaymentBasketLedger.REGISTRATION_FEE, null, REGISTRATION_FEE_AMOUNT));
+        lines.add(new BasketLineDto(PaymentBasketLedger.REGISTRATION_FEE, null, platformSettingsService.getRegistrationFeeAmount()));
 
         if (benevolenceAmount != null && benevolenceAmount.signum() > 0) {
             if (benevolenceApplicationId == null) {

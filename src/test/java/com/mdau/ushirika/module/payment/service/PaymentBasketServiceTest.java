@@ -64,6 +64,7 @@ class PaymentBasketServiceTest {
     @Mock private BenevolenceClaimService benevolenceClaimService;
     @Mock private ProgramApplicationService programApplicationService;
     @Mock private ContributionService contributionService;
+    @Mock private PlatformSettingsService platformSettingsService;
 
     private PaymentBasketService service;
     private User member;
@@ -73,7 +74,10 @@ class PaymentBasketServiceTest {
         service = new PaymentBasketService(
                 basketRepository, stripeService, userRepository,
                 membershipDuesService, benevolenceEnrollmentService, mgrService,
-                fineService, benevolenceClaimService, programApplicationService, contributionService);
+                fineService, benevolenceClaimService, programApplicationService, contributionService,
+                platformSettingsService);
+
+        when(platformSettingsService.getRegistrationFeeAmount()).thenReturn(new BigDecimal("100.00"));
 
         member = User.builder().email("member@test.ushirika.org").role(UserRole.MEMBER).build();
         member.setId(UUID.randomUUID());
