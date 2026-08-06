@@ -1,8 +1,11 @@
 package com.mdau.ushirika.module.dashboard.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
+import com.mdau.ushirika.module.dashboard.dto.ComplianceDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.DashboardSummaryDto;
+import com.mdau.ushirika.module.dashboard.dto.DisciplineDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.MonthlySeriesDto;
+import com.mdau.ushirika.module.dashboard.dto.RecordsDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.ScholarshipBreakdownDto;
 import com.mdau.ushirika.module.dashboard.dto.WelfareBreakdownDto;
 import com.mdau.ushirika.module.dashboard.service.DashboardService;
@@ -52,5 +55,26 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<ScholarshipBreakdownDto>> scholarshipReport() {
         return ResponseEntity.ok(ApiResponse.ok("Scholarship report generated",
                 dashboardService.getScholarshipBreakdown()));
+    }
+
+    @GetMapping("/admin/dashboard/records")
+    @PreAuthorize("hasAnyRole('SECRETARY','ADMIN','SUPERADMIN')")
+    @Operation(summary = "Records-tier dashboard — membership counts and meeting schedule (Secretary role)")
+    public ResponseEntity<ApiResponse<RecordsDashboardDto>> recordsDashboard() {
+        return ResponseEntity.ok(ApiResponse.ok("Records dashboard loaded", dashboardService.getRecordsDashboard()));
+    }
+
+    @GetMapping("/admin/dashboard/discipline")
+    @PreAuthorize("hasAnyRole('CHIEF_WHIP','ADMIN','SUPERADMIN')")
+    @Operation(summary = "Discipline-tier dashboard — attendance, fines, and excuse requests (Chief Whip role)")
+    public ResponseEntity<ApiResponse<DisciplineDashboardDto>> disciplineDashboard() {
+        return ResponseEntity.ok(ApiResponse.ok("Discipline dashboard loaded", dashboardService.getDisciplineDashboard()));
+    }
+
+    @GetMapping("/admin/dashboard/compliance")
+    @PreAuthorize("hasAnyRole('COMPLIANCE','ADMIN','SUPERADMIN')")
+    @Operation(summary = "Compliance-tier dashboard — governing documents, reinstatements, and audit trail (Compliance role)")
+    public ResponseEntity<ApiResponse<ComplianceDashboardDto>> complianceDashboard() {
+        return ResponseEntity.ok(ApiResponse.ok("Compliance dashboard loaded", dashboardService.getComplianceDashboard()));
     }
 }

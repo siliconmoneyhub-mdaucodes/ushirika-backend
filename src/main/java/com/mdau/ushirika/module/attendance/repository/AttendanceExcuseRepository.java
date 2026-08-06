@@ -19,4 +19,6 @@ public interface AttendanceExcuseRepository extends JpaRepository<AttendanceExcu
     Page<AttendanceExcuse> findByStatusOrderByCreatedAtDesc(ExcuseStatus status, Pageable pageable);
 
     Page<AttendanceExcuse> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    long countByStatus(ExcuseStatus status);
 }

@@ -23,4 +23,8 @@ public interface GoverningDocumentRepository extends JpaRepository<GoverningDocu
     boolean existsByDocumentType(DocumentType documentType);
 
     List<GoverningDocument> findAllByDocumentType(DocumentType documentType);
+
+    /** Currently-live document of this type, if one has been published. */
+    java.util.Optional<GoverningDocument> findFirstByStatusAndDocumentTypeOrderByPublishedAtDesc(
+            DocumentStatus status, DocumentType documentType);
 }

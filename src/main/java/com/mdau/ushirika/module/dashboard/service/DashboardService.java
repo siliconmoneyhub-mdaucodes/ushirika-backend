@@ -1,14 +1,31 @@
 package com.mdau.ushirika.module.dashboard.service;
 
+import com.mdau.ushirika.module.attendance.entity.Meeting;
+import com.mdau.ushirika.module.attendance.enums.AttendanceStatus;
+import com.mdau.ushirika.module.attendance.enums.ExcuseStatus;
+import com.mdau.ushirika.module.attendance.enums.FineStatus;
+import com.mdau.ushirika.module.attendance.enums.MeetingStatus;
+import com.mdau.ushirika.module.attendance.repository.AttendanceExcuseRepository;
+import com.mdau.ushirika.module.attendance.repository.AttendanceRecordRepository;
+import com.mdau.ushirika.module.attendance.repository.FineRepository;
+import com.mdau.ushirika.module.attendance.repository.MeetingRepository;
+import com.mdau.ushirika.module.audit.repository.AuditLogRepository;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.constitution.enums.DocumentStatus;
+import com.mdau.ushirika.module.constitution.enums.DocumentType;
+import com.mdau.ushirika.module.constitution.repository.GoverningDocumentRepository;
 import com.mdau.ushirika.module.content.enums.ArticleStatus;
 import com.mdau.ushirika.module.content.repository.ArticleRepository;
 import com.mdau.ushirika.module.content.repository.MediaAssetRepository;
+import com.mdau.ushirika.module.dashboard.dto.ComplianceDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.DashboardSummaryDto;
 import com.mdau.ushirika.module.dashboard.dto.DashboardSummaryDto.*;
+import com.mdau.ushirika.module.dashboard.dto.DisciplineDashboardDto;
+import com.mdau.ushirika.module.dashboard.dto.MeetingSummaryDto;
 import com.mdau.ushirika.module.dashboard.dto.MonthlySeriesDto;
 import com.mdau.ushirika.module.dashboard.dto.MonthlySeriesDto.MonthlyPoint;
+import com.mdau.ushirika.module.dashboard.dto.RecordsDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.ScholarshipBreakdownDto;
 import com.mdau.ushirika.module.dashboard.dto.ScholarshipBreakdownDto.ProgramRow;
 import com.mdau.ushirika.module.dashboard.dto.WelfareBreakdownDto;
@@ -26,6 +43,8 @@ import com.mdau.ushirika.module.notification.enums.NotificationChannel;
 import com.mdau.ushirika.module.notification.enums.NotificationStatus;
 import com.mdau.ushirika.module.notification.repository.NotificationLogRepository;
 import com.mdau.ushirika.module.payment.repository.MemberContributionRepository;
+import com.mdau.ushirika.module.reinstatement.enums.ReinstatementStatus;
+import com.mdau.ushirika.module.reinstatement.repository.ReinstatementRequestRepository;
 import com.mdau.ushirika.module.scholarship.enums.ScholarshipApplicationStatus;
 import com.mdau.ushirika.module.scholarship.repository.ScholarshipApplicationRepository;
 import com.mdau.ushirika.module.scholarship.repository.ScholarshipAwardRepository;
@@ -65,6 +84,13 @@ public class DashboardService {
     private final ArticleRepository                articleRepository;
     private final MediaAssetRepository             mediaAssetRepository;
     private final NotificationLogRepository        notificationLogRepository;
+    private final MeetingRepository                meetingRepository;
+    private final AttendanceRecordRepository       attendanceRecordRepository;
+    private final FineRepository                   fineRepository;
+    private final AttendanceExcuseRepository       attendanceExcuseRepository;
+    private final ReinstatementRequestRepository   reinstatementRequestRepository;
+    private final GoverningDocumentRepository      governingDocumentRepository;
+    private final AuditLogRepository               auditLogRepository;
 
     // ─────────────────────────────────────── Main dashboard
 
@@ -80,6 +106,78 @@ public class DashboardService {
                 contentStats(),
                 notificationStats()
         );
+    }
+
+    // ─────────────────────────────────────── Role-scoped dashboards
+
+    @Transactional(readOnly = true)
+    public RecordsDashboardDto getRecordsDashboard() {
+        Meeting last = meetingRepository.findFirstByStatusOrderByMeetingDateDesc(MeetingStatus.COMPLETED).orElse(null);
+        Meeting next = meetingRepository
+                .findFirstByStatusAndMeetingDateAfterOrderByMeetingDateAsc(MeetingStatus.SCHEDULED, LocalDateTime.now())
+                .orElse(null);
+
+        return new RecordsDashboardDto(
+                userRepository.countByRole(UserRole.MEMBER),
+                memberApplicationRepository.countByStatus(ApplicationStatus.DRAFT)
+                + memberApplicationRepository.countByStatus(ApplicationStatus.SUBMITTED),
+                memberApplicationRepository.countByStatus(ApplicationStatus.FORM_SENT)
+                + memberApplicationRepository.countByStatus(ApplicationStatus.ONBOARDING_IN_PROGRESS)
+                + memberApplicationRepository.countByStatus(ApplicationStatus.PAYMENT_SUBMITTED),
+                toMeetingSummary(next),
+                toMeetingSummary(last),
+                attendanceRatePercent(last)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public DisciplineDashboardDto getDisciplineDashboard() {
+        Meeting last = meetingRepository.findFirstByStatusOrderByMeetingDateDesc(MeetingStatus.COMPLETED).orElse(null);
+
+        return new DisciplineDashboardDto(
+                attendanceExcuseRepository.countByStatus(ExcuseStatus.PENDING),
+                fineRepository.countByStatus(FineStatus.PENDING),
+                fineRepository.sumAmountByStatus(FineStatus.PENDING),
+                fineRepository.countByStatus(FineStatus.WAIVED),
+                toMeetingSummary(last),
+                attendanceRatePercent(last)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ComplianceDashboardDto getComplianceDashboard() {
+        var constitution = governingDocumentRepository
+                .findFirstByStatusAndDocumentTypeOrderByPublishedAtDesc(DocumentStatus.PUBLISHED, DocumentType.CONSTITUTION);
+        var bylaws = governingDocumentRepository
+                .findFirstByStatusAndDocumentTypeOrderByPublishedAtDesc(DocumentStatus.PUBLISHED, DocumentType.BYLAWS);
+
+        List<ComplianceDashboardDto.AuditEntrySummary> recentActivity = auditLogRepository
+                .findWithFilters(null, null, null, org.springframework.data.domain.PageRequest.of(0, 10))
+                .map(a -> new ComplianceDashboardDto.AuditEntrySummary(
+                        a.getActorName(), a.getAction(), a.getDescription(), a.getCreatedAt()))
+                .getContent();
+
+        return new ComplianceDashboardDto(
+                constitution.isPresent(), constitution.map(d -> d.getPublishedAt()).orElse(null),
+                bylaws.isPresent(), bylaws.map(d -> d.getPublishedAt()).orElse(null),
+                reinstatementRequestRepository.countByStatus(ReinstatementStatus.PENDING),
+                recentActivity
+        );
+    }
+
+    private MeetingSummaryDto toMeetingSummary(Meeting m) {
+        return m == null ? null : new MeetingSummaryDto(m.getId(), m.getTitle(), m.getMeetingDate());
+    }
+
+    /** Percentage of recorded attendees marked PRESENT or LATE at the given meeting — null if no meeting or no records yet. */
+    private Double attendanceRatePercent(Meeting meeting) {
+        if (meeting == null) return null;
+        List<com.mdau.ushirika.module.attendance.entity.AttendanceRecord> records = attendanceRecordRepository.findByMeeting(meeting);
+        if (records.isEmpty()) return null;
+        long present = records.stream()
+                .filter(r -> r.getStatus() == AttendanceStatus.PRESENT || r.getStatus() == AttendanceStatus.LATE)
+                .count();
+        return (present * 100.0) / records.size();
     }
 
     // ─────────────────────────────────────── Reports

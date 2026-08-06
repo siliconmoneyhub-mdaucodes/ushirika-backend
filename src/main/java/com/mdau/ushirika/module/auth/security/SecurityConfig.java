@@ -59,6 +59,24 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_ROUTES).permitAll()
                         // Superadmin-only: user role management
                         .requestMatchers("/superadmin/**").hasRole("SUPERADMIN")
+                        // Secretary & Chief Whip share the Meetings workspace (meetings, attendance, fines) —
+                        // scheduling/attendance-taking and fines/excuses are the same day-to-day workflow.
+                        .requestMatchers(HttpMethod.GET, "/admin/meetings/**", "/admin/fines/**", "/admin/attendance/**")
+                                .hasAnyRole("SECRETARY", "CHIEF_WHIP", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                        .requestMatchers("/admin/meetings/**", "/admin/fines/**", "/admin/attendance/**")
+                                .hasAnyRole("SECRETARY", "CHIEF_WHIP", "ADMIN", "SUPERADMIN")
+                        // Secretary — read-only membership/member records (records-keeping, not decision-making)
+                        .requestMatchers(HttpMethod.GET, "/admin/membership/**", "/admin/members/**")
+                                .hasAnyRole("SECRETARY", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                        // Compliance — governing documents, reinstatement petitions, read-only audit trail
+                        .requestMatchers(HttpMethod.GET, "/admin/constitution/**", "/admin/reinstatement/**", "/admin/audit-logs/**")
+                                .hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                        .requestMatchers("/admin/constitution/**", "/admin/reinstatement/**")
+                                .hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN")
+                        // Role-scoped dashboard summaries
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/records").hasAnyRole("SECRETARY", "ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/discipline").hasAnyRole("CHIEF_WHIP", "ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/compliance").hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN")
                         // Leadership (read-only): full GET access to admin data, no mutations
                         .requestMatchers(HttpMethod.GET, "/admin/**").hasAnyRole("ADMIN", "SUPERADMIN", "LEADERSHIP")
                         // Admin + Superadmin: all other (mutating) admin operations

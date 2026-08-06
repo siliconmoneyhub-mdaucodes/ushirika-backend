@@ -21,4 +21,10 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
     List<Meeting> findByStatusAndMeetingDateBetween(MeetingStatus status, LocalDateTime from, LocalDateTime to);
 
     List<Meeting> findAllByStatusOrderByMeetingDateAsc(MeetingStatus status);
+
+    /** Next upcoming scheduled meeting. */
+    java.util.Optional<Meeting> findFirstByStatusAndMeetingDateAfterOrderByMeetingDateAsc(MeetingStatus status, LocalDateTime after);
+
+    /** Most recently completed meeting — used for "last meeting attendance rate" dashboard stats. */
+    java.util.Optional<Meeting> findFirstByStatusOrderByMeetingDateDesc(MeetingStatus status);
 }

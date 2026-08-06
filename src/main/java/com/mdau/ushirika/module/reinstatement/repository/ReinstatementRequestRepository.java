@@ -21,4 +21,6 @@ public interface ReinstatementRequestRepository extends JpaRepository<Reinstatem
     Page<ReinstatementRequest> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<ReinstatementRequest> findAllByStatusOrderByCreatedAtDesc(ReinstatementStatus status, Pageable pageable);
+
+    long countByStatus(ReinstatementStatus status);
 }
