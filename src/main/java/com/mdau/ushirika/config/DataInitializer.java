@@ -112,6 +112,26 @@ public class DataInitializer implements ApplicationRunner {
                 "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS bylaws_signature_initials VARCHAR(20)");
         jdbcTemplate.execute(
                 "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS bylaws_signature_date DATE");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS partners (
+                    id UUID PRIMARY KEY,
+                    name VARCHAR(150) NOT NULL,
+                    description TEXT,
+                    website_url VARCHAR(500),
+                    logo_url VARCHAR(500),
+                    cloudinary_public_id VARCHAR(300),
+                    active BOOLEAN NOT NULL DEFAULT true,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+                    created_by VARCHAR(150),
+                    updated_by VARCHAR(150),
+                    version BIGINT NOT NULL DEFAULT 0
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_partner_active ON partners (active)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_partner_sort_order ON partners (sort_order)");
     }
 
     /**
