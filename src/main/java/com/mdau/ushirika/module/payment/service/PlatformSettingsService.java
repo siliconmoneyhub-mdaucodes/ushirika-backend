@@ -1,6 +1,5 @@
 package com.mdau.ushirika.module.payment.service;
 
-import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.payment.entity.PlatformSettings;
 import com.mdau.ushirika.module.payment.repository.PlatformSettingsRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,14 +8,23 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
-/** Singleton settings row is seeded once by DataInitializer -- callers can assume it exists. */
+/**
+ * Self-healing singleton settings row: created lazily on first real use rather than eagerly at
+ * startup via DataInitializer. Eager seeding was tried first and crashed the whole app -- for a
+ * brand-new table, ddl-auto=update's schema creation didn't reliably complete before
+ * ApplicationRunner beans fired, unlike adding columns to an already-existing table. Lazy
+ * creation sidesteps that ordering problem entirely: by the time any request reaches here, the
+ * app has fully started and the schema is guaranteed to exist.
+ */
 @Service
 @RequiredArgsConstructor
 public class PlatformSettingsService {
 
+    private static final BigDecimal DEFAULT_REGISTRATION_FEE = new BigDecimal("120.00");
+
     private final PlatformSettingsRepository repository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public BigDecimal getRegistrationFeeAmount() {
         return settings().getRegistrationFeeAmount();
     }
@@ -30,6 +38,8 @@ public class PlatformSettingsService {
 
     private PlatformSettings settings() {
         return repository.findAll().stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Platform settings not initialized."));
+                .orElseGet(() -> repository.save(PlatformSettings.builder()
+                        .registrationFeeAmount(DEFAULT_REGISTRATION_FEE)
+                        .build()));
     }
 }

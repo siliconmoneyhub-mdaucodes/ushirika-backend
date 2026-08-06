@@ -15,10 +15,8 @@ import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.payment.entity.ContributionPlan;
-import com.mdau.ushirika.module.payment.entity.PlatformSettings;
 import com.mdau.ushirika.module.payment.enums.ContributionFrequency;
 import com.mdau.ushirika.module.payment.repository.ContributionPlanRepository;
-import com.mdau.ushirika.module.payment.repository.PlatformSettingsRepository;
 import com.mdau.ushirika.module.program.entity.Program;
 import com.mdau.ushirika.module.program.enums.ProgramStatus;
 import com.mdau.ushirika.module.program.enums.ProgramType;
@@ -51,7 +49,6 @@ public class DataInitializer implements ApplicationRunner {
     private final ContributionPlanRepository planRepository;
     private final ProgramRepository programRepository;
     private final GoverningDocumentRepository governingDocumentRepository;
-    private final PlatformSettingsRepository platformSettingsRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -79,17 +76,6 @@ public class DataInitializer implements ApplicationRunner {
         seedContributionPlans();
         seedPrograms();
         seedGoverningDocuments();
-        seedPlatformSettings();
-    }
-
-    /** Seed-once: an admin who later changes the registration fee must never have it reset
-     * back to the default on a future redeploy. */
-    private void seedPlatformSettings() {
-        if (platformSettingsRepository.count() > 0) return;
-        platformSettingsRepository.save(PlatformSettings.builder()
-                .registrationFeeAmount(new BigDecimal("120.00"))
-                .build());
-        log.info("Seeded platform settings: registration fee = $120.00");
     }
 
     /**
