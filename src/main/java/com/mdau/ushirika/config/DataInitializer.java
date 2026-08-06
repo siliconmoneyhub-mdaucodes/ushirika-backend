@@ -70,12 +70,48 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        ensureSchemaExtensions();
         fixLegacyGenderValues();
         seedSuperAdmin();
         seedTestMember();
         seedContributionPlans();
         seedPrograms();
         seedGoverningDocuments();
+    }
+
+    /**
+     * ddl-auto=update has proven unreliable in this environment for schema it hasn't already
+     * created -- adding columns to an existing table silently doesn't happen, and creating a
+     * brand-new table (platform_settings) crashed the whole app at startup when a JPA query hit
+     * it before the table existed. Raw, idempotent DDL via JdbcTemplate is the pattern already
+     * proven to work here (see fixLegacyGenderValues) -- run explicitly for every schema change
+     * from here on instead of trusting Hibernate to apply it automatically.
+     */
+    private void ensureSchemaExtensions() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS platform_settings (
+                    id UUID PRIMARY KEY,
+                    registration_fee_amount NUMERIC(10,2) NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+                    created_by VARCHAR(150),
+                    updated_by VARCHAR(150),
+                    version BIGINT NOT NULL DEFAULT 0
+                )
+                """);
+
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS constitution_signature_name VARCHAR(200)");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS constitution_signature_initials VARCHAR(20)");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS constitution_signature_date DATE");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS bylaws_signature_name VARCHAR(200)");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS bylaws_signature_initials VARCHAR(20)");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS bylaws_signature_date DATE");
     }
 
     /**
