@@ -175,6 +175,19 @@ public class MembershipApplication extends BaseEntity {
     @Column(name = "registration_submitted_at")
     private LocalDateTime registrationSubmittedAt;
 
+    /** Set when an admin approves membership without a verified Stripe payment -- the
+     * mass-onboarding path for real-world members who joined before the platform existed. */
+    @Column(name = "registration_fee_waived", nullable = false)
+    @Builder.Default
+    private boolean registrationFeeWaived = false;
+
+    @Column(name = "registration_fee_waived_at")
+    private LocalDateTime registrationFeeWaivedAt;
+
+    /** Name of the admin who waived the fee -- audit trail for accounting. */
+    @Column(name = "registration_fee_waived_by", length = 200)
+    private String registrationFeeWaivedBy;
+
     @OneToMany(mappedBy = "application", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ApplicationApproval> approvals = new ArrayList<>();

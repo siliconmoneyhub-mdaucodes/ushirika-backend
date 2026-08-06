@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -52,6 +53,7 @@ public class MembershipService {
     private final PasswordEncoder passwordEncoder;
     private final PaymentBasketRepository paymentBasketRepository;
     private final ProgramApplicationService programApplicationService;
+    private final AuditLogService auditLogService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -355,27 +357,42 @@ public class MembershipService {
     }
 
     /**
-     * Final step: grants full membership once the applicant's onboarding is complete and their
-     * registration fee payment has been verified. Flips the account's role from APPLICANT to MEMBER —
-     * same login credentials, no new account issued.
+     * Final step: grants full membership once the applicant's onboarding is complete and either
+     * their registration fee payment has been verified, or an admin has explicitly waived it
+     * (the migration path for real-world members who joined before the platform existed — they
+     * still complete identity/address/next-of-kin and sign the constitution/bylaws, just skip
+     * Stripe checkout). Flips the account's role from APPLICANT to MEMBER — same login
+     * credentials, no new account issued.
      */
     @Transactional
-    public AdminApplicationDto approveMembership(UUID applicationId, boolean isSuperAdmin) {
+    public AdminApplicationDto approveMembership(UUID applicationId, boolean isSuperAdmin, boolean waiveRegistrationFee) {
         MembershipApplication application = findApplicationById(applicationId);
-
-        if (application.getStatus() != ApplicationStatus.PAYMENT_SUBMITTED) {
-            throw new BadRequestException(
-                    "Only applications with a submitted registration payment can be approved. Current status: " + application.getStatus());
-        }
+        User admin = currentUser();
 
         User user = application.getUser();
         if (user == null) {
             throw new ResourceNotFoundException("No applicant account linked to this application.");
         }
 
-        if (!paymentBasketRepository.existsByMemberIdAndStatusAndLines_Ledger(
-                user.getId(), PaymentStatus.SUCCESS, PaymentBasketLedger.REGISTRATION_FEE)) {
-            throw new BadRequestException("No verified registration fee payment found for this applicant.");
+        boolean feePaid = paymentBasketRepository.existsByMemberIdAndStatusAndLines_Ledger(
+                user.getId(), PaymentStatus.SUCCESS, PaymentBasketLedger.REGISTRATION_FEE);
+        boolean waiving = waiveRegistrationFee && !feePaid;
+
+        if (waiving) {
+            if (application.getStatus() != ApplicationStatus.ONBOARDING_IN_PROGRESS
+                    && application.getStatus() != ApplicationStatus.PAYMENT_SUBMITTED) {
+                throw new BadRequestException(
+                        "Only applications that have started onboarding can be approved. Current status: " + application.getStatus());
+            }
+            requireOnboardingComplete(application);
+        } else {
+            if (application.getStatus() != ApplicationStatus.PAYMENT_SUBMITTED) {
+                throw new BadRequestException(
+                        "Only applications with a submitted registration payment can be approved. Current status: " + application.getStatus());
+            }
+            if (!feePaid) {
+                throw new BadRequestException("No verified registration fee payment found for this applicant.");
+            }
         }
 
         MemberProfile profile = profileRepository.findByUser(user)
@@ -395,14 +412,42 @@ public class MembershipService {
 
         application.setStatus(ApplicationStatus.APPROVED);
         application.setApprovedAt(LocalDateTime.now());
+        if (waiving) {
+            application.setRegistrationFeeWaived(true);
+            application.setRegistrationFeeWaivedAt(LocalDateTime.now());
+            application.setRegistrationFeeWaivedBy(admin.getFullName());
+        }
         applicationRepository.save(application);
 
         emailService.sendMembershipApproved(user.getEmail(), user.getFullName(), profile.getMemberId());
-        log.info("Membership approved for application {} — memberId={}",
-                application.getReferenceNumber(), profile.getMemberId());
+        log.info("Membership approved for application {} — memberId={}{}",
+                application.getReferenceNumber(), profile.getMemberId(), waiving ? " (registration fee waived)" : "");
+
+        if (waiving) {
+            auditLogService.log(admin, "REGISTRATION_FEE_WAIVED", "MembershipApplication", application.getId(),
+                    "Registration fee waived for " + user.getFullName() + " (ref " + application.getReferenceNumber()
+                            + ") by " + admin.getFullName());
+        }
 
         return AdminApplicationDto.from(application, isSuperAdmin);
     }
+
+    /** Everything applicants normally provide during onboarding except the registration fee
+     * payment itself — the bar a waived-fee approval must still clear. */
+    private void requireOnboardingComplete(MembershipApplication application) {
+        List<String> missing = new java.util.ArrayList<>();
+        if (application.getEmailReverifiedAt() == null) missing.add("email verification");
+        if (application.getIdentityInfoSubmittedAt() == null) missing.add("identity details");
+        if (application.getAddressInfoSubmittedAt() == null) missing.add("address");
+        if (application.getKinContactsSubmittedAt() == null) missing.add("next-of-kin & emergency contacts");
+        if (application.getConstitutionAcceptedAt() == null) missing.add("constitution acceptance");
+        if (application.getBylawsAcceptedAt() == null) missing.add("bylaws acceptance");
+        if (!missing.isEmpty()) {
+            throw new BadRequestException(
+                    "Cannot approve without a payment — applicant has not yet completed: " + String.join(", ", missing));
+        }
+    }
+
 
     // ------------------------------------------------------------------ Private
 

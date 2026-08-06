@@ -132,6 +132,13 @@ public class DataInitializer implements ApplicationRunner {
                 """);
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_partner_active ON partners (active)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_partner_sort_order ON partners (sort_order)");
+
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS registration_fee_waived BOOLEAN NOT NULL DEFAULT false");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS registration_fee_waived_at TIMESTAMP");
+        jdbcTemplate.execute(
+                "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS registration_fee_waived_by VARCHAR(200)");
     }
 
     /**

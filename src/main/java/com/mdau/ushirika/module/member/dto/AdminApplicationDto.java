@@ -22,7 +22,11 @@ public record AdminApplicationDto(
         LocalDateTime submittedAt,
         LocalDateTime reviewedAt,
         LocalDateTime approvedAt,
-        List<ApprovalSummary> approvals
+        List<ApprovalSummary> approvals,
+        boolean onboardingComplete,
+        boolean registrationFeeWaived,
+        LocalDateTime registrationFeeWaivedAt,
+        String registrationFeeWaivedBy
 ) {
 
     /** Unified applicant info — works for both authenticated and public submissions. */
@@ -97,6 +101,13 @@ public record AdminApplicationDto(
                 ? ApplicantInfo.fromUser(app.getUser(), null)
                 : ApplicantInfo.fromPublicApplication(app);
 
+        boolean onboardingComplete = app.getEmailReverifiedAt() != null
+                && app.getIdentityInfoSubmittedAt() != null
+                && app.getAddressInfoSubmittedAt() != null
+                && app.getKinContactsSubmittedAt() != null
+                && app.getConstitutionAcceptedAt() != null
+                && app.getBylawsAcceptedAt() != null;
+
         return new AdminApplicationDto(
                 app.getId(),
                 app.getReferenceNumber(),
@@ -108,7 +119,11 @@ public record AdminApplicationDto(
                 app.getSubmittedAt(),
                 app.getReviewedAt(),
                 app.getApprovedAt(),
-                approvalSummaries
+                approvalSummaries,
+                onboardingComplete,
+                app.isRegistrationFeeWaived(),
+                app.getRegistrationFeeWaivedAt(),
+                app.getRegistrationFeeWaivedBy()
         );
     }
 }

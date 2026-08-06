@@ -4,6 +4,9 @@ import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.member.dto.AdminApplicationDto;
 import com.mdau.ushirika.module.member.dto.AdminReviewRequest;
+import com.mdau.ushirika.module.member.dto.BulkActionResultDto;
+import com.mdau.ushirika.module.member.dto.BulkApplicationActionRequest;
+import com.mdau.ushirika.module.member.dto.BulkApproveRequest;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.service.MembershipService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -25,6 +31,7 @@ import java.util.UUID;
 @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Membership — Admin", description = "Review and approve/reject membership applications")
 public class AdminMembershipController {
 
@@ -84,10 +91,72 @@ public class AdminMembershipController {
     }
 
     @PostMapping("/applications/{id}/approve-membership")
-    @Operation(summary = "Grant full membership once the registration fee payment has been verified")
-    public ResponseEntity<ApiResponse<AdminApplicationDto>> approveMembership(@PathVariable UUID id, Authentication auth) {
+    @Operation(summary = "Grant full membership — requires a verified registration fee payment unless waiveRegistrationFee is set")
+    public ResponseEntity<ApiResponse<AdminApplicationDto>> approveMembership(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "false") boolean waiveRegistrationFee,
+            Authentication auth
+    ) {
         boolean isSuperAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_SUPERADMIN"));
-        return ResponseEntity.ok(ApiResponse.ok("Membership approved", membershipService.approveMembership(id, isSuperAdmin)));
+        return ResponseEntity.ok(ApiResponse.ok("Membership approved",
+                membershipService.approveMembership(id, isSuperAdmin, waiveRegistrationFee)));
+    }
+
+    /**
+     * Mass-onboarding tool: the first batch of applicants after launch are typically real-world
+     * members who joined before the platform existed, not fresh signups — this sends onboarding
+     * credentials to every SUBMITTED application in one action instead of one-by-one.
+     * Each item runs through {@link MembershipService#sendForm} via this bean's proxy, so one
+     * application's failure (e.g. a duplicate email) does not roll back or block the others.
+     */
+    @PostMapping("/applications/bulk-send-form")
+    @Operation(summary = "Send onboarding forms to multiple SUBMITTED applications at once")
+    public ResponseEntity<ApiResponse<BulkActionResultDto>> bulkSendForm(
+            @Valid @RequestBody BulkApplicationActionRequest req, Authentication auth
+    ) {
+        boolean isSuperAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_SUPERADMIN"));
+        List<BulkActionResultDto.ItemResult> results = new ArrayList<>();
+        for (UUID id : req.applicationIds()) {
+            try {
+                membershipService.sendForm(id, isSuperAdmin);
+                results.add(BulkActionResultDto.ItemResult.success(id));
+            } catch (Exception e) {
+                log.warn("Bulk send-form failed for application {}: {}", id, e.getMessage());
+                results.add(BulkActionResultDto.ItemResult.failure(id, e.getMessage()));
+            }
+        }
+        BulkActionResultDto result = BulkActionResultDto.of(results);
+        return ResponseEntity.ok(ApiResponse.ok(
+                result.succeededCount() + " form(s) sent, " + result.failedCount() + " failed", result));
+    }
+
+    /**
+     * Mass-approval counterpart to {@link #bulkSendForm} — one {@code waiveRegistrationFee}
+     * choice applies to the whole selected batch. Applicants still need every onboarding step
+     * complete (identity, address, next-of-kin, constitution/bylaws) — only the Stripe payment
+     * itself is skippable, and only for applicants who haven't already paid.
+     */
+    @PostMapping("/applications/bulk-approve")
+    @Operation(summary = "Approve membership for multiple applications at once, with an optional batch-wide fee waiver")
+    public ResponseEntity<ApiResponse<BulkActionResultDto>> bulkApprove(
+            @Valid @RequestBody BulkApproveRequest req, Authentication auth
+    ) {
+        boolean isSuperAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_SUPERADMIN"));
+        List<BulkActionResultDto.ItemResult> results = new ArrayList<>();
+        for (UUID id : req.applicationIds()) {
+            try {
+                membershipService.approveMembership(id, isSuperAdmin, req.waiveRegistrationFee());
+                results.add(BulkActionResultDto.ItemResult.success(id));
+            } catch (Exception e) {
+                log.warn("Bulk approve failed for application {}: {}", id, e.getMessage());
+                results.add(BulkActionResultDto.ItemResult.failure(id, e.getMessage()));
+            }
+        }
+        BulkActionResultDto result = BulkActionResultDto.of(results);
+        return ResponseEntity.ok(ApiResponse.ok(
+                result.succeededCount() + " membership(s) approved, " + result.failedCount() + " failed", result));
     }
 }
