@@ -77,12 +77,12 @@ public class SecurityConfig {
                         .requestMatchers("/admin/constitution/**", "/admin/reinstatement/**")
                                 .hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN")
                         // Financial roles — their own nav's admin sub-paths, previously only reachable via /financial/**.
-                        // Dues/contributions/peer-payments: recording payments is a mutation, so both roles get full access.
+                        // Dues/contributions: recording payments is a mutation, so both roles get full access.
                         .requestMatchers(HttpMethod.GET,
-                                "/admin/dues/**", "/admin/contributions/**", "/admin/peer-payments/**")
+                                "/admin/dues/**", "/admin/contributions/**")
                                 .hasAnyRole("FINANCIAL_ADMIN", "FINANCIAL_OFFICIAL", "ADMIN", "SUPERADMIN", "LEADERSHIP")
                         .requestMatchers(
-                                "/admin/dues/**", "/admin/contributions/**", "/admin/peer-payments/**")
+                                "/admin/dues/**", "/admin/contributions/**")
                                 .hasAnyRole("FINANCIAL_ADMIN", "FINANCIAL_OFFICIAL", "ADMIN", "SUPERADMIN")
                         // Notifications: view-only for both financial roles — broadcasting stays ADMIN/SUPERADMIN.
                         .requestMatchers(HttpMethod.GET, "/admin/notifications/**")
