@@ -9,6 +9,7 @@ import com.mdau.ushirika.module.constitution.enums.DocumentType;
 import com.mdau.ushirika.module.constitution.repository.GoverningDocumentRepository;
 import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
 import com.mdau.ushirika.module.member.dto.AddressInfoRequest;
+import com.mdau.ushirika.module.member.dto.DocumentSignatureRequest;
 import com.mdau.ushirika.module.member.dto.EmergencyContactRequest;
 import com.mdau.ushirika.module.member.dto.IdentityInfoRequest;
 import com.mdau.ushirika.module.member.dto.NextOfKinRequest;
@@ -248,7 +249,7 @@ public class OnboardingService {
     }
 
     @Transactional
-    public OnboardingStatusDto acceptConstitution() {
+    public OnboardingStatusDto acceptConstitution(DocumentSignatureRequest signature) {
         MembershipApplication application = findApplication(currentUser());
 
         boolean publishedExists = governingDocumentRepository.existsByStatusAndDocumentTypeIn(
@@ -258,13 +259,16 @@ public class OnboardingService {
         }
 
         application.setConstitutionAcceptedAt(LocalDateTime.now());
+        application.setConstitutionSignatureName(signature.fullName());
+        application.setConstitutionSignatureInitials(signature.initials());
+        application.setConstitutionSignatureDate(signature.date());
         advanceToOnboarding(application);
         applicationRepository.save(application);
         return OnboardingStatusDto.from(application);
     }
 
     @Transactional
-    public OnboardingStatusDto acceptBylaws() {
+    public OnboardingStatusDto acceptBylaws(DocumentSignatureRequest signature) {
         MembershipApplication application = findApplication(currentUser());
 
         boolean publishedExists = governingDocumentRepository.existsByStatusAndDocumentTypeIn(
@@ -274,6 +278,9 @@ public class OnboardingService {
         }
 
         application.setBylawsAcceptedAt(LocalDateTime.now());
+        application.setBylawsSignatureName(signature.fullName());
+        application.setBylawsSignatureInitials(signature.initials());
+        application.setBylawsSignatureDate(signature.date());
         advanceToOnboarding(application);
         applicationRepository.save(application);
         return OnboardingStatusDto.from(application);

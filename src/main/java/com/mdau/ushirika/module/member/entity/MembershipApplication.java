@@ -9,6 +9,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -136,8 +137,28 @@ public class MembershipApplication extends BaseEntity {
     @Column(name = "constitution_accepted_at")
     private LocalDateTime constitutionAcceptedAt;
 
+    /** Manually-typed signature captured at acceptance -- name/initials/date, not just a
+     * timestamp, per the org's request that this read as an actual signature. */
+    @Column(name = "constitution_signature_name", length = 200)
+    private String constitutionSignatureName;
+
+    @Column(name = "constitution_signature_initials", length = 20)
+    private String constitutionSignatureInitials;
+
+    @Column(name = "constitution_signature_date")
+    private LocalDate constitutionSignatureDate;
+
     @Column(name = "bylaws_accepted_at")
     private LocalDateTime bylawsAcceptedAt;
+
+    @Column(name = "bylaws_signature_name", length = 200)
+    private String bylawsSignatureName;
+
+    @Column(name = "bylaws_signature_initials", length = 20)
+    private String bylawsSignatureInitials;
+
+    @Column(name = "bylaws_signature_date")
+    private LocalDate bylawsSignatureDate;
 
     /** Set once the new onboarding Identity step (idNumber/DOB/gender/marital/occupation) is submitted. */
     @Column(name = "identity_info_submitted_at")

@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.member.controller;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.member.dto.AdditionalInfoRequest;
 import com.mdau.ushirika.module.member.dto.AddressInfoRequest;
+import com.mdau.ushirika.module.member.dto.DocumentSignatureRequest;
 import com.mdau.ushirika.module.member.dto.EmergencyContactRequest;
 import com.mdau.ushirika.module.member.dto.IdentityInfoRequest;
 import com.mdau.ushirika.module.member.dto.NextOfKinRequest;
@@ -84,15 +85,15 @@ public class OnboardingController {
     }
 
     @PostMapping("/accept-constitution")
-    @Operation(summary = "Confirm you have read and accept the constitution")
-    public ResponseEntity<ApiResponse<OnboardingStatusDto>> acceptConstitution() {
-        return ResponseEntity.ok(ApiResponse.ok("Constitution acceptance recorded", onboardingService.acceptConstitution()));
+    @Operation(summary = "Sign and accept the constitution — full name, initials, and date required")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> acceptConstitution(@Valid @RequestBody DocumentSignatureRequest signature) {
+        return ResponseEntity.ok(ApiResponse.ok("Constitution acceptance recorded", onboardingService.acceptConstitution(signature)));
     }
 
     @PostMapping("/accept-bylaws")
-    @Operation(summary = "Confirm you have read and accept the bylaws")
-    public ResponseEntity<ApiResponse<OnboardingStatusDto>> acceptBylaws() {
-        return ResponseEntity.ok(ApiResponse.ok("Bylaws acceptance recorded", onboardingService.acceptBylaws()));
+    @Operation(summary = "Sign and accept the bylaws — full name, initials, and date required")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> acceptBylaws(@Valid @RequestBody DocumentSignatureRequest signature) {
+        return ResponseEntity.ok(ApiResponse.ok("Bylaws acceptance recorded", onboardingService.acceptBylaws(signature)));
     }
 
     @PostMapping("/submit-registration")
