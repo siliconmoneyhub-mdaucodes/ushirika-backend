@@ -11,6 +11,7 @@ public record ElectionSeatDto(
         String description,
         int maxWinners,
         int sortOrder,
+        boolean executiveTier,
         List<CandidacyDto> candidacies
 ) {
     public static ElectionSeatDto from(ElectionSeat seat, List<CandidacyDto> candidacies) {
@@ -20,6 +21,7 @@ public record ElectionSeatDto(
                 seat.getDescription(),
                 seat.getMaxWinners(),
                 seat.getSortOrder(),
+                seat.isExecutiveTier(),
                 candidacies
         );
     }

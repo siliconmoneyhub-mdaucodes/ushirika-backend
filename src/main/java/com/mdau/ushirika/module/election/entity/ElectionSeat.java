@@ -41,6 +41,11 @@ public class ElectionSeat extends BaseEntity {
     @Builder.Default
     private int sortOrder = 0;
 
+    /** Executive-committee seats require a manifesto statement, photo, and video to run. */
+    @Column(name = "executive_tier", nullable = false)
+    @Builder.Default
+    private boolean executiveTier = false;
+
     @OneToMany(mappedBy = "seat", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<ElectionCandidacy> candidacies = new ArrayList<>();

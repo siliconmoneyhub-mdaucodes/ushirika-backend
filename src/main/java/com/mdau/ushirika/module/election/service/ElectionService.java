@@ -35,6 +35,10 @@ public class ElectionService {
     private final ElectionResultRepository      resultRepo;
     private final AuditLogService               auditLogService;
 
+    private static final Set<ElectionStatus> LIVE_TALLY_STATUSES = Set.of(
+            ElectionStatus.VOTING_OPEN, ElectionStatus.VOTING_CLOSED,
+            ElectionStatus.RESULTS_PUBLISHED, ElectionStatus.COMPLETED);
+
     // ── Public ────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -92,6 +96,17 @@ public class ElectionService {
         if (candidacyRepo.existsByElectionIdAndSeatIdAndCandidateId(electionId, req.seatId(), userId)) {
             throw new ConflictException("You have already declared candidacy for this seat.");
         }
+        if (seat.isExecutiveTier()) {
+            if (req.statement() == null || req.statement().isBlank()) {
+                throw new BadRequestException("A manifesto statement is required to run for an executive committee seat.");
+            }
+            if (req.photoUrl() == null || req.photoUrl().isBlank()) {
+                throw new BadRequestException("A profile photo is required to run for an executive committee seat.");
+            }
+            if (req.videoUrl() == null || req.videoUrl().isBlank()) {
+                throw new BadRequestException("A manifesto video is required to run for an executive committee seat.");
+            }
+        }
         User candidate = getCurrentUser();
         ElectionCandidacy candidacy = ElectionCandidacy.builder()
                 .election(election)
@@ -100,6 +115,8 @@ public class ElectionService {
                 .memberName(candidate.getFirstName() + " " + candidate.getLastName())
                 .memberId(null)
                 .statement(req.statement())
+                .photoUrl(req.photoUrl())
+                .videoUrl(req.videoUrl())
                 .status(CandidacyStatus.PENDING)
                 .build();
         candidacyRepo.save(candidacy);
@@ -218,6 +235,7 @@ public class ElectionService {
                         .description(sr.description())
                         .maxWinners(sr.maxWinners() > 0 ? sr.maxWinners() : 1)
                         .sortOrder(sr.sortOrder())
+                        .executiveTier(sr.executiveTier())
                         .build();
                 seatRepo.save(seat);
                 election.getSeats().add(seat);
@@ -408,13 +426,24 @@ public class ElectionService {
     @Transactional(readOnly = true)
     public Map<UUID, Long> getLiveTallies(UUID electionId) {
         Election election = findElection(electionId);
-        if (election.getStatus() != ElectionStatus.VOTING_CLOSED
-                && election.getStatus() != ElectionStatus.RESULTS_PUBLISHED
-                && election.getStatus() != ElectionStatus.COMPLETED) {
-            // Only reveal tallies once voting has closed
-            throw new ForbiddenException("Tallies are not available until voting closes.");
+        if (!LIVE_TALLY_STATUSES.contains(election.getStatus())) {
+            throw new ForbiddenException("Tallies are not available until voting opens.");
         }
         return buildTallyMap(electionId);
+    }
+
+    /**
+     * Full election view (seats, candidates, running vote counts) for the member-facing
+     * live-results feed. Individual ballots stay secret -- this only ever exposes aggregate
+     * counts per candidacy, never who voted for whom.
+     */
+    @Transactional(readOnly = true)
+    public ElectionDto getLiveResults(UUID electionId) {
+        Election election = findElection(electionId);
+        if (!LIVE_TALLY_STATUSES.contains(election.getStatus())) {
+            throw new ForbiddenException("Live results are not available until voting opens.");
+        }
+        return buildDto(election, true);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

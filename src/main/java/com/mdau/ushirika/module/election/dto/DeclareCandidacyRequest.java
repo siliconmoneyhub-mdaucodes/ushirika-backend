@@ -6,5 +6,7 @@ import java.util.UUID;
 
 public record DeclareCandidacyRequest(
         @NotNull UUID seatId,
-        String statement
+        String statement,
+        String photoUrl,
+        String videoUrl
 ) {}

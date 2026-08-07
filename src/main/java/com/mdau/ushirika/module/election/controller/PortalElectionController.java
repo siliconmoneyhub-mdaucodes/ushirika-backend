@@ -5,6 +5,7 @@ import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.election.dto.CandidacyDto;
 import com.mdau.ushirika.module.election.dto.CastVoteRequest;
 import com.mdau.ushirika.module.election.dto.DeclareCandidacyRequest;
+import com.mdau.ushirika.module.election.dto.ElectionDto;
 import com.mdau.ushirika.module.election.service.ElectionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -64,5 +65,14 @@ public class PortalElectionController {
             @AuthenticationPrincipal User user) {
         String msg = electionService.castVote(electionId, user.getId(), req);
         return ResponseEntity.ok(ApiResponse.ok("Vote recorded", msg));
+    }
+
+    /**
+     * Live running vote counts per candidate, for the members-only live-results feed.
+     * Individual ballots stay secret throughout -- only aggregate counts are ever exposed.
+     */
+    @GetMapping("/{electionId}/live")
+    public ResponseEntity<ApiResponse<ElectionDto>> live(@PathVariable UUID electionId) {
+        return ResponseEntity.ok(ApiResponse.ok(electionService.getLiveResults(electionId)));
     }
 }

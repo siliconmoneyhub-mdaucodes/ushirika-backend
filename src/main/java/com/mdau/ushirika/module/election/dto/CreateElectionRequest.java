@@ -21,6 +21,7 @@ public record CreateElectionRequest(
             @NotBlank String title,
             String description,
             int maxWinners,
-            int sortOrder
+            int sortOrder,
+            boolean executiveTier
     ) {}
 }
