@@ -3,8 +3,8 @@ package com.mdau.ushirika.module.notification.service;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.auth.entity.User;
-import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
 import com.mdau.ushirika.module.notification.dto.InAppNotificationDto;
 import com.mdau.ushirika.module.notification.entity.InAppNotification;
@@ -29,6 +29,7 @@ public class InAppNotificationService {
 
     private final InAppNotificationRepository inAppRepo;
     private final UserRepository              userRepository;
+    private final MemberProfileRepository     memberProfileRepository;
     private final EmailService                emailService;
     private final SmsService                  smsService;
 
@@ -86,7 +87,7 @@ public class InAppNotificationService {
     @Async
     @Transactional
     public void broadcast(BroadcastRequest req) {
-        List<User> members = userRepository.findAllByRole(UserRole.MEMBER);
+        List<User> members = memberProfileRepository.findAllMemberUsers();
         notifyUsers(members, req);
         log.info("Broadcast '{}' sent to {} members", req.title(), members.size());
     }
