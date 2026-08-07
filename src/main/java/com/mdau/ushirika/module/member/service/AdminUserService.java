@@ -164,10 +164,21 @@ public class AdminUserService {
      * Admin-initiated member creation. Bypasses the normal application flow.
      * Creates a fully verified, active member account and emails the credentials
      * to the member with a mandatory password-change notice.
+     *
+     * There is no checkout step in this path, so the one-time registration fee can
+     * never actually be collected here -- req.waiveRegistrationFee() must be an explicit,
+     * deliberate admin acknowledgement (not a silent default) that this member is being
+     * created without that payment, audit-logged the same way approveMembership()'s waiver
+     * is, so finance can still account for it instead of the member being invisible to
+     * both the "paid" and "waived" buckets.
      */
     @Transactional
     public UserProfileDto createMember(CreateMemberRequest req) {
         log.info("[createMember] start — email={}", req.email());
+        if (!req.waiveRegistrationFee()) {
+            throw new BadRequestException(
+                    "You must acknowledge that no registration fee will be collected for this member.");
+        }
         if (userRepository.existsByEmail(req.email().toLowerCase())) {
             throw new ConflictException("An account with this email already exists.");
         }
@@ -213,6 +224,11 @@ public class AdminUserService {
         log.info("[createMember] calling createInitialDues");
         membershipDuesService.createInitialDues(user);
         log.info("[createMember] createInitialDues done");
+
+        User admin = currentUser();
+        auditLogService.log(admin, "REGISTRATION_FEE_WAIVED", "User", user.getId(),
+                "Registration fee waived for " + user.getFullName()
+                        + " — created directly by admin " + admin.getFullName() + " (no onboarding checkout)");
 
         try {
             sendWelcomeCredentials(user.getEmail(), user.getFirstName(), memberId, tempPassword);
