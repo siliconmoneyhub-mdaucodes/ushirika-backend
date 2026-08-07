@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.dashboard.dto.ComplianceDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.DashboardSummaryDto;
 import com.mdau.ushirika.module.dashboard.dto.DisciplineDashboardDto;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.MonthlySeriesDto;
 import com.mdau.ushirika.module.dashboard.dto.RecordsDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.ScholarshipBreakdownDto;
@@ -43,6 +44,20 @@ public class DashboardController {
         if (months < 1 || months > 60) months = 12;
         return ResponseEntity.ok(ApiResponse.ok("Financial report generated",
                 dashboardService.getFinancialSeries(months)));
+    }
+
+    @GetMapping("/admin/reports/finance")
+    @PreAuthorize("hasAnyRole('FINANCIAL_ADMIN','ADMIN','SUPERADMIN')")
+    @Operation(summary = "Cross-department finance health — dues collection rate, benevolence payout trend, loan portfolio, MGR totals",
+               description = "year scopes the dues collection-rate figure (default current year); months scopes the benevolence/MGR trend charts (default 12).")
+    public ResponseEntity<ApiResponse<FinanceDashboardDto>> financeDashboard(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(defaultValue = "12") int months
+    ) {
+        int resolvedYear = year != null ? year : java.time.LocalDate.now().getYear();
+        if (months < 1 || months > 60) months = 12;
+        return ResponseEntity.ok(ApiResponse.ok("Finance dashboard loaded",
+                dashboardService.getFinanceDashboard(resolvedYear, months)));
     }
 
     @GetMapping("/admin/reports/welfare")

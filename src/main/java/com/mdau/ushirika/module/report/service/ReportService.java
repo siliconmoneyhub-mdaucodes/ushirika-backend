@@ -13,6 +13,8 @@ import com.mdau.ushirika.module.attendance.repository.MeetingRepository;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto;
+import com.mdau.ushirika.module.dashboard.service.DashboardService;
 import com.mdau.ushirika.module.dues.entity.MembershipDue;
 import com.mdau.ushirika.module.dues.enums.DuesStatus;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
@@ -45,6 +47,7 @@ public class ReportService {
     private final MeetingRepository          meetingRepository;
     private final AttendanceRecordRepository attendanceRepository;
     private final MgrContributionRepository  contributionRepository;
+    private final DashboardService           dashboardService;
 
     // ── Members ──────────────────────────────────────────────────────────────
 
@@ -339,6 +342,45 @@ public class ReportService {
                 fine.getPaidAt(),
                 fine.getMeeting() != null ? fine.getMeeting().getTitle() : null
         );
+    }
+
+    // ── Finance summary ─────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] financeSummaryCsv(Integer year, int months) {
+        var t = CsvBuilder.create(); populateFinanceSummaryTable(t, year, months); return t.toBytes();
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] financeSummaryXlsx(Integer year, int months) {
+        var t = XlsxBuilder.create("Finance Summary"); populateFinanceSummaryTable(t, year, months); return t.toBytes();
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] financeSummaryPdf(Integer year, int months) {
+        var t = PdfBuilder.create("Finance Summary Report"); populateFinanceSummaryTable(t, year, months); return t.toBytes();
+    }
+
+    private void populateFinanceSummaryTable(TableBuilder table, Integer year, int months) {
+        int resolvedYear = year != null ? year : java.time.LocalDate.now().getYear();
+        FinanceDashboardDto dto = dashboardService.getFinanceDashboard(resolvedYear, months);
+
+        table.header("Section", "Metric", "Value");
+
+        table.col("Dues (" + dto.dues().year() + ")").col("Total Billed").col(dto.dues().totalBilled().toString()).newRow();
+        table.col("Dues (" + dto.dues().year() + ")").col("Total Collected").col(dto.dues().totalCollected().toString()).newRow();
+        table.col("Dues (" + dto.dues().year() + ")").col("Collection Rate")
+                .col(String.format("%.1f%%", dto.dues().collectionRatePercent())).newRow();
+
+        table.col("Benevolence").col("Total Paid Out").col(dto.benevolence().totalPaidOut().toString()).newRow();
+        table.col("Benevolence").col("Pending Claims").col(String.valueOf(dto.benevolence().pendingClaims())).newRow();
+
+        table.col("Loans").col("Active (Disbursed/Repaying)").col(String.valueOf(dto.loans().activeCount())).newRow();
+        table.col("Loans").col("Overdue").col(String.valueOf(dto.loans().overdueCount())).newRow();
+        table.col("Loans").col("Defaulted").col(String.valueOf(dto.loans().defaultedCount())).newRow();
+        table.col("Loans").col("Outstanding Principal").col(dto.loans().outstandingPrincipal().toString()).newRow();
+
+        table.col("MGR").col("Total Contributed").col(dto.mgr().totalContributed().toString()).newRow();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

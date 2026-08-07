@@ -30,15 +30,27 @@ import com.mdau.ushirika.module.dashboard.dto.ScholarshipBreakdownDto;
 import com.mdau.ushirika.module.dashboard.dto.ScholarshipBreakdownDto.ProgramRow;
 import com.mdau.ushirika.module.dashboard.dto.WelfareBreakdownDto;
 import com.mdau.ushirika.module.dashboard.dto.WelfareBreakdownDto.CategoryRow;
+import com.mdau.ushirika.module.benevolence.enums.ClaimStatus;
+import com.mdau.ushirika.module.benevolence.repository.BenevolenceClaimRepository;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.BenevolenceHealth;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.DuesHealth;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.LoanPortfolio;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.MgrHealth;
 import com.mdau.ushirika.module.donation.enums.CampaignStatus;
 import com.mdau.ushirika.module.donation.enums.DonationStatus;
 import com.mdau.ushirika.module.donation.repository.DonationCampaignRepository;
 import com.mdau.ushirika.module.donation.repository.DonationRepository;
+import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
 import com.mdau.ushirika.module.event.enums.EventStatus;
 import com.mdau.ushirika.module.event.repository.EventRegistrationRepository;
 import com.mdau.ushirika.module.event.repository.EventRepository;
+import com.mdau.ushirika.module.loan.enums.LoanStatus;
+import com.mdau.ushirika.module.loan.repository.LoanApplicationRepository;
+import com.mdau.ushirika.module.loan.repository.LoanInstallmentRepository;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
+import com.mdau.ushirika.module.mgr.repository.MgrContributionRepository;
 import com.mdau.ushirika.module.notification.enums.NotificationChannel;
 import com.mdau.ushirika.module.notification.enums.NotificationStatus;
 import com.mdau.ushirika.module.notification.repository.NotificationLogRepository;
@@ -91,6 +103,11 @@ public class DashboardService {
     private final ReinstatementRequestRepository   reinstatementRequestRepository;
     private final GoverningDocumentRepository      governingDocumentRepository;
     private final AuditLogRepository               auditLogRepository;
+    private final MembershipDueRepository          membershipDueRepository;
+    private final BenevolenceClaimRepository       benevolenceClaimRepository;
+    private final LoanApplicationRepository        loanApplicationRepository;
+    private final LoanInstallmentRepository        loanInstallmentRepository;
+    private final MgrContributionRepository        mgrContributionRepository;
 
     // ─────────────────────────────────────── Main dashboard
 
@@ -191,6 +208,45 @@ public class DashboardService {
         List<MonthlyPoint> donations     = toPoints(donationRepository.monthlyTotals(from));
 
         return new MonthlySeriesDto(contributions, donations);
+    }
+
+    /**
+     * Dues, benevolence, loans, and MGR are the only modules with no portfolio-wide aggregate
+     * elsewhere in the app -- everything else (contributions, donations, welfare, scholarships)
+     * already feeds {@link #getDashboard()} via existing count/sum repository methods.
+     */
+    @Transactional(readOnly = true)
+    public FinanceDashboardDto getFinanceDashboard(int year, int months) {
+        LocalDateTime from = LocalDateTime.now().minusMonths(months).withDayOfMonth(1)
+                .withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        BigDecimal duesBilled    = membershipDueRepository.sumAmountByYear(year);
+        BigDecimal duesCollected = membershipDueRepository.sumPaidAmountByYear(year);
+        double collectionRate = duesBilled.signum() > 0
+                ? duesCollected.divide(duesBilled, 4, java.math.RoundingMode.HALF_UP).doubleValue() * 100
+                : 0.0;
+        DuesHealth dues = new DuesHealth(year, duesBilled, duesCollected, collectionRate);
+
+        BenevolenceHealth benevolence = new BenevolenceHealth(
+                benevolenceClaimRepository.sumDisbursed(),
+                benevolenceClaimRepository.countByStatus(ClaimStatus.SUBMITTED)
+                        + benevolenceClaimRepository.countByStatus(ClaimStatus.UNDER_REVIEW),
+                toPoints(benevolenceClaimRepository.monthlyDisbursedTotals(from))
+        );
+
+        LoanPortfolio loans = new LoanPortfolio(
+                loanApplicationRepository.countByStatusIn(List.of(LoanStatus.DISBURSED, LoanStatus.REPAYING)),
+                loanInstallmentRepository.countDistinctLoansWithOverdueInstallment(java.time.LocalDate.now()),
+                loanApplicationRepository.countByStatus(LoanStatus.DEFAULTED),
+                loanApplicationRepository.sumOutstandingPrincipal()
+        );
+
+        MgrHealth mgr = new MgrHealth(
+                mgrContributionRepository.sumPaid(),
+                toPoints(mgrContributionRepository.monthlyPaidTotals(from))
+        );
+
+        return new FinanceDashboardDto(dues, benevolence, loans, mgr);
     }
 
     @Transactional(readOnly = true)

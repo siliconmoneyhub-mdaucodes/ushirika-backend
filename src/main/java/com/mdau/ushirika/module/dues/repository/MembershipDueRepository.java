@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -35,4 +36,10 @@ public interface MembershipDueRepository extends JpaRepository<MembershipDue, UU
 
     /** Calendar query: dues for a user with due date within [from, to]. */
     List<MembershipDue> findByUserAndDueDateBetween(User user, LocalDate from, LocalDate to);
+
+    @Query("SELECT COALESCE(SUM(d.amount), 0) FROM MembershipDue d WHERE d.year = :year")
+    BigDecimal sumAmountByYear(@Param("year") int year);
+
+    @Query("SELECT COALESCE(SUM(d.paidAmount), 0) FROM MembershipDue d WHERE d.year = :year")
+    BigDecimal sumPaidAmountByYear(@Param("year") int year);
 }

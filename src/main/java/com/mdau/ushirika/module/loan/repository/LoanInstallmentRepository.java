@@ -18,4 +18,13 @@ public interface LoanInstallmentRepository extends JpaRepository<LoanInstallment
 
     @Query("SELECT COALESCE(SUM(i.amountPaid), 0) FROM LoanInstallment i WHERE i.loan = :loan")
     java.math.BigDecimal sumAmountPaidByLoan(@Param("loan") LoanApplication loan);
+
+    /**
+     * Loans with at least one unpaid installment past its due date. Not filtered on the OVERDUE
+     * enum value -- nothing in this codebase ever transitions an installment to OVERDUE, so that
+     * status is always empty; overdue must be derived from dueDate instead.
+     */
+    @Query("SELECT COUNT(DISTINCT i.loan) FROM LoanInstallment i " +
+           "WHERE i.status IN ('PENDING','PARTIAL') AND i.dueDate < :today")
+    long countDistinctLoansWithOverdueInstallment(@Param("today") java.time.LocalDate today);
 }

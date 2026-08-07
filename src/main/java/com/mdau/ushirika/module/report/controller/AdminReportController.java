@@ -97,6 +97,24 @@ public class AdminReportController {
         return pdf(reportService.mgrPdf(), "mgr_contributions_" + LocalDate.now() + ".pdf");
     }
 
+    @GetMapping("/admin/reports/finance.csv")
+    public ResponseEntity<byte[]> financeSummaryCsv(
+            @RequestParam(required = false) Integer year, @RequestParam(defaultValue = "12") int months) {
+        return csv(reportService.financeSummaryCsv(year, months), "finance_summary_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/finance.xlsx")
+    public ResponseEntity<byte[]> financeSummaryXlsx(
+            @RequestParam(required = false) Integer year, @RequestParam(defaultValue = "12") int months) {
+        return xlsx(reportService.financeSummaryXlsx(year, months), "finance_summary_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/finance.pdf")
+    public ResponseEntity<byte[]> financeSummaryPdf(
+            @RequestParam(required = false) Integer year, @RequestParam(defaultValue = "12") int months) {
+        return pdf(reportService.financeSummaryPdf(year, months), "finance_summary_" + LocalDate.now() + ".pdf");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static String duesFilename(Integer year, String ext) {
