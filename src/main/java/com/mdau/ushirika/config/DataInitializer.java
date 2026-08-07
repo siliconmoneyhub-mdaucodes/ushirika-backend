@@ -74,7 +74,6 @@ public class DataInitializer implements ApplicationRunner {
         fixLegacyGenderValues();
         seedSuperAdmin();
         seedTestMember();
-        seedTestOfficials();
         seedContributionPlans();
         seedPrograms();
         seedGoverningDocuments();
@@ -152,6 +151,18 @@ public class DataInitializer implements ApplicationRunner {
                     updated_by VARCHAR(150),
                     version BIGINT NOT NULL DEFAULT 0
                 )
+                """);
+
+        // users_role_check predates the SECRETARY/CHIEF_WHIP/COMPLIANCE roles and was never
+        // widened -- inserting or promoting a user to one of those roles violates it and, when
+        // hit inside a CommandLineRunner, crashes the whole app at startup. Recreate it with the
+        // full current UserRole enum every boot so it can never drift out of sync again.
+        jdbcTemplate.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
+        jdbcTemplate.execute("""
+                ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN (
+                    'SUPERADMIN','ADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL','LEADERSHIP',
+                    'SECRETARY','CHIEF_WHIP','COMPLIANCE','MEMBER','APPLICANT'
+                ))
                 """);
     }
 
@@ -276,36 +287,6 @@ public class DataInitializer implements ApplicationRunner {
 
         memberProfileRepository.save(profile);
         log.info("Test member seeded: {} / password configured via app.test-member.password", testMemberEmail);
-    }
-
-    /**
-     * Dev-only accounts for exercising the Secretary/Chief Whip/Compliance officials roles and
-     * their dashboards before real officials are seeded. Deliberately named and emailed so they
-     * are unmistakably test data ("test.*@ushirika.test" — the .test TLD is reserved and never
-     * resolves) and easy to bulk-remove once real officials replace them -- see task tracking
-     * "Seed real leadership officials as system users".
-     */
-    private void seedTestOfficials() {
-        seedTestOfficial("test.secretary@ushirika.test", "Test", "Secretary", UserRole.SECRETARY);
-        seedTestOfficial("test.chiefwhip@ushirika.test", "Test", "ChiefWhip", UserRole.CHIEF_WHIP);
-        seedTestOfficial("test.compliance@ushirika.test", "Test", "Compliance", UserRole.COMPLIANCE);
-    }
-
-    private void seedTestOfficial(String email, String firstName, String lastName, UserRole role) {
-        if (userRepository.existsByEmail(email)) return;
-
-        User official = User.builder()
-                .firstName(firstName)
-                .lastName(lastName)
-                .email(email)
-                .phone("+10000000000")
-                .password(passwordEncoder.encode(testMemberPassword))
-                .role(role)
-                .emailVerified(true)
-                .active(true)
-                .build();
-        userRepository.save(official);
-        log.info("Test official seeded: {} ({}) / password configured via app.test-member.password", email, role);
     }
 
     private void seedContributionPlans() {
