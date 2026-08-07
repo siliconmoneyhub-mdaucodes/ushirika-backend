@@ -3,21 +3,27 @@
 Read this before flipping the platform over to real members and real money. Work through it
 top to bottom; don't skip items just because they look done — verify live, not from memory.
 
-## 1. Remove the payment simulation stub
+## 1. Confirm the payment simulation tool is disabled in production
 
-Added 2026-08-05 to unblock live testing of payment-gated flows (dues, registration fee,
-benevolence enrollment, MGR contributions) without live Stripe keys. **Must be removed before
-go-live** — once real Stripe keys are wired up, a SUPERADMIN account (or a compromised one) could
-use this tool to mark real charges as "paid" without any money actually moving, i.e. free
-memberships/payments on demand. It is not something to leave behind "just in case."
+**Updated 2026-08-07: this item's design changed.** The simulator was originally a stub to delete
+before go-live; as of this window it's been redesigned as a **permanent SUPERADMIN-only tool**,
+gated behind the `STRIPE_ALLOW_DEV_FALLBACK` env var (default `false`), paired with `StripeService`
+only generating fake `cs_dev_...` sessions when that flag is true. The code and its javadoc now
+both frame it as intentional, not leftover.
 
-Remove:
+Still present (verified 2026-08-07):
 - Backend: `src/main/java/com/mdau/ushirika/module/payment/controller/AdminPaymentSimulationController.java`
-  (whole file) and its two methods on `PaymentBasketService` (`simulateSuccess`, `listPendingBaskets`)
-  if nothing else references them.
-- Frontend: the "Payment Simulator" card in `src/routes/admin/developer.tsx`, plus
+  — `@PreAuthorize("hasRole('SUPERADMIN')")`, endpoints `/admin/payments/simulate/baskets` and
+  `/{id}/success`.
+- Frontend: "Payment Simulator" card in `src/routes/admin/developer.tsx`, plus
   `listPendingPaymentBaskets`/`simulatePaymentSuccess` in `src/lib/api/client.ts` and the
   `PaymentBasketSummary` type in `src/lib/api/types.ts`.
+
+**Before go-live**: confirm `STRIPE_ALLOW_DEV_FALLBACK` is `false` (or unset) in the production
+Railway env, so a SUPERADMIN account can no longer mark real charges "paid" without money moving.
+Whether to also hide the UI card entirely in production, or leave it as a dormant no-op tool behind
+the env flag, is a decision for the user — don't remove the code without checking, since it's no
+longer treated as a stub.
 
 ## 2. Switch Stripe from test/dev mode to live keys
 
@@ -62,10 +68,12 @@ been changed from any default/placeholder before members start signing up.
 
 ## 7. Known content issues to fix before members see them
 
-- Public `/membership` page and the portal dashboard's "dues unpaid" banner still describe paying
-  via "Zelle, Cash App, or bank transfer" — stale copy from before the Stripe-only migration.
-  Update to reflect the real (Stripe-only) payment flow, or explicitly decide manual payment
-  methods are still offered and wire up a real path for them.
+- Public `/membership` page (`src/routes/membership.tsx` lines ~654/656/667) and the portal
+  dashboard's "dues unpaid" banner (`src/routes/portal/index.tsx` line ~162), plus channel labels
+  in `portal/meetings.tsx`/`portal/membership.tsx`, still describe paying via "Zelle, Cash App, or
+  bank transfer." **Still open as of 2026-08-07** — and now more clearly wrong, since real
+  cash-payment and admin card-entry flows shipped this window, so the copy should point at those
+  instead of the old manual methods. Update to reflect the real payment flow.
 
 ---
 

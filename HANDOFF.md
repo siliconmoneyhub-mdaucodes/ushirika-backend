@@ -1,7 +1,9 @@
 # Ushirika Welfare Organization — Project Handoff
 
-Written 2026-08-05 at the end of a long Claude Code session, for continuity into a new
-session/account. Read this file first before doing anything else on this project.
+Updated 2026-08-07 (second pass, same day) after auditing two days of heavy, unsupervised feature
+work (26 backend commits / 24 frontend commits since the previous 2026-08-05 handoff), then acting
+on user-directed fixes from that audit. Verified against actual code and live production endpoints,
+not carried forward from memory. Read this file first before doing anything else on this project.
 
 ## What this is
 
@@ -9,14 +11,11 @@ session/account. Read this file first before doing anything else on this project
 association based in the Dallas–Fort Worth, TX area. This is their production membership
 management platform: applications, onboarding, dues, welfare programs (Benevolence bereavement
 fund, MGR merry-go-round table-banking, custom programs), meetings/attendance, elections, forums,
-messaging, and Stripe-based payments.
+messaging, notifications, finance/audit reporting, and Stripe-based payments.
 
-The user (Mdau) is the sole developer, building this solo with Claude Code. **Timeline pressure is
-real**: as of 2026-08-05, admins need the system usable within about a week so they can learn the
-platform before demoing it to members. The org's annual general meeting is about a month out, after
-which the admins will supply the final, board-approved Constitution and Bylaws text (what's live
-now is an interim version transcribed from PDFs the user provided, explicitly marked "pending
-review at the upcoming annual meeting").
+The user (Mdau) is the sole developer, building this solo with Claude Code. Timeline pressure from
+the 2026-08-05 handoff (admins need the system usable within about a week, AGM roughly a month
+out) still applies — if anything the pace of the last two days suggests that deadline is close.
 
 ## Repos
 
@@ -27,19 +26,37 @@ review at the upcoming annual meeting").
 - **Frontend**: `J:\frontend\ushirika-main\ushirika-connect-main` — TanStack Start / React /
   TypeScript. Git remote `MdauCodes/ushirika-connect`, branch `main`. Deployed at
   `https://ushirikacommunity.site` — pushing to `main` auto-deploys.
+- Both repos are clean and pushed as of this update. The admin card-charging feature
+  (`0b1b54b` backend / `3936807` frontend) is now fully committed and pushed on both sides — it was
+  found half-finished (backend pushed, frontend uncommitted) during this audit and completed. **Not
+  yet smoke-tested live in a browser** — `VITE_STRIPE_PUBLISHABLE_KEY` needs a real value in
+  Railway/the frontend host's env before the Card Entry tab will do anything but show its "not
+  configured" warning; confirm that's set, then test the full charge flow for real.
 - Admin panel lives inside the frontend app at `/admin/*`. Public site, member portal
   (`/portal/*`), and applicant onboarding (`/onboarding`) are all the same frontend app, gated by
   role.
 
 ## Conventions that matter
 
-- **No Flyway/Liquibase.** Migrations are hand-written SQL in `backend/migrations/V0XX__*.sql`,
-  numbered sequentially (latest is V029). They are **not auto-applied** — historically the pattern
-  was "give the user each statement to paste into Railway's Postgres console one at a time." As of
-  this session, prefer **app-code seeding via `DataInitializer.java`** instead when data needs to
-  survive future edits without being reset on redeploy (see the Constitution/Bylaws section below
-  for why, and the established `existsByX()` guard pattern already used for superadmin, test
-  member, contribution plans, and programs).
+- **No Flyway/Liquibase, and the `backend/migrations/V0XX__*.sql` files are now effectively
+  inert/historical.** The last real file is still V029 (`program_application_beneficiaries.sql`) —
+  no new migration files have been added since 2026-08-05 despite substantial schema growth.
+  **All schema changes now go through `DataInitializer.ensureSchemaExtensions()`**, idempotent raw
+  DDL (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, constraint drop-and-recreate) that
+  runs on every boot. Confirmed it currently owns: `platform_settings`, `partners`,
+  `member_credit_balances`, `conversation_threads`/`conversation_messages`,
+  `election_seats.executive_tier`, `election_candidacies.video_url`, constitution/bylaws signature
+  columns, registration-fee-waiver columns, meeting/event reminder-sent flags, and rebuilding the
+  `users_role_check` / `in_app_notifications_category_check` constraints to include new
+  roles/categories on every deploy (this constraint got out of sync with the `UserRole` enum twice
+  already and crashed startup both times — see the election/roles section below). **Any future
+  schema change should extend this method, not add a new `migrations/V0xx` file.**
+- **Data seeding**: `DataInitializer.java` also seeds the superadmin and one test MEMBER account
+  (see Test Credentials below) via `existsByX()` guards. **Test-official seeding for the new
+  Secretary/Chief Whip/Compliance roles was added then deliberately removed** (`201f0dc`) — it kept
+  crashing boot because the role-check constraint predated those roles. Per explicit user
+  direction, those roles are now populated by **promoting real accounts during live testing**, not
+  seeded test users. Don't re-add a seeder for them without checking with the user first.
 - **Git author requirements**: backend commits use `MdauCodes <mdaucodes@gmail.com>` on `master`;
   frontend commits use `Mdau Codes <mdaucodes@gmail.com>` (note the space) on `main`. Use
   `git commit --author=`.
@@ -47,198 +64,192 @@ review at the upcoming annual meeting").
   30s–5min to refresh a token before a push completes; a `git push` that appears to hang or time
   out is very often *not actually stuck*, just slow. Retry rather than assume it failed
   (`dangerouslyDisableSandbox: true` is required on the Bash tool for pushes to work at all here).
-- **Backend response envelope convention**: almost every controller wraps responses in
-  `ApiResponse.ok(...)` → `{success, message, data}`, and the frontend's generic `call()`/
-  `callList()` helpers in `src/lib/api/client.ts` universally assume that envelope (they do
-  `json.data as T`). **The `constitution` module violates this convention** — see Known Bug below.
-  Don't copy that module's pattern; wrap new endpoints in `ApiResponse` like everything else.
+- **Backend response envelope convention**: every controller wraps responses in `ApiResponse.ok(...)`
+  → `{success, message, data}`, and the frontend's generic `call()`/`callList()` helpers in
+  `src/lib/api/client.ts` universally assume that envelope. This convention is now consistently
+  applied — the constitution-module violation described in the previous handoff is fixed (see
+  Known Bug section below). Keep wrapping new endpoints the same way.
 - **Credential handling**: never ask the user for passwords/tokens. For admin-only actions, either
   ask the user to do it themselves in the browser, or hand them copy-pasteable SQL/curl. The
   Railway Postgres console has (at least) two different input surfaces — a table/data search-filter
   box and a proper "Query" page — pasting a non-`SELECT` statement into the search box silently
-  mangles it (produces a bogus "syntax error near LIMIT"). If SQL needs to run, prefer the Console
-  tab or an explicit "Query" page over the Data tab's search box; better yet, avoid the console
-  entirely by seeding through app code and a deploy (see below).
-- **PDF text extraction**: `pdftotext` is available via mingw64/Git-Bash in this environment.
-  Extracting with `-layout` and then reflowing with a small Node script (strip repeated
-  header/footer lines, merge line-wrapped continuations back into their list item, preserve
-  `Article`/`Section` headings and numbered/lettered/roman-numeral list markers) produced clean,
-  faithful text from the org's real Constitution/Bylaws PDFs. Don't editorialize/fix typos in the
-  source document — preserve it faithfully, including the org's own inconsistencies.
+  mangles it. Prefer the Console/Query page, or better, seed through app code and a deploy.
+- **PDF text extraction**: `pdftotext` (via mingw64/Git-Bash) with `-layout`, then a small Node
+  reflow script, produced clean Constitution/Bylaws text from the org's real PDFs — see
+  `backend/src/main/resources/seed/constitution.txt` / `bylaws.txt` if this needs to be redone for
+  the final board-approved text after the AGM.
 
 ## What's been built, in order
 
-### Payments (Phase 0–3, earlier in this session)
-Unified `PaymentBasket` system replacing ad-hoc payment flows: multi-line-item Stripe checkout,
-additive-credit methods for Benevolence/MGR, `GET /payments/my/outstanding` aggregator, dedicated
-ledgers (`DUES`, `BENEVOLENCE_ENROLLMENT`, `BENEVOLENCE_REPLENISHMENT`, `MGR_CONTRIBUTION`,
-`GENERAL_CONTRIBUTION`, `PROGRAM_APPLICATION_PREPAY`, `REGISTRATION_FEE`). Removed the old
-admin-manual-entry and member-self-report payment paths entirely (`PeerPayment` self-report system,
-fine self-report, replenishment self-attest) in favor of Stripe-verified payments only. Frontend:
-`portal/payments.tsx` ("Pay My Balances") is the one member-facing payment page now.
+### Payments (Phase 0–3, prior session) → superseded by a unified balance engine (this window)
+Original `PaymentBasket` system (multi-line-item Stripe checkout, dedicated ledgers) has now been
+extended with a **single settlement point**: `module/payment/service/PaymentAllocationService.java`
+pools all incoming money (Stripe, cash, admin-entered card) and applies it in priority order —
+fines → dues → MGR → benevolence — backed by a new `MemberCreditBalance` entity/repository. Legacy
+`PeerPayment` self-report controller/service/repository/DTO were deleted outright (`1a56bda`); only
+the underlying `PeerPayment` entity/enums remain, referenced elsewhere.
 
-### Content & operations features
-- **Gallery**: album creation + media upload UI, fixed public route mismatch, fixed
-  publish/unpublish HTTP method mismatch, fixed a real bug where deleting photos/albums only
-  removed DB rows and left orphaned files on Cloudinary (`CommunityAlbumService` now calls
-  `cloudinary.uploader().destroy(...)`, matching the pattern in `MediaService`/`LeadershipService`).
-- **Events**: fixed status-update method signature bug, wired the Edit UI to the existing update
-  endpoint, added a frontend status gate so Edit doesn't show on COMPLETED/CANCELLED events.
-- **Attendance** (3 phases): `Meeting`/`AttendanceRecord` entities, HMAC rotating QR check-in code
-  with GPS validation, auto-fine wiring for late/absent via `FineService`, admin QR
-  config+full-screen display, member camera-scan check-in flow, an `AttendanceExcuse` system for
-  members to explain absences with an admin review queue. OpenStreetMap Nominatim (free, no API
-  key) replaced raw lat/lng entry for admin meeting-location search.
-- **Messaging**: a full member↔admin/coordinator messaging module (backend + frontend), threads
-  optionally scoped to a program.
-- **Branding**: renamed "Ushirika Welfare Foundation/DFW" → "Ushirika Welfare Organization"
-  everywhere. Global "Join Now"/"Login" FAB that adapts based on auth state.
+### Content & operations features (prior session)
+Gallery (album/media + Cloudinary orphan-file fix), Events (status-update fix, Edit gating),
+Attendance (QR check-in, HMAC + GPS, auto-fines, excuse review queue), Messaging (member↔admin
+threads), branding rename to "Ushirika Welfare Organization."
 
-### The big one: Onboarding & Member Profile Refactor (9 phases, all shipped)
+### Onboarding & Member Profile Refactor (9 phases, prior session) — now extended
+Real identity/address/next-of-kin data collection, step-by-step resumable onboarding, text-based
+(not PDF) Constitution/Bylaws consent. **This window added**: onboarding now requires a **manual
+signature** (typed name, initials, date) to accept Constitution/Bylaws (`cece384`), not just a
+scroll-to-bottom checkbox.
 
-**Why**: the old onboarding wizard never actually collected real identity/address/next-of-kin data
-— a placeholder `MemberProfile` was created with dummy values ("Pending", 1900-01-01, etc.) and
-nothing ever replaced them. This refactor makes onboarding the single real source of that data.
+### New this window (2026-08-05 → 2026-08-07)
+- **Elections**: full executive-officer election system — `module/election/` with
+  `Election`/`ElectionSeat`/`ElectionCandidacy`/`ElectionResult`/`ElectionVoteReceipt`/
+  `ElectionVoteTally` entities, `AdminElectionController`/`PortalElectionController`/
+  `PublicElectionController`, `ElectionService`. Candidacies require manifesto/photo/video for
+  executive-tier seats; a live vote feed exists on both admin and portal sides
+  (`src/routes/admin/elections.tsx`, `src/routes/portal/elections.tsx`,
+  `src/routes/portal/live-votes.tsx`). Fixed a `TransientPropertyValueException` on election
+  creation and a case where `election_seats.executive_tier`/`election_candidacies.video_url`
+  columns never actually reached production (schema-extension gap, now covered by
+  `ensureSchemaExtensions()`).
+- **New roles**: `SECRETARY`, `CHIEF_WHIP`, `COMPLIANCE` added to `UserRole` alongside the existing
+  `SUPERADMIN, ADMIN, FINANCIAL_ADMIN, FINANCIAL_OFFICIAL, LEADERSHIP, MEMBER, APPLICANT`. Each has
+  a distinct scope (records/meetings, discipline/attendance, governance/constitution respectively)
+  and a role-aware dashboard on the frontend (`src/routes/admin/index.tsx`, `admin.tsx`). Session/
+  profile role mapping and post-login redirects for these roles, and for financial roles, were
+  fixed (`018b23a`, frontend `e625eb7`) — they were previously falling through to generic behavior.
+- **Audit logging**: `module/audit/` (`AuditLog` entity, `AuditLogService`,
+  `AdminAuditLogController`), extended to cover benevolence, loans, scholarships, elections, and
+  role/credential changes. Frontend: `src/routes/admin/audit-logs.tsx` with badges/filters.
+- **Finance dashboard**: cross-department view spanning dues/benevolence/loans/MGR —
+  `module/dashboard/` (`FinanceDashboardDto`, `DashboardController`, `DashboardService`) backend
+  side; `src/routes/admin/contributions.tsx`, `payment-records.tsx`, and a Finance section in
+  `src/routes/admin/analytics.tsx` frontend side, plus a Finance home dashboard for
+  Financial Admin/Official.
+- **Reports**: Excel and PDF export added alongside existing CSV — `report/util/{PdfBuilder,
+  XlsxBuilder,TableBuilder}.java`.
+- **Notifications**: broadcast fixed to stop excluding members who hold an official role
+  (`aa435f1`); extended beyond all-members-only to single-member and program-scoped targeting
+  (backend `module/notification/`, frontend `src/routes/admin/notifications.tsx`). 24h/6h upcoming
+  reminders added for meetings and events.
+- **Messaging**: extended with staff-initiated conversations (with a "not private" warning to
+  members) and admin/coordinator-started threads; backing tables (`conversation_threads`,
+  `conversation_messages`) were missing in production and had to be added via
+  `ensureSchemaExtensions()` (`c0b0e9a`).
+- **Partners**: new public "Our Partners" page + admin management
+  (`src/routes/admin/partners.tsx`, `src/routes/partners.tsx`), backed by a new `partners` table.
+- **Admin card-charging (in progress, not fully shipped)**: admin can charge a member's own card
+  directly via Stripe Elements. Backend committed (`0b1b54b`) but **unpushed**; frontend work
+  (`startAdminCardEntry`/`CardEntryResult` in `client.ts`, wiring in `admin/contributions.tsx`) is
+  **uncommitted**. Treat as incomplete until both sides are committed, pushed, and smoke-tested.
+- **Misc fixes**: admin Create Member was silently skipping registration-fee tracking (fixed,
+  backend `4898a02` / frontend now requires explicit fee acknowledgment `0e31f36`); a misleading
+  fee-waiver checkbox in bulk application actions; promoted officials being silently downgraded
+  back to plain member; Member Stories photo field was a raw URL paste box instead of a real
+  upload; address-bar favicon; SMS channel disabled and WhatsApp tab marked "coming soon"
+  (intentional stub, not an oversight).
 
-- **Phase 1** (V026): `Gender` narrowed to `MALE`/`FEMALE` only. New `Country` enum (`KENYA`,
-  `UGANDA`). `MemberProfile` address fields replaced with real structured columns:
-  `street, city, zipCode, country` + conditional sub-region fields (`kenyaCounty/SubCounty/Village`
-  or `ugandaProvince/County/Village`). All nullable at the DB level — completeness is enforced at
-  the application layer in `OnboardingService.submitRegistration()`, not DB constraints.
-- **Phase 2** (V027): `NextOfKin`/`EmergencyContact` as proper child entities, fixed at exactly 2
-  each via a `position SMALLINT CHECK (position IN (1,2))` + unique constraint, `FetchType.EAGER`
-  (deliberate — `open-in-view: false` means lazy access outside a transaction would throw).
-- **Phase 3** (V028): Constitution acceptance tracking (mirrors existing bylaws acceptance), a
-  `requireCompleteProfile()` gate in `submitRegistration()`, removed the onboarding-time "join
-  programs" step and its backend endpoints entirely.
-- **Phase 4**: new per-step backend endpoints — `POST /onboarding/{identity-info,address-info,
-  next-of-kin,emergency-contacts}` — each independently submittable/resumable.
-- **Phase 5**: onboarding wizard split into step components under
-  `frontend/src/components/onboarding/steps/`. New step order: **Account Setup → Identity →
-  Address → Next of Kin & Emergency Contacts → References → Constitution → Bylaws → Registration
-  Fee.** Constitution/Bylaws each get their own step.
-- **Phase 6**: `portal/profile.tsx` rebuilt to match the real backend shape, reusing shared
-  `AddressFields`/`KinContactPairFields` components (also used by onboarding).
-- **Phase 7** (V029): `ProgramApplication` gained `beneficiaries`/`notes` columns. New
-  `MemberProgramController` (`/programs`, MEMBER-role) lets *verified members* browse and apply to
-  programs directly from the portal — distinct from (now-removed) onboarding-time program
-  selection. Guarded to CUSTOM-type programs only; MGR/Benevolence keep their own dedicated join
-  flows.
-- **Phase 8**: `portal/programs.tsx` — lists programs with per-member state; MGR/Benevolence
-  deep-link to their existing pages, CUSTOM programs get an inline apply form + status badges +
-  (once approved) links to messaging and Pay My Balances.
-- **Phase 9 / UX correction** (the most recent work): the user explicitly corrected the initial
-  approach — **Constitution/Bylaws must render as real text you scroll through, not an embedded
-  PDF.** The original Phase 5 implementation used `react-pdf` (`PdfConsentViewer.tsx`); this was
-  **ripped out entirely** (dependency uninstalled, ~1MB bundle savings) and replaced with
-  `TextConsentViewer.tsx`, which renders `GoverningDocument.contentText` as plain scrollable text
-  and gates the "I agree and consent" checkbox on actually reaching the bottom (same scroll-gate
-  logic, just no PDF renderer). Every wizard step past Account Setup also gained a **Back** button,
-  and the data-entry steps (Identity/Address/KinContacts/References) now **prefill** from
-  `getFullProfile()`/`getOnboardingStatus()` so navigating back and forth doesn't lose data. Also
-  fixed a real bug found along the way: `OnboardingService.submitAdditionalInfo()` was silently
-  discarding the reference1/2 name+member-ID fields instead of persisting them.
+## ✅ Previously known bug — now FIXED and verified LIVE
 
-### Getting the real Constitution/Bylaws text live
+The 2026-08-05 handoff flagged `ConstitutionController`/`AdminConstitutionController` returning raw
+unwrapped `List<GoverningDocumentDto>`, breaking `/admin/constitution` and likely the onboarding
+consent viewer. **Confirmed fixed** (`8ef29b6`, "Fix: wrap constitution controllers in ApiResponse
+envelope") — both controllers now return `ResponseEntity<ApiResponse<...>>` for all six endpoints.
+**Re-verified live** this session by curling the real production endpoint
+(`GET /api/public/constitution`): returns a proper `{success, message, data}` envelope with one
+published `CONSTITUTION` and one published `BYLAWS` document. The frontend's `callList()` helper
+correctly unwraps `.data`, so `/admin/constitution` and the onboarding `TextConsentViewer` are
+confirmed working end-to-end at the API layer. (The onboarding UI itself — clicking through the
+wizard in a real browser — still hasn't been click-tested; the data plumbing is proven sound.)
 
-The user provided the org's actual Constitution and Bylaws as PDFs. Extracted with `pdftotext
--layout` + a Node reflow script (strips page header/footer noise, merges wrapped lines, preserves
-heading/list structure) into clean text — final versions live in
-`backend/src/main/resources/seed/constitution.txt` and `bylaws.txt`.
+**Unresolved from the prior handoff**: whether the duplicate `CONSTITUTION` row was ever deleted
+from the DB is **still unconfirmed** — the public endpoint only returns published docs so it can't
+prove or disprove a duplicate exists; checking requires the admin panel's full list (SUPERADMIN
+login) or a DB query, neither done this session.
 
-First attempt was hand-run SQL via Railway's Postgres console (the constitution `INSERT` succeeded,
-but the bylaws `UPDATE` hit the search-box-vs-query-page issue above). The user then asked for a
-seed-once approach instead so future admin edits never get reset. Implemented as a guarded startup
-seed in `DataInitializer.seedGoverningDocuments()`:
-- Constitution: skip entirely if any `CONSTITUTION` row already exists (any status).
-- Bylaws: if a row's title still contains `"PLACEHOLDER"`, replace its title/description/content
-  and publish it; once an admin edits it (changing the title), the guard stops matching and future
-  deploys never touch it again. If no bylaws row exists at all, create one fresh.
+## Session 2 (2026-08-07, this pass): what got fixed
 
-This deployed successfully (verified live via the public API). **One cleanup item remains**: there
-are now two duplicate, identical `CONSTITUTION` rows in the DB (both from the user's manual SQL
-attempts before switching to the seed approach — my seed correctly saw one already existed and
-skipped, so it did not cause the duplicate). Delete one via the admin panel's trash icon — except
-the admin panel can't currently list documents at all, see below.
+Acting on direct user instructions after reviewing the audit above:
 
-## 🔴 Known bug — found but not yet fixed, top priority for next session
-
-**The `/admin/constitution` page shows "No governing documents yet." even though the documents
-exist and the public API returns them correctly.** Root cause confirmed by reading the actual
-source (not just grep, which has a known rendering quirk with backslashes in this environment —
-always verify with Read before trusting a Grep hit that looks like a path bug):
-
-- `ConstitutionController` (`/public/constitution`) and `AdminConstitutionController`
-  (`/admin/constitution`) both return a **raw, unwrapped `List<GoverningDocumentDto>`** —
-  `ResponseEntity.ok(service.listAll())` — with no `ApiResponse` envelope.
-- The frontend's generic `call<T>()` helper (`src/lib/api/client.ts` ~line 267) **unconditionally**
-  does `const json = await res.json(); return json.data as T;` — it always expects
-  `{success, message, data}` and reaches into `.data`. Given a raw JSON array, `json.data` is
-  `undefined`.
-- `callList()` treats a `null`/`undefined` result as an empty list → the frontend silently renders
-  "no documents," even though the request succeeded (HTTP 200) and the backend genuinely returned
-  data.
-
-This affects **both** `/admin/constitution` (confirmed live — the screenshot the user shared) and,
-almost certainly, `/public/constitution` → `listPublicDocuments()` → **`TextConsentViewer`, i.e.
-the onboarding Constitution/Bylaws steps built in Phase 5/9**. That component's actual fetch path
-through the frontend has never been verified end-to-end in a real browser session (only verified
-via direct `curl` against the raw API, and via `tsc`/build success) — so there's a real risk the
-onboarding flow's Constitution/Bylaws steps currently show "this document isn't available yet"
-to real applicants despite the data being correctly seeded.
-
-**The fix**: make `ConstitutionController` and `AdminConstitutionController` wrap every response in
-`ApiResponse.ok(...)` like every other controller in the codebase, matching the established
-convention — don't special-case the frontend. Six methods total across the two controllers
-(`listPublished`, `listAll`, `create`, `update`, `publish`, `unpublish`, `delete`). After fixing,
-**verify live in a browser**: the admin panel should list all 3 (well, will be 2 after the
-duplicate cleanup) documents, and the onboarding wizard's Constitution/Bylaws steps should render
-real text with working scroll-gated consent.
+1. **Admin card-charging feature — reconciled, committed, pushed, both sides.** Backend `0b1b54b`
+   and a completed frontend commit `3936807` are both on `master`/`main` now. Verified compatible
+   (`POST /financial/cash-payments/card-entry` ↔ `startAdminCardEntry()`) and that both repos build
+   clean (`mvnw compile`, `npm run build`) before pushing. **Still needs**: confirm
+   `VITE_STRIPE_PUBLISHABLE_KEY` has a real value wherever the frontend is hosted (it's an empty
+   placeholder in the local `.env`/`.env.production` — without it the Card Entry tab shows a "not
+   configured" warning instead of the Stripe Elements form), then smoke-test an actual charge.
+2. **Stale Zelle/Cash App/Venmo copy — partially removed, scope question surfaced for the rest.**
+   Fixed everywhere a live Stripe/cash alternative already exists and is fully wired: the public
+   `/membership` payment-method cards (`d028415`), the portal dashboard's dues-unpaid banner (now
+   links to Pay My Balances), the generic card-payment-failure fallback message in `client.ts`
+   (used to say "pay via Zelle/Venmo/Cash App," now says to arrange cash with an admin), and the
+   internal `demo-guide.tsx` walkthrough steps for dues/fines.
+   - **Confirmed safe to leave alone**: `channelLabel()` helpers in `portal/meetings.tsx` and
+     `portal/membership.tsx` only label *historical* payment records (what channel a past payment
+     actually used) — not an active "pay via Zelle" prompt. No live submission UI reads them.
+   - **Found but deliberately NOT touched — needs a scoping decision, see below**: `donations.tsx`,
+     `scholarship.tsx`, `portal/benevolence.tsx`'s replenishment-payment modal, and the whole
+     `admin/payment-links.tsx` / `AdminPaymentLinksController` / `PublicPaymentLinksController` /
+     `MemberContribution` backend apparatus. These are **real, live, functioning features** with
+     **zero Stripe or cash alternative wired on the frontend** — donors and members currently pay
+     through them via the Zelle/Venmo/CashApp self-report-and-admin-verify flow, and nothing else.
+     Removing that copy/UI without first wiring a replacement would leave donors and benevolence-
+     replenishing members with **no way to pay at all**. The backend's `PaymentBasketLedger` already
+     has `GENERAL_CONTRIBUTION` and `BENEVOLENCE_REPLENISHMENT` cases fully implemented and ready to
+     receive Stripe/cash/card-entry payments — the frontend for those two flows just never got built
+     to call them. **This is a real feature-build task (wire donations.tsx and the benevolence
+     replenishment modal into the existing PaymentBasket checkout), not a copy edit — needs explicit
+     user sign-off on scope/priority before starting.**
 
 ## What's next, in priority order
 
-1. **Fix the `ApiResponse` wrapping bug above.** This blocks both admin document management and
-   (likely) the onboarding consent flow — do this before anything else.
-2. Delete the duplicate Constitution row via the admin panel (or SQL, once you're confident about
-   which console surface to use) after the panel is working again.
-3. **Redesign the transactional email templates** to visually match the live website — matching
-   color theme, branding, layout. The user offered to share website screenshots for reference; ask
-   for them if not already provided. Find the existing email templates (search `EmailService` and
-   wherever HTML email bodies are constructed — likely `module/notification`) before designing.
-4. **Full live end-to-end testing of onboarding**, using a real email address the user will
-   provide when asked: submit an application → admin sends the form → applicant walks the entire
-   onboarding wizard (all 8 steps, including reading Constitution/Bylaws and back-navigation) →
-   registration fee payment → admin approves membership → confirm portal access. This was blocked
-   on the email redesign per the user's explicit ordering ("before the live testing, we must work
-   on the email designs... after the redesign... we should do the live testing end to end").
-5. Two previously-flagged, still-open background cleanup items (non-blocking, spawned as
-   dismissable task chips earlier this session, may or may not still be visible in the harness):
-   - Orphaned `ProgramApplicationService.applyToPrograms()`/`listMyApplications()` and
-     `ApplyToProgramsRequest` — no longer called since onboarding-time program selection was
-     removed in Phase 3.
-   - Dead `submitMembershipApplication()` function + stale `MemberProfile` TS type in
-     `frontend/src/lib/api/client.ts`/`types.ts` — references an address/county shape the backend
-     dropped months ago, zero call sites.
-   - Also still open from earlier in the session: orphaned `submitFinePayment` client function; a
-     silent 403-vs-401 session-expiry bug on admin routes (never actually diagnosed, just noted).
+1. **Get a decision on the donations/scholarship/benevolence-replenishment/payment-links scope**
+   (see above) — likely the next real chunk of work once decided: wire `donations.tsx` and the
+   `ReplenishmentPayModal` in `portal/benevolence.tsx` to the existing `GENERAL_CONTRIBUTION` /
+   `BENEVOLENCE_REPLENISHMENT` PaymentBasket checkout, then retire `PaymentLink`/`MemberContribution`
+   /`AdminPaymentLinksController` and the Payment Links admin page.
+2. **Smoke-test the admin card-charging feature live** — confirm the Stripe publishable key is
+   configured in production, then run a real (or Stripe test-mode) charge through the Card Entry tab
+   end-to-end.
+3. **Confirm/clear the duplicate Constitution row** in the DB — check the admin panel's full
+   document list (SUPERADMIN login required) now that it's listing documents again.
+4. **Full live end-to-end testing** — the user's standing instruction (confirmed 2026-08-03) was to
+   do real-user live testing (real clicks, real emails) once Gallery/Events/Attendance shipped;
+   those shipped before this window, and a huge amount has been built since without that pass
+   happening. Given the AGM/timeline pressure, this is likely overdue — raise it with the user
+   rather than assuming more features should ship first.
+5. **Redesign transactional email templates** to match site branding — flagged 2026-08-05, not
+   confirmed done or not done in this audit; check `EmailService`/`module/notification` before
+   assuming either way.
+6. See `GO_LIVE_CHECKLIST.md` for remaining pre-launch-only items (item 1's meaning changed this
+   window — payment simulator is now a permanent gated tool behind `STRIPE_ALLOW_DEV_FALLBACK`, not
+   a stub to delete; confirm that flag is `false` in production before go-live).
+7. Previously-flagged, still-open minor cleanup (not re-verified this window, may be stale):
+   orphaned `ProgramApplicationService.applyToPrograms()`/`listMyApplications()`, dead
+   `submitMembershipApplication()`/`submitFinePayment()` client functions, an undiagnosed silent
+   403-vs-401 session-expiry bug on admin routes.
 
 ## Test credentials (production DB — this is real data the org is actively testing with)
 
-- Seeded **MEMBER**: `member@ushirikawelfare.org` / `Member@2025!` — "Wekesa Wanjala", has a full
-  profile (address, 2 next-of-kin, 2 emergency contacts) after live-testing edits this session.
-- Superadmin credentials are **not** the `DataInitializer` defaults — the real production env vars
-  override them and are not known to Claude; ask the user for admin access when needed, or have
-  them perform admin-only actions themselves in the browser.
-- All current test/seed data (per the user) will be deleted before real launch — safe to use
-  freely for testing.
+- Seeded **MEMBER**: `member@ushirikawelfare.org` / `Member@2025!` — "Wekesa Wanjala."
+- Seeded **SUPERADMIN**: email/password come from `APP_SUPERADMIN_EMAIL`/`APP_SUPERADMIN_PASSWORD`
+  Railway env vars, not known to Claude — ask the user or have them act in-browser.
+- **No seeded test accounts exist for Secretary/Chief Whip/Compliance** — a seeder was added then
+  deliberately removed (`201f0dc`) per user direction; those roles get populated by promoting real
+  accounts during live testing, not from `DataInitializer`.
+- All current test/seed data (per the user) will be deleted before real launch — safe to use freely
+  for testing.
 
 ## How to pick this back up in a new session/account
 
 1. Open Claude Code in either `J:\backend\ushirika-backend` or
    `J:\frontend\ushirika-main\ushirika-connect-main` (this file is duplicated in both repos' roots
-   as `HANDOFF.md`).
-2. Read this file in full before making changes.
-3. Start with the known bug above — it's real, confirmed, and blocking.
+   as `HANDOFF.md` — keep both copies in sync when updating).
+2. Read this file in full before making changes. Also check `git status` in both repos immediately
+   — as of this writing there's an unpushed backend commit and uncommitted frontend work that a new
+   session needs to account for before doing anything else.
+3. Start with item 1 above (reconcile the in-progress card-charging feature) unless the user
+   redirects.
 4. The user prefers **one phase/task at a time**, each verified (compile + test, and a live
    browser/API check where feasible) and committed before moving to the next — don't batch large
-   changes across unrelated concerns.
+   changes across unrelated concerns. The pace of the last two days suggests this preference may be
+   loosening under deadline pressure — confirm with the user rather than assuming.
