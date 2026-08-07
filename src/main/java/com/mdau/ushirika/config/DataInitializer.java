@@ -224,6 +224,15 @@ public class DataInitializer implements ApplicationRunner {
                 )
                 """);
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_message_thread ON conversation_messages (thread_id)");
+
+        // ddl-auto=update did not add these columns to the already-existing election_seats/
+        // election_candidacies tables -- confirmed live (SQLGrammarException: column
+        // "executive_tier" does not exist) when creating an election right after this feature
+        // shipped. Column additions are supposed to be the reliable case for ddl-auto=update,
+        // but evidently not always; raw idempotent DDL is the only mechanism actually proven to
+        // work in this project, so used here too.
+        jdbcTemplate.execute("ALTER TABLE election_seats ADD COLUMN IF NOT EXISTS executive_tier BOOLEAN NOT NULL DEFAULT FALSE");
+        jdbcTemplate.execute("ALTER TABLE election_candidacies ADD COLUMN IF NOT EXISTS video_url VARCHAR(500)");
     }
 
     /**
