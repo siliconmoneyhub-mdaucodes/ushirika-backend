@@ -164,6 +164,25 @@ public class DataInitializer implements ApplicationRunner {
                     'SECRETARY','CHIEF_WHIP','COMPLIANCE','MEMBER','APPLICANT'
                 ))
                 """);
+
+        jdbcTemplate.execute(
+                "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_24h_sent BOOLEAN NOT NULL DEFAULT false");
+        jdbcTemplate.execute(
+                "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_6h_sent BOOLEAN NOT NULL DEFAULT false");
+        jdbcTemplate.execute(
+                "ALTER TABLE events ADD COLUMN IF NOT EXISTS reminder_24h_sent BOOLEAN NOT NULL DEFAULT false");
+        jdbcTemplate.execute(
+                "ALTER TABLE events ADD COLUMN IF NOT EXISTS reminder_6h_sent BOOLEAN NOT NULL DEFAULT false");
+
+        // Same stale-check-constraint trap as users_role_check -- in_app_notifications.category
+        // predates EVENT_REMINDER, so recreate it with the full current category set every boot.
+        jdbcTemplate.execute("ALTER TABLE in_app_notifications DROP CONSTRAINT IF EXISTS in_app_notifications_category_check");
+        jdbcTemplate.execute("""
+                ALTER TABLE in_app_notifications ADD CONSTRAINT in_app_notifications_category_check CHECK (category IN (
+                    'ANNOUNCEMENT','MEETING_REMINDER','EVENT_REMINDER','ATTENDANCE_WARNING','FINE',
+                    'WELFARE_CLAIM','REPLENISHMENT','MGR_PAYMENT','DUES_REMINDER','ELECTION','GENERAL'
+                ))
+                """);
     }
 
     /**

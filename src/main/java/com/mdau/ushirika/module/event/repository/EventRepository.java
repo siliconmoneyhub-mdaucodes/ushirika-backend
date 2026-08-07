@@ -40,4 +40,20 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
         AND r.status IN ('REGISTERED', 'ATTENDED')
         """)
     long countActiveRegistrations(@Param("eventId") UUID eventId);
+
+    /** Upcoming, not-yet-24h-reminded events whose start has entered the 24h window. */
+    @Query("SELECT e FROM Event e WHERE e.status IN :statuses AND e.reminder24hSent = false " +
+           "AND e.startDateTime >= :from AND e.startDateTime <= :to")
+    List<Event> findByStatusInAndReminder24hSentFalseAndStartDateTimeBetween(
+            @Param("statuses") List<EventStatus> statuses,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    /** Upcoming, not-yet-6h-reminded events whose start has entered the 6h window. */
+    @Query("SELECT e FROM Event e WHERE e.status IN :statuses AND e.reminder6hSent = false " +
+           "AND e.startDateTime >= :from AND e.startDateTime <= :to")
+    List<Event> findByStatusInAndReminder6hSentFalseAndStartDateTimeBetween(
+            @Param("statuses") List<EventStatus> statuses,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
 }

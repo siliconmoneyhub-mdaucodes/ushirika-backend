@@ -26,5 +26,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     Page<EventRegistration> findAllByEventAndStatusOrderByRegisteredAtAsc(
             Event event, RegistrationStatus status, Pageable pageable);
 
+    java.util.List<EventRegistration> findAllByEventAndStatus(Event event, RegistrationStatus status);
+
     long countByEventAndStatusIn(Event event, java.util.List<RegistrationStatus> statuses);
 }

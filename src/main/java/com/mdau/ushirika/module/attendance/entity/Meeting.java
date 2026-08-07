@@ -78,4 +78,14 @@ public class Meeting extends BaseEntity {
     @Column(name = "check_in_radius_meters", nullable = false)
     @Builder.Default
     private Integer checkInRadiusMeters = 150;
+
+    // ── Upcoming reminders (24h / 6h before) ──────────────────────────────────
+
+    @Column(name = "reminder_24h_sent", nullable = false)
+    @Builder.Default
+    private boolean reminder24hSent = false;
+
+    @Column(name = "reminder_6h_sent", nullable = false)
+    @Builder.Default
+    private boolean reminder6hSent = false;
 }

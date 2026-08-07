@@ -94,4 +94,14 @@ public class Event extends BaseEntity {
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<EventRegistration> registrations = new ArrayList<>();
+
+    // ── Upcoming reminders (24h / 6h before) ──────────────────────────────────
+
+    @Column(name = "reminder_24h_sent", nullable = false)
+    @Builder.Default
+    private boolean reminder24hSent = false;
+
+    @Column(name = "reminder_6h_sent", nullable = false)
+    @Builder.Default
+    private boolean reminder6hSent = false;
 }

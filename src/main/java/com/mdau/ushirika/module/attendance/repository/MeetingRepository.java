@@ -20,6 +20,14 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
 
     List<Meeting> findByStatusAndMeetingDateBetween(MeetingStatus status, LocalDateTime from, LocalDateTime to);
 
+    /** Upcoming, not-yet-24h-reminded meetings whose date has entered the 24h window. */
+    List<Meeting> findByStatusAndReminder24hSentFalseAndMeetingDateBetween(
+            MeetingStatus status, LocalDateTime from, LocalDateTime to);
+
+    /** Upcoming, not-yet-6h-reminded meetings whose date has entered the 6h window. */
+    List<Meeting> findByStatusAndReminder6hSentFalseAndMeetingDateBetween(
+            MeetingStatus status, LocalDateTime from, LocalDateTime to);
+
     List<Meeting> findAllByStatusOrderByMeetingDateAsc(MeetingStatus status);
 
     /** Next upcoming scheduled meeting. */
