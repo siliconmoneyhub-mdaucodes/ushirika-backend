@@ -3,27 +3,36 @@
 Read this before flipping the platform over to real members and real money. Work through it
 top to bottom; don't skip items just because they look done — verify live, not from memory.
 
-## 1. Confirm the payment simulation tool is disabled in production
+## 1. Remove or gate the payment simulation tool — two SEPARATE mechanisms, don't conflate them
 
-**Updated 2026-08-07: this item's design changed.** The simulator was originally a stub to delete
-before go-live; as of this window it's been redesigned as a **permanent SUPERADMIN-only tool**,
-gated behind the `STRIPE_ALLOW_DEV_FALLBACK` env var (default `false`), paired with `StripeService`
-only generating fake `cs_dev_...` sessions when that flag is true. The code and its javadoc now
-both frame it as intentional, not leftover.
+**Corrected 2026-08-07** (an earlier pass at this doc, same day, wrongly conflated these two
+things as one "gated by `STRIPE_ALLOW_DEV_FALLBACK`" tool — they are not the same code path):
+
+- **`STRIPE_ALLOW_DEV_FALLBACK`** (`StripeService.java`) only controls whether *creating a checkout
+  session* falls back to a fake `cs_dev_...` session when Stripe isn't configured. Default `false`.
+  This one is legitimately permanent-by-design and fine to leave as-is — with real Stripe keys and
+  the flag `false`/unset, checkout always goes through real Stripe.
+- **`AdminPaymentSimulationController`** (`/admin/payments/simulate/baskets/{id}/success`) is a
+  **completely separate endpoint with no flag check at all.** Read directly: `simulateSuccess()` in
+  `PaymentBasketService.java` (~line 378) unconditionally marks any pending `PaymentBasket` as paid
+  and runs it through the same allocation/email path as a real payment — gated *only* by
+  `@PreAuthorize("hasRole('SUPERADMIN')")`, nothing else. **This still means what the original
+  version of this checklist item said**: once real Stripe keys are live, a SUPERADMIN account (or a
+  compromised one) can mark a real pending charge "paid" with zero money moving, regardless of what
+  `STRIPE_ALLOW_DEV_FALLBACK` is set to.
 
 Still present (verified 2026-08-07):
 - Backend: `src/main/java/com/mdau/ushirika/module/payment/controller/AdminPaymentSimulationController.java`
-  — `@PreAuthorize("hasRole('SUPERADMIN')")`, endpoints `/admin/payments/simulate/baskets` and
-  `/{id}/success`.
+  (whole file), plus `simulateSuccess`/`listPendingBaskets` on `PaymentBasketService`.
 - Frontend: "Payment Simulator" card in `src/routes/admin/developer.tsx`, plus
   `listPendingPaymentBaskets`/`simulatePaymentSuccess` in `src/lib/api/client.ts` and the
   `PaymentBasketSummary` type in `src/lib/api/types.ts`.
 
-**Before go-live**: confirm `STRIPE_ALLOW_DEV_FALLBACK` is `false` (or unset) in the production
-Railway env, so a SUPERADMIN account can no longer mark real charges "paid" without money moving.
-Whether to also hide the UI card entirely in production, or leave it as a dormant no-op tool behind
-the env flag, is a decision for the user — don't remove the code without checking, since it's no
-longer treated as a stub.
+**Before go-live**: either remove `AdminPaymentSimulationController` and its two service methods
+entirely, or add a real gate to `simulateSuccess()` itself (e.g. only allow it when
+`STRIPE_ALLOW_DEV_FALLBACK` is true, or wrap it in a separate `app.enable-payment-simulation` flag
+defaulting to `false`) — a role check alone isn't enough once this is a live production system with
+real superadmin accounts. This is a decision for the user, but don't leave it as-is unexamined.
 
 ## 2. Switch Stripe from test/dev mode to live keys
 

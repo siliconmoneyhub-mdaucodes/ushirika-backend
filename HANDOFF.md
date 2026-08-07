@@ -220,9 +220,11 @@ Acting on direct user instructions after reviewing the audit above:
 5. **Redesign transactional email templates** to match site branding — flagged 2026-08-05, not
    confirmed done or not done in this audit; check `EmailService`/`module/notification` before
    assuming either way.
-6. See `GO_LIVE_CHECKLIST.md` for remaining pre-launch-only items (item 1's meaning changed this
-   window — payment simulator is now a permanent gated tool behind `STRIPE_ALLOW_DEV_FALLBACK`, not
-   a stub to delete; confirm that flag is `false` in production before go-live).
+6. See `GO_LIVE_CHECKLIST.md` for remaining pre-launch-only items — item 1 needs a real fix before
+   go-live: `AdminPaymentSimulationController.simulateSuccess()` has no gate beyond
+   `hasRole('SUPERADMIN')`, so a superadmin account can mark any real pending payment "paid" with no
+   money moving, regardless of `STRIPE_ALLOW_DEV_FALLBACK` (that flag only affects checkout-session
+   creation, a separate code path — see the checklist for the full correction).
 7. Previously-flagged, still-open minor cleanup (not re-verified this window, may be stale):
    orphaned `ProgramApplicationService.applyToPrograms()`/`listMyApplications()`, dead
    `submitMembershipApplication()`/`submitFinePayment()` client functions, an undiagnosed silent
