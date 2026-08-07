@@ -183,6 +183,47 @@ public class DataInitializer implements ApplicationRunner {
                     'WELFARE_CLAIM','REPLENISHMENT','MGR_PAYMENT','DUES_REMINDER','ELECTION','GENERAL'
                 ))
                 """);
+
+        // migrations/V019__messaging.sql was never actually applied -- this project has no Flyway/
+        // Liquibase wired up, so files under migrations/ are historical documentation only, not
+        // something that runs automatically. conversation_threads/conversation_messages never
+        // existed in production; every attempt to message a member has been failing with
+        // "relation conversation_threads does not exist" since the feature was built. Same fix
+        // pattern as member_credit_balances above: idempotent raw DDL, run every boot.
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS conversation_threads (
+                    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    member_id            UUID NOT NULL REFERENCES users(id),
+                    program_id           UUID REFERENCES programs(id),
+                    member_last_read_at  TIMESTAMP,
+                    staff_last_read_at   TIMESTAMP,
+                    last_message_at      TIMESTAMP,
+                    version              BIGINT NOT NULL DEFAULT 0,
+                    created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+                    created_by           VARCHAR(150),
+                    updated_by           VARCHAR(150),
+                    CONSTRAINT uq_thread_member_program UNIQUE (member_id, program_id)
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_thread_member ON conversation_threads (member_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_thread_program ON conversation_threads (program_id)");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS conversation_messages (
+                    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    thread_id     UUID NOT NULL REFERENCES conversation_threads(id),
+                    sender_id     UUID NOT NULL REFERENCES users(id),
+                    from_member   BOOLEAN NOT NULL,
+                    body          VARCHAR(2000) NOT NULL,
+                    version       BIGINT NOT NULL DEFAULT 0,
+                    created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+                    created_by    VARCHAR(150),
+                    updated_by    VARCHAR(150)
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_message_thread ON conversation_messages (thread_id)");
     }
 
     /**
