@@ -62,10 +62,16 @@ public record FullMemberProfileDto(
 ) {
     public static FullMemberProfileDto from(User user, MemberProfile p) {
         String role = switch (user.getRole()) {
-            case SUPERADMIN -> "superadmin";
-            case ADMIN      -> "admin";
-            case LEADERSHIP -> "leadership";
-            default         -> "member";
+            case SUPERADMIN          -> "superadmin";
+            case ADMIN               -> "admin";
+            case LEADERSHIP          -> "leadership";
+            case SECRETARY           -> "secretary";
+            case CHIEF_WHIP          -> "chief_whip";
+            case COMPLIANCE          -> "compliance";
+            case FINANCIAL_ADMIN     -> "financial_admin";
+            case FINANCIAL_OFFICIAL  -> "financial_official";
+            case APPLICANT           -> "applicant";
+            case MEMBER              -> "member";
         };
         return new FullMemberProfileDto(
                 user.getId(),

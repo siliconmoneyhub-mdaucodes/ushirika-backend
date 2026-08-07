@@ -21,7 +21,7 @@ public record UserProfileDto(
         String lastName,
         String fullName,
         String phone,
-        /** "member" for regular members; "admin" for all staff roles. */
+        /** Lowercase/snake_case mirror of {@link UserRole}, e.g. "financial_admin", "chief_whip". */
         String role,
         OfficialTitle officialTitle,
         boolean emailVerified,
@@ -78,12 +78,16 @@ public record UserProfileDto(
         }
 
         String role = switch (user.getRole()) {
-            case MEMBER     -> "member";
-            case ADMIN      -> "admin";
-            case SUPERADMIN -> "superadmin";
-            case LEADERSHIP -> "leadership";
-            case APPLICANT  -> "applicant";
-            default         -> "admin";
+            case MEMBER              -> "member";
+            case ADMIN               -> "admin";
+            case SUPERADMIN          -> "superadmin";
+            case LEADERSHIP          -> "leadership";
+            case APPLICANT           -> "applicant";
+            case SECRETARY           -> "secretary";
+            case CHIEF_WHIP          -> "chief_whip";
+            case COMPLIANCE          -> "compliance";
+            case FINANCIAL_ADMIN     -> "financial_admin";
+            case FINANCIAL_OFFICIAL  -> "financial_official";
         };
 
         return new UserProfileDto(
