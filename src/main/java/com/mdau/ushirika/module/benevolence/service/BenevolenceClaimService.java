@@ -9,6 +9,7 @@ import com.mdau.ushirika.module.benevolence.dto.*;
 import com.mdau.ushirika.module.benevolence.entity.*;
 import com.mdau.ushirika.module.benevolence.enums.*;
 import com.mdau.ushirika.module.benevolence.repository.*;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class BenevolenceClaimService {
     private final BenevolenceClaimCategoryRepository categoryRepo;
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
+    private final AuditLogService auditLogService;
 
     // ── Member: Submit Claim ──────────────────────────────────────────────────
 
@@ -92,6 +94,9 @@ public class BenevolenceClaimService {
                 .submittedAt(LocalDateTime.now())
                 .build();
         claimRepo.save(claim);
+        auditLogService.log(user, "CLAIM_SUBMITTED", "BenevolenceClaim", claim.getId(),
+                "Benevolence claim " + claim.getReferenceNumber() + " submitted by " + user.getFullName()
+                        + " for " + req.deceasedName());
         return BenevolenceClaimDto.from(claim, memberId(user));
     }
 
@@ -155,6 +160,11 @@ public class BenevolenceClaimService {
         claim.setAdminNotes(req.adminNotes());
         claim.setReviewedAt(LocalDateTime.now());
         claimRepo.save(claim);
+        User admin = currentUser();
+        auditLogService.log(admin, "CLAIM_" + claim.getStatus().name(), "BenevolenceClaim", claim.getId(),
+                "Benevolence claim " + claim.getReferenceNumber() + " for "
+                        + claim.getEnrollment().getUser().getFullName() + " marked " + claim.getStatus()
+                        + " by " + admin.getFullName());
         return BenevolenceClaimDto.from(claim, memberId(claim.getEnrollment().getUser()));
     }
 
@@ -166,6 +176,10 @@ public class BenevolenceClaimService {
         }
         claim.setStatus(ClaimStatus.PAYMENT_AUTHORIZED);
         claimRepo.save(claim);
+        User admin = currentUser();
+        auditLogService.log(admin, "CLAIM_DISBURSEMENT_AUTHORIZED", "BenevolenceClaim", claim.getId(),
+                "Disbursement of $" + claim.getAmountApproved() + " authorized for claim "
+                        + claim.getReferenceNumber() + " by " + admin.getFullName());
         return BenevolenceClaimDto.from(claim, memberId(claim.getEnrollment().getUser()));
     }
 
@@ -186,6 +200,10 @@ public class BenevolenceClaimService {
             beneficiaryRepo.save(b);
         }
 
+        User admin = currentUser();
+        auditLogService.log(admin, "CLAIM_DISBURSED", "BenevolenceClaim", claim.getId(),
+                "Claim " + claim.getReferenceNumber() + " ($" + claim.getAmountApproved()
+                        + ") marked disbursed by " + admin.getFullName());
         return BenevolenceClaimDto.from(claim, memberId(claim.getEnrollment().getUser()));
     }
 
@@ -231,6 +249,10 @@ public class BenevolenceClaimService {
             replenPaymentRepo.save(rp);
         }
 
+        User admin = currentUser();
+        auditLogService.log(admin, "REPLENISHMENT_CREATED", "BenevolenceReplenishment", replenishment.getId(),
+                "Replenishment of $" + total + " ($" + perMember + " each) created for " + count
+                        + " eligible member(s) by " + admin.getFullName());
         return toReplenishmentDto(replenishment);
     }
 
@@ -285,6 +307,11 @@ public class BenevolenceClaimService {
         }
         rp.setStatus(ReplenishmentPaymentStatus.WAIVED);
         replenPaymentRepo.save(rp);
+        User admin = currentUser();
+        auditLogService.log(admin, "REPLENISHMENT_PAYMENT_WAIVED", "ReplenishmentPayment", rp.getId(),
+                "Replenishment payment of $" + rp.getAmountDue() + " for "
+                        + rp.getEnrollment().getUser().getFullName() + " waived by " + admin.getFullName()
+                        + (reason != null ? " (" + reason + ")" : ""));
         return ReplenishmentPaymentDto.from(rp, memberId(rp.getEnrollment().getUser()));
     }
 

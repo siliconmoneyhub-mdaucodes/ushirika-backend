@@ -7,6 +7,7 @@ import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.common.service.QuorumApprovalService;
 import com.mdau.ushirika.common.service.QuorumApprovalService.QuorumResult;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -44,6 +45,7 @@ public class ScholarshipService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final QuorumApprovalService quorumApprovalService;
+    private final AuditLogService auditLogService;
 
     // ─────────────────────────────────────── Programs
 
@@ -71,7 +73,11 @@ public class ScholarshipService {
                 .academicYear(req.academicYear())
                 .applicationDeadline(req.applicationDeadline())
                 .build();
-        return ScholarshipProgramDto.from(programRepository.save(program));
+        ScholarshipProgram saved = programRepository.save(program);
+        User admin = currentUser();
+        auditLogService.log(admin, "SCHOLARSHIP_PROGRAM_CREATED", "ScholarshipProgram", saved.getId(),
+                "Scholarship program '" + saved.getName() + "' created by " + admin.getFullName());
+        return ScholarshipProgramDto.from(saved);
     }
 
     @Transactional
@@ -84,14 +90,23 @@ public class ScholarshipService {
         program.setTotalSlots(req.totalSlots());
         program.setAcademicYear(req.academicYear());
         program.setApplicationDeadline(req.applicationDeadline());
-        return ScholarshipProgramDto.from(programRepository.save(program));
+        ScholarshipProgram saved = programRepository.save(program);
+        User admin = currentUser();
+        auditLogService.log(admin, "SCHOLARSHIP_PROGRAM_UPDATED", "ScholarshipProgram", saved.getId(),
+                "Scholarship program '" + saved.getName() + "' updated by " + admin.getFullName());
+        return ScholarshipProgramDto.from(saved);
     }
 
     @Transactional
     public ScholarshipProgramDto updateProgramStatus(UUID id, ScholarshipProgramStatus newStatus) {
         ScholarshipProgram program = findProgramById(id);
         program.setStatus(newStatus);
-        return ScholarshipProgramDto.from(programRepository.save(program));
+        ScholarshipProgram saved = programRepository.save(program);
+        User admin = currentUser();
+        auditLogService.log(admin, "SCHOLARSHIP_PROGRAM_STATUS_CHANGED", "ScholarshipProgram", saved.getId(),
+                "Scholarship program '" + saved.getName() + "' status changed to " + newStatus
+                        + " by " + admin.getFullName());
+        return ScholarshipProgramDto.from(saved);
     }
 
     // ─────────────────────────────────────── Public inquiry (low-priority)
@@ -168,7 +183,11 @@ public class ScholarshipService {
                 .documentUrls(req.documentUrls() != null ? req.documentUrls() : List.of())
                 .build();
 
-        return ScholarshipApplicationTrackDto.from(applicationRepository.save(application));
+        ScholarshipApplication saved = applicationRepository.save(application);
+        auditLogService.log(member, "SCHOLARSHIP_APPLICATION_CREATED", "ScholarshipApplication", saved.getId(),
+                "Scholarship application " + saved.getReferenceNumber() + " for " + saved.getBeneficiaryName()
+                        + " started by " + member.getFullName());
+        return ScholarshipApplicationTrackDto.from(saved);
     }
 
     @Transactional
@@ -187,6 +206,9 @@ public class ScholarshipService {
         application.setSubmittedAt(LocalDateTime.now());
         applicationRepository.save(application);
 
+        auditLogService.log(member, "SCHOLARSHIP_APPLICATION_SUBMITTED", "ScholarshipApplication", application.getId(),
+                "Scholarship application " + application.getReferenceNumber() + " submitted for board review by "
+                        + member.getFullName());
         notifyAdmins(application);
         return ScholarshipApplicationTrackDto.from(application);
     }
@@ -249,13 +271,25 @@ public class ScholarshipService {
         application.getApprovals().add(approval);
         application.setStatus(ScholarshipApplicationStatus.UNDER_REVIEW);
 
+        auditLogService.log(admin, "SCHOLARSHIP_VOTE_CAST", "ScholarshipApplication", application.getId(),
+                admin.getFullName() + " voted " + req.decision() + " on application "
+                        + application.getReferenceNumber());
+
         long approved = approvalRepository.countByApplicationAndDecision(application, ApprovalDecision.APPROVED);
         long rejected = approvalRepository.countByApplicationAndDecision(application, ApprovalDecision.REJECTED);
 
         QuorumResult result = quorumApprovalService.evaluate(approved, rejected);
         switch (result) {
-            case REJECTED -> applyRejection(application);
-            case APPROVED -> applyApproval(application);
+            case REJECTED -> {
+                applyRejection(application);
+                auditLogService.log(admin, "SCHOLARSHIP_APPLICATION_REJECTED", "ScholarshipApplication", application.getId(),
+                        "Scholarship application " + application.getReferenceNumber() + " rejected by board quorum");
+            }
+            case APPROVED -> {
+                applyApproval(application);
+                auditLogService.log(admin, "SCHOLARSHIP_APPLICATION_APPROVED", "ScholarshipApplication", application.getId(),
+                        "Scholarship application " + application.getReferenceNumber() + " approved by board quorum");
+            }
             case PENDING  -> {}
         }
 
@@ -291,6 +325,10 @@ public class ScholarshipService {
         application.setAward(award);
         application.setStatus(ScholarshipApplicationStatus.AWARDED);
         applicationRepository.save(application);
+
+        auditLogService.log(admin, "SCHOLARSHIP_AWARDED", "ScholarshipApplication", application.getId(),
+                "Scholarship of " + req.amountAwarded() + " awarded to " + application.getBeneficiaryName()
+                        + " (ref " + application.getReferenceNumber() + ") by " + admin.getFullName());
 
         emailService.sendPlain(
                 application.getMember().getEmail(),

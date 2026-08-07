@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.OfficialTitle;
 import com.mdau.ushirika.module.election.dto.*;
@@ -32,6 +33,7 @@ public class ElectionService {
     private final ElectionVoteReceiptRepository  receiptRepo;
     private final ElectionVoteTallyRepository   tallyRepo;
     private final ElectionResultRepository      resultRepo;
+    private final AuditLogService               auditLogService;
 
     // ── Public ────────────────────────────────────────────────────────────────
 
@@ -103,6 +105,9 @@ public class ElectionService {
         candidacyRepo.save(candidacy);
         log.info("Candidacy declared: {} for seat '{}' in election '{}'",
                 candidate.getEmail(), seat.getTitle(), election.getTitle());
+        auditLogService.log(candidate, "CANDIDACY_DECLARED", "ElectionCandidacy", candidacy.getId(),
+                candidate.getFullName() + " declared candidacy for seat '" + seat.getTitle()
+                        + "' in election '" + election.getTitle() + "'");
         return CandidacyDto.from(candidacy);
     }
 
@@ -121,6 +126,9 @@ public class ElectionService {
         candidacy.setStatus(CandidacyStatus.WITHDRAWN);
         candidacy.setWithdrawnAt(LocalDateTime.now());
         candidacyRepo.save(candidacy);
+        auditLogService.log(candidacy.getCandidate(), "CANDIDACY_WITHDRAWN", "ElectionCandidacy", candidacy.getId(),
+                candidacy.getCandidate().getFullName() + " withdrew candidacy for seat '"
+                        + candidacy.getSeat().getTitle() + "'");
         return CandidacyDto.from(candidacy);
     }
 
@@ -160,6 +168,12 @@ public class ElectionService {
 
         log.info("Vote cast: election={} seat='{}' voter={} (candidacy not logged for ballot secrecy)",
                 electionId, seat.getTitle(), userId);
+        // Ballot secrecy: audit the fact that a vote was cast, never who it was cast for —
+        // entityId points at the seat, not the candidacy, so no voter->candidate link is ever
+        // reconstructable from the audit trail.
+        auditLogService.log(voter, "VOTE_CAST", "ElectionSeat", seat.getId(),
+                voter.getFullName() + " cast a vote for seat '" + seat.getTitle()
+                        + "' in election '" + election.getTitle() + "'");
         return "Vote recorded. Thank you for participating.";
     }
 
@@ -212,6 +226,10 @@ public class ElectionService {
             }
         }
         log.info("Election created: '{}' ({})", election.getTitle(), election.getYear());
+        User admin = getCurrentUser();
+        auditLogService.log(admin, "ELECTION_CREATED", "Election", election.getId(),
+                "Election '" + election.getTitle() + "' (" + election.getYear() + ") created by "
+                        + admin.getFullName());
         return buildDto(election, true);
     }
 
@@ -228,6 +246,9 @@ public class ElectionService {
         if (req.votingEnd()         != null) election.setVotingEnd(req.votingEnd());
         if (req.notes()             != null) election.setNotes(req.notes());
         electionRepo.save(election);
+        User admin = getCurrentUser();
+        auditLogService.log(admin, "ELECTION_UPDATED", "Election", election.getId(),
+                "Election '" + election.getTitle() + "' updated by " + admin.getFullName());
         return buildDto(election, true);
     }
 
@@ -245,6 +266,9 @@ public class ElectionService {
         election.setStatus(next);
         electionRepo.save(election);
         log.info("Election '{}' advanced to {}", election.getTitle(), next);
+        User admin = getCurrentUser();
+        auditLogService.log(admin, "ELECTION_ADVANCED", "Election", election.getId(),
+                "Election '" + election.getTitle() + "' advanced to " + next + " by " + admin.getFullName());
         return buildDto(election, true);
     }
 
@@ -256,6 +280,9 @@ public class ElectionService {
         }
         election.setStatus(ElectionStatus.CANCELLED);
         electionRepo.save(election);
+        User admin = getCurrentUser();
+        auditLogService.log(admin, "ELECTION_CANCELLED", "Election", election.getId(),
+                "Election '" + election.getTitle() + "' cancelled by " + admin.getFullName());
         return buildDto(election, true);
     }
 
@@ -275,6 +302,10 @@ public class ElectionService {
         candidacy.setReviewedBy(currentEmail());
         candidacy.setReviewedAt(LocalDateTime.now());
         candidacyRepo.save(candidacy);
+        auditLogService.log(getCurrentUser(), "CANDIDACY_" + candidacy.getStatus().name(), "ElectionCandidacy",
+                candidacy.getId(),
+                "Candidacy of " + candidacy.getMemberName() + " for seat '" + candidacy.getSeat().getTitle()
+                        + "' " + candidacy.getStatus().name().toLowerCase() + " by " + currentEmail());
 
         if (approve) {
             // Ensure a tally row exists for this candidacy
@@ -343,6 +374,9 @@ public class ElectionService {
         election.setResultsDeclaredAt(LocalDateTime.now());
         electionRepo.save(election);
         log.info("Results declared for election '{}'", election.getTitle());
+        User admin = getCurrentUser();
+        auditLogService.log(admin, "ELECTION_RESULTS_DECLARED", "Election", election.getId(),
+                "Results declared for election '" + election.getTitle() + "' by " + admin.getFullName());
         return buildDto(election, true);
     }
 
@@ -355,6 +389,9 @@ public class ElectionService {
         election.setStatus(ElectionStatus.COMPLETED);
         election.setCompletedAt(LocalDateTime.now());
         electionRepo.save(election);
+        User admin = getCurrentUser();
+        auditLogService.log(admin, "ELECTION_COMPLETED", "Election", election.getId(),
+                "Election '" + election.getTitle() + "' marked completed by " + admin.getFullName());
         return buildDto(election, true);
     }
 

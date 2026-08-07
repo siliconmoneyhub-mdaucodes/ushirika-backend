@@ -9,6 +9,7 @@ import com.mdau.ushirika.module.benevolence.dto.*;
 import com.mdau.ushirika.module.benevolence.entity.*;
 import com.mdau.ushirika.module.benevolence.enums.EnrollmentStatus;
 import com.mdau.ushirika.module.benevolence.repository.*;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class BenevolenceEnrollmentService {
     private final BenevolenceBeneficiaryRepository beneficiaryRepo;
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
+    private final AuditLogService auditLogService;
 
     // ── Admin: List Enrollments ───────────────────────────────────────────────
 
@@ -84,7 +86,12 @@ public class BenevolenceEnrollmentService {
                 .phoneNumber(entry.phoneNumber())
                 .dateOfBirth(entry.dateOfBirth())
                 .build();
-        return BenevolenceBeneficiaryDto.from(beneficiaryRepo.save(b));
+        BenevolenceBeneficiary saved = beneficiaryRepo.save(b);
+        User admin = currentUser();
+        auditLogService.log(admin, "BENEFICIARY_ADDED", "BenevolenceBeneficiary", saved.getId(),
+                "Beneficiary " + saved.getFirstName() + " " + saved.getLastName() + " added for "
+                        + enrollment.getUser().getFullName() + " by " + admin.getFullName());
+        return BenevolenceBeneficiaryDto.from(saved);
     }
 
     @Transactional
@@ -95,6 +102,9 @@ public class BenevolenceEnrollmentService {
         }
         enrollment.setBeneficiariesLocked(true);
         enrollmentRepo.save(enrollment);
+        User admin = currentUser();
+        auditLogService.log(admin, "BENEFICIARIES_LOCKED", "BenevolenceEnrollment", enrollment.getId(),
+                "Beneficiaries locked for " + enrollment.getUser().getFullName() + " by " + admin.getFullName());
     }
 
     @Transactional
@@ -105,6 +115,10 @@ public class BenevolenceEnrollmentService {
         b.setDeceasedAt(LocalDateTime.now());
         b.setAdminNotes(adminNotes);
         beneficiaryRepo.save(b);
+        User admin = currentUser();
+        auditLogService.log(admin, "BENEFICIARY_MARKED_DECEASED", "BenevolenceBeneficiary", b.getId(),
+                "Beneficiary " + b.getFirstName() + " " + b.getLastName() + " marked deceased by "
+                        + admin.getFullName());
     }
 
     // ── Member: Self-service ──────────────────────────────────────────────────
@@ -150,6 +164,8 @@ public class BenevolenceEnrollmentService {
 
         enrollment.setBeneficiariesLocked(true);
         enrollmentRepo.save(enrollment);
+        auditLogService.log(user, "BENEFICIARIES_SUBMITTED", "BenevolenceEnrollment", enrollment.getId(),
+                req.beneficiaries().size() + " beneficiary(ies) submitted by " + user.getFullName());
         return toFullDto(enrollment);
     }
 

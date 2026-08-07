@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.loan.dto.*;
@@ -36,6 +37,7 @@ public class LoanService {
     private final LoanInstallmentRepository installmentRepo;
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
+    private final AuditLogService auditLogService;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -123,6 +125,9 @@ public class LoanService {
         }
         guarantorRepo.saveAll(guarantors);
 
+        auditLogService.log(user, "LOAN_APPLIED", "LoanApplication", loan.getId(),
+                "Loan application " + loan.getReferenceNumber() + " for $" + loan.getRequestedAmount()
+                        + " submitted by " + user.getFullName());
         return toFullDto(loan);
     }
 
@@ -170,6 +175,9 @@ public class LoanService {
         g.setRespondedAt(LocalDateTime.now());
         g.setNotes(req.notes());
         guarantorRepo.save(g);
+        auditLogService.log(user, "GUARANTOR_" + g.getStatus().name(), "LoanGuarantor", g.getId(),
+                user.getFullName() + " " + g.getStatus().name().toLowerCase()
+                        + " guarantor request for loan " + g.getLoan().getReferenceNumber());
         return LoanGuarantorDto.from(g, memberId(g.getGuarantorUser()));
     }
 
@@ -228,6 +236,10 @@ public class LoanService {
         }
         loan.setAdminNotes(req.adminNotes());
         loanRepo.save(loan);
+        User admin = currentUser();
+        auditLogService.log(admin, "LOAN_" + loan.getStatus().name(), "LoanApplication", loan.getId(),
+                "Loan " + loan.getReferenceNumber() + " for " + loan.getUser().getFullName()
+                        + " marked " + loan.getStatus() + " by " + admin.getFullName());
         return toFullDto(loan);
     }
 
@@ -293,6 +305,10 @@ public class LoanService {
         }
         installmentRepo.saveAll(installments);
 
+        User admin = currentUser();
+        auditLogService.log(admin, "LOAN_DISBURSED", "LoanApplication", loan.getId(),
+                "Loan " + loan.getReferenceNumber() + " ($" + principal + ") disbursed to "
+                        + loan.getUser().getFullName() + " by " + admin.getFullName());
         return toFullDto(loan);
     }
 
@@ -337,6 +353,10 @@ public class LoanService {
         }
         loanRepo.save(loan);
 
+        User admin = currentUser();
+        auditLogService.log(admin, "LOAN_REPAYMENT_RECORDED", "LoanInstallment", inst.getId(),
+                "Repayment of $" + req.amountPaid() + " recorded on installment #" + inst.getInstallmentNumber()
+                        + " for loan " + loan.getReferenceNumber() + " by " + admin.getFullName());
         return LoanInstallmentDto.from(inst);
     }
 
@@ -360,6 +380,11 @@ public class LoanService {
             loan.setStatus(LoanStatus.COMPLETED);
             loanRepo.save(loan);
         }
+        User admin = currentUser();
+        auditLogService.log(admin, "LOAN_INSTALLMENT_WAIVED", "LoanInstallment", inst.getId(),
+                "Installment #" + inst.getInstallmentNumber() + " ($" + inst.getTotalDue() + ") for loan "
+                        + loan.getReferenceNumber() + " waived by " + admin.getFullName()
+                        + (reason != null ? " (" + reason + ")" : ""));
         return LoanInstallmentDto.from(inst);
     }
 
@@ -375,6 +400,10 @@ public class LoanService {
         loan.setDefaultedAt(LocalDateTime.now());
         if (notes != null) loan.setAdminNotes(notes);
         loanRepo.save(loan);
+        User admin = currentUser();
+        auditLogService.log(admin, "LOAN_DEFAULTED", "LoanApplication", loan.getId(),
+                "Loan " + loan.getReferenceNumber() + " for " + loan.getUser().getFullName()
+                        + " marked defaulted by " + admin.getFullName());
         return toFullDto(loan);
     }
 }
