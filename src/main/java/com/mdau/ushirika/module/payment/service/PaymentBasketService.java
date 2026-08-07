@@ -16,8 +16,10 @@ import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.payment.dto.AdminCardEntryRequest;
 import com.mdau.ushirika.module.payment.dto.AdminCashPaymentRequest;
 import com.mdau.ushirika.module.payment.dto.BasketLineDto;
+import com.mdau.ushirika.module.payment.dto.CardPaymentResultDto;
 import com.mdau.ushirika.module.payment.dto.MemberBalanceDto;
 import com.mdau.ushirika.module.payment.dto.OutstandingBalancesDto;
 import com.mdau.ushirika.module.payment.dto.PayBalancesLineDto;
@@ -253,6 +255,66 @@ public class PaymentBasketService {
         return new PaymentInitDto(result.sessionId(), result.checkoutUrl(), req.amount(), "USD");
     }
 
+    /**
+     * An admin entering a member's card details directly, relayed by phone or in person, via
+     * Stripe Elements on the frontend -- the raw card number/CVC never reach our backend, only
+     * the tokenized paymentMethodId Stripe.js produces client-side. Confirms immediately; if the
+     * card needs 3D Secure the caller gets back status "requires_action" + a clientSecret for
+     * the frontend to finish with stripe.confirmCardPayment(). Either way the member is only
+     * credited once payment_intent.succeeded actually lands, same as every other payment path.
+     */
+    @Transactional
+    public CardPaymentResultDto startAdminCardEntry(AdminCardEntryRequest req) {
+        User admin = currentUser();
+        User targetMember = userRepository.findById(req.memberId())
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + req.memberId()));
+
+        Map<String, String> metadata = Map.of(
+                "purpose", "BASKET",
+                "memberId", targetMember.getId().toString()
+        );
+
+        StripeService.PaymentIntentResult result = stripeService.createAndConfirmPaymentIntent(
+                req.amount(), req.paymentMethodId(),
+                "Ushirika Welfare Organization — Card payment for " + targetMember.getFullName(),
+                metadata);
+
+        PaymentBasket basket = PaymentBasket.builder()
+                .member(targetMember)
+                .sessionId(result.paymentIntentId())
+                .build();
+        basket.getLines().add(PaymentBasketLine.builder()
+                .basket(basket)
+                .ledger(PaymentBasketLedger.CARD_ENTERED_BY_ADMIN)
+                .targetId(admin.getId())
+                .description("Card payment entered by admin " + admin.getFullName())
+                .amount(req.amount())
+                .build());
+        basketRepository.save(basket);
+
+        log.info("Admin card-entry PaymentIntent created: id={} status={} member={} admin={} amount={} USD",
+                result.paymentIntentId(), result.status(), targetMember.getEmail(), admin.getEmail(), req.amount());
+
+        // In dev-fallback mode there's no real webhook coming, so complete it immediately —
+        // same accommodation the /admin/payments/simulate test tool makes for Checkout baskets.
+        if ("succeeded".equals(result.status()) && result.clientSecret() == null) {
+            completeBasket(basket, "SIMULATED (dev fallback, no real payment)");
+        }
+
+        return new CardPaymentResultDto(result.paymentIntentId(), result.status(), result.clientSecret(), req.amount());
+    }
+
+    /** Called by StripeWebhookController after a payment_intent.succeeded event. */
+    @Transactional
+    public void handlePaymentIntentSucceeded(String paymentIntentId) {
+        PaymentBasket basket = basketRepository.findBySessionId(paymentIntentId).orElse(null);
+        if (basket == null) {
+            // Not every PaymentIntent belongs to a basket (e.g. other payment paths) — not an error.
+            return;
+        }
+        completeBasket(basket, "Stripe webhook (PaymentIntent)");
+    }
+
     @Transactional
     public PaymentInitDto startCheckout(List<BasketLineDto> lines, String successUrl, String cancelUrl) {
         User member = currentUser();
@@ -402,7 +464,8 @@ public class PaymentBasketService {
      * down something else. */
     private boolean isWalletEligible(PaymentBasketLedger ledger) {
         return switch (ledger) {
-            case DUES, MGR_CONTRIBUTION, FINE, BENEVOLENCE_REPLENISHMENT, BENEVOLENCE_ENROLLMENT, CASH_PAYMENT -> true;
+            case DUES, MGR_CONTRIBUTION, FINE, BENEVOLENCE_REPLENISHMENT, BENEVOLENCE_ENROLLMENT,
+                 CASH_PAYMENT, CARD_ENTERED_BY_ADMIN -> true;
             case REGISTRATION_FEE, PROGRAM_APPLICATION_PREPAY, GENERAL_CONTRIBUTION -> false;
         };
     }
@@ -430,6 +493,7 @@ public class PaymentBasketService {
             case PROGRAM_APPLICATION_PREPAY -> "Ushirika Welfare Organization — Benevolence Enrollment (prepayment)";
             case GENERAL_CONTRIBUTION -> "Ushirika Welfare Organization — Contribution";
             case CASH_PAYMENT -> "Ushirika Welfare Organization — Cash Payment";
+            case CARD_ENTERED_BY_ADMIN -> "Ushirika Welfare Organization — Card Payment (entered by admin)";
         };
     }
 

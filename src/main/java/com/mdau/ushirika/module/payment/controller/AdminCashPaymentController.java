@@ -1,7 +1,9 @@
 package com.mdau.ushirika.module.payment.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
+import com.mdau.ushirika.module.payment.dto.AdminCardEntryRequest;
 import com.mdau.ushirika.module.payment.dto.AdminCashPaymentRequest;
+import com.mdau.ushirika.module.payment.dto.CardPaymentResultDto;
 import com.mdau.ushirika.module.payment.dto.MemberBalanceDto;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
 import com.mdau.ushirika.module.payment.service.PaymentAllocationService;
@@ -41,6 +43,12 @@ public class AdminCashPaymentController {
     @Operation(summary = "Start a Stripe checkout for a cash amount received from a member — the admin pays, the member is credited")
     public ResponseEntity<ApiResponse<PaymentInitDto>> checkout(@Valid @RequestBody AdminCashPaymentRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.startAdminCashCheckout(req)));
+    }
+
+    @PostMapping("/card-entry")
+    @Operation(summary = "Charge a member's card entered directly by an admin (Stripe Elements, tokenized client-side)")
+    public ResponseEntity<ApiResponse<CardPaymentResultDto>> cardEntry(@Valid @RequestBody AdminCardEntryRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.startAdminCardEntry(req)));
     }
 
     @GetMapping("/members/{memberId}/balance")

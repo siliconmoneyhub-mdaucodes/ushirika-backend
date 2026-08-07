@@ -6,6 +6,7 @@ import com.mdau.ushirika.module.payment.service.PaymentBasketService;
 import com.mdau.ushirika.module.payment.service.StripeService;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
+import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,6 +56,7 @@ public class StripeWebhookController {
         try {
             switch (event.getType()) {
                 case "checkout.session.completed" -> handleSessionCompleted(event);
+                case "payment_intent.succeeded" -> handlePaymentIntentSucceeded(event);
                 default -> log.info("Unhandled Stripe event type: {}", event.getType());
             }
         } catch (Exception e) {
@@ -84,5 +86,18 @@ public class StripeWebhookController {
             case "BASKET"       -> paymentBasketService.handleSessionCompleted(session);
             default -> log.warn("Unrecognized payment purpose in Stripe webhook metadata: {}", purpose);
         }
+    }
+
+    private void handlePaymentIntentSucceeded(Event event) {
+        PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer()
+                .getObject()
+                .orElse(null);
+
+        if (intent == null) {
+            log.error("Could not deserialize Stripe PaymentIntent from event id={}", event.getId());
+            return;
+        }
+
+        paymentBasketService.handlePaymentIntentSucceeded(intent.getId());
     }
 }

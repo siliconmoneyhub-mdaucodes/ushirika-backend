@@ -21,5 +21,9 @@ public enum PaymentBasketLedger {
     /** An admin processing a cash payment on a member's behalf — the admin is the actual Stripe
      * payer, but the amount settles the named member's obligations via PaymentAllocationService,
      * same as any other pooled ledger. */
-    CASH_PAYMENT
+    CASH_PAYMENT,
+    /** An admin entering the member's own card details directly (relayed by phone or in person)
+     * via Stripe Elements — the member's card pays, not the admin's. Kept distinct from
+     * CASH_PAYMENT so reports can tell the two apart; pooled the same way otherwise. */
+    CARD_ENTERED_BY_ADMIN
 }

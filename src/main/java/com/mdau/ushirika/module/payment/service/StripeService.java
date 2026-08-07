@@ -5,8 +5,10 @@ import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -124,6 +126,60 @@ public class StripeService {
     }
 
     public record LineItem(String productName, BigDecimal amountUsd) {}
+
+    /**
+     * Charges a card that was tokenized client-side via Stripe Elements (paymentMethodId) --
+     * used for admin-entered card payments (the member's card, relayed by phone/in person,
+     * never typed into a form on our backend). Confirms immediately; if the card requires 3D
+     * Secure the returned result has status "requires_action" and a clientSecret the frontend
+     * must pass to stripe.confirmCardPayment() to finish.
+     */
+    public PaymentIntentResult createAndConfirmPaymentIntent(
+            BigDecimal amountUsd,
+            String paymentMethodId,
+            String description,
+            Map<String, String> metadata
+    ) {
+        if (devMode) {
+            if (!allowDevFallback) {
+                throw new IllegalStateException(
+                        "Stripe is not configured (STRIPE_SECRET_KEY missing) and dev-fallback simulation is disabled. "
+                                + "Card payments cannot be processed until Stripe is configured.");
+            }
+            String fakeId = "pi_dev_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+            log.warn("[Stripe DEV] Simulating PaymentIntent for paymentMethodId={} amount={}", paymentMethodId, amountUsd);
+            return new PaymentIntentResult(fakeId, "succeeded", null);
+        }
+
+        long amountCents = amountUsd.multiply(BigDecimal.valueOf(100)).longValue();
+        PaymentIntentCreateParams.Builder builder = PaymentIntentCreateParams.builder()
+                .setAmount(amountCents)
+                .setCurrency("usd")
+                .setPaymentMethod(paymentMethodId)
+                .setConfirm(true)
+                .setDescription(description)
+                .setAutomaticPaymentMethods(
+                        PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                .setEnabled(true)
+                                .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                                .build());
+
+        if (metadata != null) {
+            metadata.forEach(builder::putMetadata);
+        }
+
+        try {
+            PaymentIntent intent = PaymentIntent.create(builder.build());
+            log.info("[Stripe] PaymentIntent created: id={} status={} amount={}",
+                    intent.getId(), intent.getStatus(), amountUsd);
+            return new PaymentIntentResult(intent.getId(), intent.getStatus(), intent.getClientSecret());
+        } catch (StripeException e) {
+            log.error("[Stripe] Failed to create/confirm PaymentIntent: {}", e.getMessage());
+            throw new BadRequestException("Card charge failed: " + e.getMessage());
+        }
+    }
+
+    public record PaymentIntentResult(String paymentIntentId, String status, String clientSecret) {}
 
     /**
      * Verifies the Stripe-Signature header and constructs the typed Event.
