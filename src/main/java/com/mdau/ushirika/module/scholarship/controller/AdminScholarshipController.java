@@ -23,7 +23,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/admin/scholarships")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_SUPERADMIN','CAP_CONTENT')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 @Tag(name = "Scholarships — Admin", description = "Manage scholarship programs and review applications")
