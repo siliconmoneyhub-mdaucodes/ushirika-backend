@@ -41,7 +41,15 @@ import com.mdau.ushirika.module.donation.enums.CampaignStatus;
 import com.mdau.ushirika.module.donation.enums.DonationStatus;
 import com.mdau.ushirika.module.donation.repository.DonationCampaignRepository;
 import com.mdau.ushirika.module.donation.repository.DonationRepository;
+import com.mdau.ushirika.module.dashboard.dto.ContentDashboardDto;
+import com.mdau.ushirika.module.dashboard.dto.ElectionsDashboardDto;
+import com.mdau.ushirika.module.dashboard.dto.NotificationsDashboardDto;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
+import com.mdau.ushirika.module.election.entity.Election;
+import com.mdau.ushirika.module.election.enums.CandidacyStatus;
+import com.mdau.ushirika.module.election.enums.ElectionStatus;
+import com.mdau.ushirika.module.election.repository.ElectionCandidacyRepository;
+import com.mdau.ushirika.module.election.repository.ElectionRepository;
 import com.mdau.ushirika.module.event.enums.EventStatus;
 import com.mdau.ushirika.module.event.repository.EventRegistrationRepository;
 import com.mdau.ushirika.module.event.repository.EventRepository;
@@ -108,6 +116,8 @@ public class DashboardService {
     private final LoanApplicationRepository        loanApplicationRepository;
     private final LoanInstallmentRepository        loanInstallmentRepository;
     private final MgrContributionRepository        mgrContributionRepository;
+    private final ElectionRepository                electionRepository;
+    private final ElectionCandidacyRepository       electionCandidacyRepository;
 
     // ─────────────────────────────────────── Main dashboard
 
@@ -179,6 +189,46 @@ public class DashboardService {
                 bylaws.isPresent(), bylaws.map(d -> d.getPublishedAt()).orElse(null),
                 reinstatementRequestRepository.countByStatus(ReinstatementStatus.PENDING),
                 recentActivity
+        );
+    }
+
+    public NotificationsDashboardDto getNotificationsDashboard() {
+        var stats = notificationStats();
+        return new NotificationsDashboardDto(
+                stats.emailSentLast7Days(), stats.emailFailedLast7Days(),
+                stats.smsSentLast7Days(), stats.smsFailedLast7Days()
+        );
+    }
+
+    public ContentDashboardDto getContentDashboard() {
+        var content = contentStats();
+        var events = eventStats();
+        return new ContentDashboardDto(
+                content.publishedArticles(), content.draftArticles(), content.totalMediaAssets(),
+                events.total(), events.published(), events.ongoing()
+        );
+    }
+
+    public ElectionsDashboardDto getElectionsDashboard() {
+        List<Election> elections = electionRepository.findAllByOrderByYearDescCreatedAtDesc();
+        var active = elections.stream()
+                .filter(e -> e.getStatus() != ElectionStatus.COMPLETED
+                        && e.getStatus() != ElectionStatus.CANCELLED
+                        && e.getStatus() != ElectionStatus.DRAFT)
+                .findFirst();
+
+        long pendingCandidacies = active
+                .map(e -> electionCandidacyRepository.findAllByElectionIdOrderBySeatTitleAscMemberNameAsc(e.getId())
+                        .stream()
+                        .filter(c -> c.getStatus() == CandidacyStatus.PENDING)
+                        .count())
+                .orElse(0L);
+
+        return new ElectionsDashboardDto(
+                elections.size(),
+                active.map(Election::getYear).orElse(null),
+                active.map(Election::getStatus).orElse(null),
+                pendingCandidacies
         );
     }
 

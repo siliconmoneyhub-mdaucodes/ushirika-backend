@@ -28,7 +28,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/admin/notifications")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_SUPERADMIN','CAP_NOTIFICATIONS')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 @Tag(name = "Notifications — Admin", description = "View outbound email and SMS delivery logs")
@@ -40,7 +40,7 @@ public class AdminNotificationController {
     private final AuditLogService            auditLogService;
 
     @GetMapping("/logs")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_FINANCIAL_ADMIN','ROLE_FINANCIAL_OFFICIAL','CAP_NOTIFICATIONS')")
     @Operation(summary = "List notification logs, optionally filtered by channel and/or status")
     public ResponseEntity<ApiResponse<PagedResponse<NotificationLogDto>>> logs(
             @RequestParam(required = false) NotificationChannel channel,
@@ -92,7 +92,7 @@ public class AdminNotificationController {
     }
 
     @GetMapping("/logs/recipient")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN','FINANCIAL_ADMIN','FINANCIAL_OFFICIAL')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_FINANCIAL_ADMIN','ROLE_FINANCIAL_OFFICIAL','CAP_NOTIFICATIONS')")
     @Operation(summary = "Look up all notifications sent to a specific email or phone")
     public ResponseEntity<ApiResponse<PagedResponse<NotificationLogDto>>> byRecipient(
             @RequestParam String recipient,

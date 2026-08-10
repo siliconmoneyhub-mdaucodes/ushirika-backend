@@ -24,7 +24,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/financial/manual-payments")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('FINANCIAL_ADMIN','FINANCIAL_OFFICIAL','ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_FINANCIAL_ADMIN','ROLE_FINANCIAL_OFFICIAL','ROLE_ADMIN','ROLE_SUPERADMIN','CAP_FINANCE_DUES')")
 public class ManualPaymentController {
 
     private final ManualPaymentService service;

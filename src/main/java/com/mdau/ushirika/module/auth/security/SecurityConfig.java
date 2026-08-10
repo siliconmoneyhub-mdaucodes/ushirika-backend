@@ -100,20 +100,25 @@ public class SecurityConfig {
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_NOTIFICATIONS")
                         .requestMatchers("/admin/notifications/**")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_NOTIFICATIONS")
-                        // Payment links/benevolence/MGR/loans/CSV reports: Financial Admin only (not delegated to officials).
+                        // Payment links/benevolence/MGR/loans/CSV reports/welfare/programs: Financial Admin
+                        // only (not delegated to officials) at the role level, or CAP_FINANCE_ADVANCED.
                         .requestMatchers(HttpMethod.GET,
-                                "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**", "/admin/reports/**")
+                                "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**",
+                                "/admin/reports/**", "/admin/welfare/**", "/admin/programs/**")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_ADVANCED")
                         .requestMatchers(
-                                "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**")
+                                "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**",
+                                "/admin/welfare/**", "/admin/programs/**")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_FINANCE_ADVANCED")
-                        // Content — events/news/gallery/stories/scholarships/donations/partners/leadership
+                        // Content — events, content (news/articles), albums (gallery), forum (stories),
+                        // scholarships, donations, partners, leadership. Paths are the real controller
+                        // @RequestMapping values, not the frontend route names (e.g. gallery UI -> /admin/albums API).
                         .requestMatchers(HttpMethod.GET,
-                                "/admin/events/**", "/admin/news/**", "/admin/gallery/**", "/admin/forums/**",
+                                "/admin/events/**", "/admin/content/**", "/admin/albums/**", "/admin/forum/**",
                                 "/admin/scholarships/**", "/admin/donations/**", "/admin/partners/**", "/admin/leadership/**")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_CONTENT")
                         .requestMatchers(
-                                "/admin/events/**", "/admin/news/**", "/admin/gallery/**", "/admin/forums/**",
+                                "/admin/events/**", "/admin/content/**", "/admin/albums/**", "/admin/forum/**",
                                 "/admin/scholarships/**", "/admin/donations/**", "/admin/partners/**", "/admin/leadership/**")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_CONTENT")
                         // Elections

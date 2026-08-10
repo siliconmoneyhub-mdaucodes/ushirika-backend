@@ -15,7 +15,7 @@ import java.util.UUID;
 /** Full program management: create, edit, status changes, and program-admin assignment. */
 @RestController
 @RequestMapping("/admin/programs")
-@PreAuthorize("hasAnyRole('ADMIN','SUPERADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_SUPERADMIN','CAP_FINANCE_ADVANCED')")
 @RequiredArgsConstructor
 public class AdminProgramController {
 
