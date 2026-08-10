@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -108,10 +109,12 @@ public class AdminUserService {
         UserRole previousRole = target.getRole();
         target.setRole(req.role());
         target.setOfficialTitle(req.officialTitle());
+        target.setCapabilities(req.capabilities() != null ? Set.copyOf(req.capabilities()) : Set.of());
         userRepository.save(target);
 
         auditLogService.log(actor, "ROLE_CHANGED", "User", target.getId(),
                 "Changed " + target.getFullName() + "'s role from " + previousRole + " to " + req.role()
+                        + ", capabilities set to " + target.getCapabilities()
                         + " (by " + actor.getFullName() + ")");
 
         return UserDto.from(target);

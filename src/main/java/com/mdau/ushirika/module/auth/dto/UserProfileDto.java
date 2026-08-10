@@ -1,11 +1,14 @@
 package com.mdau.ushirika.module.auth.dto;
 
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.enums.Capability;
 import com.mdau.ushirika.module.auth.enums.OfficialTitle;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -33,7 +36,10 @@ public record UserProfileDto(
         LocalDate joinedAt,
         /** City of residence — maps to MemberProfile.city. */
         String city,
-        String photoUrl
+        String photoUrl,
+        /** Lowercase Capability names (e.g. "meetings_attendance") — SUPERADMIN gets every
+         *  value listed explicitly here too, matching what getAuthorities() grants them. */
+        List<String> capabilities
 ) {
     /**
      * Backward-compatible overload — callers that don't have dues context
@@ -90,6 +96,10 @@ public record UserProfileDto(
             case FINANCIAL_OFFICIAL  -> "financial_official";
         };
 
+        List<String> capabilities = user.getRole() == UserRole.SUPERADMIN
+                ? Arrays.stream(Capability.values()).map(c -> c.name().toLowerCase()).toList()
+                : user.getCapabilities().stream().map(c -> c.name().toLowerCase()).toList();
+
         return new UserProfileDto(
                 user.getId(),
                 memberId,
@@ -106,7 +116,8 @@ public record UserProfileDto(
                 user.isMembershipCeased(),
                 joined,
                 city,
-                photoUrl
+                photoUrl,
+                capabilities
         );
     }
 }

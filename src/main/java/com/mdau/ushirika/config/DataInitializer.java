@@ -233,6 +233,20 @@ public class DataInitializer implements ApplicationRunner {
         // work in this project, so used here too.
         jdbcTemplate.execute("ALTER TABLE election_seats ADD COLUMN IF NOT EXISTS executive_tier BOOLEAN NOT NULL DEFAULT FALSE");
         jdbcTemplate.execute("ALTER TABLE election_candidacies ADD COLUMN IF NOT EXISTS video_url VARCHAR(500)");
+
+        // Backs User.capabilities (@ElementCollection) -- granular admin permissions independently
+        // attachable to any user on top of their UserRole. No CHECK constraint on `capability`
+        // deliberately -- users_role_check/in_app_notifications_category_check above have already
+        // drifted out of sync with their enum twice and crashed startup; Capability is validated at
+        // the Java/Jackson layer instead, same as every other @Enumerated(STRING) column without an
+        // explicit CHECK in this schema.
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS user_capabilities (
+                    user_id    UUID NOT NULL REFERENCES users(id),
+                    capability VARCHAR(40) NOT NULL,
+                    PRIMARY KEY (user_id, capability)
+                )
+                """);
     }
 
     /**

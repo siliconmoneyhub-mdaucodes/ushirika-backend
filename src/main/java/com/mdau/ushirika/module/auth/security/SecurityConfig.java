@@ -57,57 +57,90 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ROUTES).permitAll()
-                        // Superadmin-only: user role management
+                        // Superadmin-only: user role/capability management. Deliberately role-only, no
+                        // capability alternative — granting capabilities is itself the higher-trust action
+                        // this gate protects, so it can't be delegated via a capability without letting
+                        // someone hand out more access than they were given.
                         .requestMatchers("/superadmin/**").hasRole("SUPERADMIN")
                         // Secretary & Chief Whip share the Meetings workspace (meetings, attendance, fines) —
                         // scheduling/attendance-taking and fines/excuses are the same day-to-day workflow.
+                        // Each domain also accepts its matching Capability, independent of role (see User#getAuthorities).
                         .requestMatchers(HttpMethod.GET, "/admin/meetings/**", "/admin/fines/**", "/admin/attendance/**")
-                                .hasAnyRole("SECRETARY", "CHIEF_WHIP", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_CHIEF_WHIP", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP",
+                                        "CAP_MEETINGS_ATTENDANCE", "CAP_DISCIPLINE")
                         .requestMatchers("/admin/meetings/**", "/admin/fines/**", "/admin/attendance/**")
-                                .hasAnyRole("SECRETARY", "CHIEF_WHIP", "ADMIN", "SUPERADMIN")
-                        // Secretary — read-only membership records (records-keeping, not decision-making)
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_CHIEF_WHIP", "ROLE_ADMIN", "ROLE_SUPERADMIN",
+                                        "CAP_MEETINGS_ATTENDANCE", "CAP_DISCIPLINE")
+                        // Applications — review, send form, approve membership
                         .requestMatchers(HttpMethod.GET, "/admin/membership/**")
-                                .hasAnyRole("SECRETARY", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_APPLICATIONS")
+                        .requestMatchers("/admin/membership/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_APPLICATIONS")
                         // Member directory — Secretary (records) and Financial Admin (dues/contribution lookups) both need it
                         .requestMatchers(HttpMethod.GET, "/admin/members/**")
-                                .hasAnyRole("SECRETARY", "FINANCIAL_ADMIN", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_MEMBERS")
+                        .requestMatchers("/admin/members/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_MEMBERS")
                         // Compliance — governing documents, reinstatement petitions, read-only audit trail
                         .requestMatchers(HttpMethod.GET, "/admin/constitution/**", "/admin/reinstatement/**", "/admin/audit-logs/**")
-                                .hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_COMPLIANCE", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP",
+                                        "CAP_CONSTITUTION", "CAP_REINSTATEMENT", "CAP_AUDIT_LOG")
                         .requestMatchers("/admin/constitution/**", "/admin/reinstatement/**")
-                                .hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN")
+                                .hasAnyAuthority("ROLE_COMPLIANCE", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_CONSTITUTION", "CAP_REINSTATEMENT")
                         // Financial roles — their own nav's admin sub-paths, previously only reachable via /financial/**.
                         // Dues/contributions: recording payments is a mutation, so both roles get full access.
                         .requestMatchers(HttpMethod.GET,
                                 "/admin/dues/**", "/admin/contributions/**")
-                                .hasAnyRole("FINANCIAL_ADMIN", "FINANCIAL_OFFICIAL", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES")
                         .requestMatchers(
                                 "/admin/dues/**", "/admin/contributions/**")
-                                .hasAnyRole("FINANCIAL_ADMIN", "FINANCIAL_OFFICIAL", "ADMIN", "SUPERADMIN")
-                        // Notifications: view-only for both financial roles — broadcasting stays ADMIN/SUPERADMIN.
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_FINANCE_DUES")
+                        // Notifications — view for financial roles, broadcast for Admin/Superadmin/CAP_NOTIFICATIONS.
                         .requestMatchers(HttpMethod.GET, "/admin/notifications/**")
-                                .hasAnyRole("FINANCIAL_ADMIN", "FINANCIAL_OFFICIAL", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_NOTIFICATIONS")
+                        .requestMatchers("/admin/notifications/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_NOTIFICATIONS")
                         // Payment links/benevolence/MGR/loans/CSV reports: Financial Admin only (not delegated to officials).
                         .requestMatchers(HttpMethod.GET,
                                 "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**", "/admin/reports/**")
-                                .hasAnyRole("FINANCIAL_ADMIN", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_ADVANCED")
                         .requestMatchers(
                                 "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**")
-                                .hasAnyRole("FINANCIAL_ADMIN", "ADMIN", "SUPERADMIN")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_FINANCE_ADVANCED")
+                        // Content — events/news/gallery/stories/scholarships/donations/partners/leadership
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/events/**", "/admin/news/**", "/admin/gallery/**", "/admin/forums/**",
+                                "/admin/scholarships/**", "/admin/donations/**", "/admin/partners/**", "/admin/leadership/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_CONTENT")
+                        .requestMatchers(
+                                "/admin/events/**", "/admin/news/**", "/admin/gallery/**", "/admin/forums/**",
+                                "/admin/scholarships/**", "/admin/donations/**", "/admin/partners/**", "/admin/leadership/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_CONTENT")
+                        // Elections
+                        .requestMatchers(HttpMethod.GET, "/admin/elections/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_ELECTIONS")
+                        .requestMatchers("/admin/elections/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_ELECTIONS")
                         // Role-scoped dashboard summaries
-                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/records").hasAnyRole("SECRETARY", "ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/discipline").hasAnyRole("CHIEF_WHIP", "ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/compliance").hasAnyRole("COMPLIANCE", "ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/dashboard").hasAnyRole("FINANCIAL_ADMIN", "ADMIN", "SUPERADMIN", "LEADERSHIP")
-                        .requestMatchers(HttpMethod.GET, "/admin/reports/financial").hasAnyRole("FINANCIAL_ADMIN", "ADMIN", "SUPERADMIN", "LEADERSHIP")
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/records")
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_APPLICATIONS", "CAP_MEMBERS", "CAP_MEETINGS_ATTENDANCE")
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/discipline")
+                                .hasAnyAuthority("ROLE_CHIEF_WHIP", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_DISCIPLINE")
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard/compliance")
+                                .hasAnyAuthority("ROLE_COMPLIANCE", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_CONSTITUTION", "CAP_REINSTATEMENT")
+                        .requestMatchers(HttpMethod.GET, "/admin/dashboard")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
+                        .requestMatchers(HttpMethod.GET, "/admin/reports/financial")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
                         // Leadership (read-only): full GET access to admin data, no mutations
                         .requestMatchers(HttpMethod.GET, "/admin/**").hasAnyRole("ADMIN", "SUPERADMIN", "LEADERSHIP")
-                        // Admin + Superadmin: all other (mutating) admin operations
+                        // Admin + Superadmin: all other (mutating) admin operations — includes officials/role
+                        // management (see the /superadmin/** comment above for why that's not capability-delegable)
                         .requestMatchers("/admin/**").hasAnyRole("ADMIN", "SUPERADMIN")
                         // Financial admin delegation management (must be before /financial/**)
                         .requestMatchers("/financial/admin/**").hasRole("FINANCIAL_ADMIN")
                         // Manual payment operations: financial roles + read-only admins (write guards in service)
-                        .requestMatchers("/financial/**").hasAnyRole("FINANCIAL_ADMIN", "FINANCIAL_OFFICIAL", "ADMIN", "SUPERADMIN")
+                        .requestMatchers("/financial/**").hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_FINANCE_DUES")
                         // Applicant onboarding — restricted to APPLICANT role only, never full members
                         .requestMatchers("/onboarding/**").hasRole("APPLICANT")
                         // Everything else: any authenticated user

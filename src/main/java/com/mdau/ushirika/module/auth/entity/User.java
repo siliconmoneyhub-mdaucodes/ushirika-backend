@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.auth.entity;
 
 import com.mdau.ushirika.common.entity.BaseEntity;
+import com.mdau.ushirika.module.auth.enums.Capability;
 import com.mdau.ushirika.module.auth.enums.OfficialTitle;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import jakarta.persistence.*;
@@ -11,7 +12,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 @Entity
 @Table(
@@ -106,11 +110,30 @@ public class User extends BaseEntity implements UserDetails {
     @Builder.Default
     private boolean membershipCeased = false;
 
+    /**
+     * Granular admin permissions attached to this user independent of {@link #role} — see
+     * {@link Capability}. EAGER for the same reason as MemberProfile's NextOfKin/EmergencyContact:
+     * open-in-view is disabled, and getAuthorities() is read by Spring Security outside any
+     * request transaction. SUPERADMIN doesn't need rows here — see getAuthorities() below.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_capabilities", joinColumns = @JoinColumn(name = "user_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "capability", length = 40)
+    @Builder.Default
+    private Set<Capability> capabilities = new HashSet<>();
+
     // ── UserDetails ───────────────────────────────────────────────────────────
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        Stream<String> roleAuthority = Stream.of("ROLE_" + role.name());
+        Stream<String> capabilityAuthorities = role == UserRole.SUPERADMIN
+                ? Stream.of(Capability.values()).map(c -> "CAP_" + c.name())
+                : capabilities.stream().map(c -> "CAP_" + c.name());
+        return Stream.concat(roleAuthority, capabilityAuthorities)
+                .map(SimpleGrantedAuthority::new)
+                .toList();
     }
 
     @Override
