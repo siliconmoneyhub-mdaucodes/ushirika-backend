@@ -60,8 +60,8 @@ public class ProgramApplicationService {
         User member = currentUser();
         Program program = programRepository.findById(programId)
                 .orElseThrow(() -> new ResourceNotFoundException("Program not found: " + programId));
-        if (program.getType() != ProgramType.CUSTOM) {
-            throw new BadRequestException("MGR and Benevolence have their own dedicated join flows — use those instead.");
+        if (program.getType() == ProgramType.MGR) {
+            throw new BadRequestException("MGR has its own dedicated join flow — use that instead.");
         }
         if (program.getStatus() != ProgramStatus.ACTIVE) {
             throw new BadRequestException("This program is not currently open for applications.");
