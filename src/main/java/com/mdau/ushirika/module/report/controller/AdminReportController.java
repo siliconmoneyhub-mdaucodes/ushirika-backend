@@ -115,6 +115,81 @@ public class AdminReportController {
         return pdf(reportService.financeSummaryPdf(year, months), "finance_summary_" + LocalDate.now() + ".pdf");
     }
 
+    @GetMapping("/admin/reports/benevolence.csv")
+    public ResponseEntity<byte[]> benevolenceClaimsCsv() {
+        return csv(reportService.benevolenceClaimsCsv(), "benevolence_claims_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/benevolence.xlsx")
+    public ResponseEntity<byte[]> benevolenceClaimsXlsx() {
+        return xlsx(reportService.benevolenceClaimsXlsx(), "benevolence_claims_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/benevolence.pdf")
+    public ResponseEntity<byte[]> benevolenceClaimsPdf() {
+        return pdf(reportService.benevolenceClaimsPdf(), "benevolence_claims_" + LocalDate.now() + ".pdf");
+    }
+
+    @GetMapping("/admin/reports/loans.csv")
+    public ResponseEntity<byte[]> loansCsv() {
+        return csv(reportService.loansCsv(), "loans_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/loans.xlsx")
+    public ResponseEntity<byte[]> loansXlsx() {
+        return xlsx(reportService.loansXlsx(), "loans_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/loans.pdf")
+    public ResponseEntity<byte[]> loansPdf() {
+        return pdf(reportService.loansPdf(), "loans_" + LocalDate.now() + ".pdf");
+    }
+
+    @GetMapping("/admin/reports/scholarships.csv")
+    public ResponseEntity<byte[]> scholarshipsCsv() {
+        return csv(reportService.scholarshipsCsv(), "scholarships_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/scholarships.xlsx")
+    public ResponseEntity<byte[]> scholarshipsXlsx() {
+        return xlsx(reportService.scholarshipsXlsx(), "scholarships_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/scholarships.pdf")
+    public ResponseEntity<byte[]> scholarshipsPdf() {
+        return pdf(reportService.scholarshipsPdf(), "scholarships_" + LocalDate.now() + ".pdf");
+    }
+
+    @GetMapping("/admin/reports/elections.csv")
+    public ResponseEntity<byte[]> electionsCsv() {
+        return csv(reportService.electionsCsv(), "election_results_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/elections.xlsx")
+    public ResponseEntity<byte[]> electionsXlsx() {
+        return xlsx(reportService.electionsXlsx(), "election_results_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/elections.pdf")
+    public ResponseEntity<byte[]> electionsPdf() {
+        return pdf(reportService.electionsPdf(), "election_results_" + LocalDate.now() + ".pdf");
+    }
+
+    @GetMapping("/admin/reports/applications.csv")
+    public ResponseEntity<byte[]> programApplicationsCsv() {
+        return csv(reportService.programApplicationsCsv(), "program_applications_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/applications.xlsx")
+    public ResponseEntity<byte[]> programApplicationsXlsx() {
+        return xlsx(reportService.programApplicationsXlsx(), "program_applications_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/applications.pdf")
+    public ResponseEntity<byte[]> programApplicationsPdf() {
+        return pdf(reportService.programApplicationsPdf(), "program_applications_" + LocalDate.now() + ".pdf");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static String duesFilename(Integer year, String ext) {

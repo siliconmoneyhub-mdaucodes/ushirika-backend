@@ -13,26 +13,42 @@ import com.mdau.ushirika.module.attendance.repository.MeetingRepository;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.benevolence.entity.BenevolenceClaim;
+import com.mdau.ushirika.module.benevolence.repository.BenevolenceClaimRepository;
 import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto;
 import com.mdau.ushirika.module.dashboard.service.DashboardService;
 import com.mdau.ushirika.module.dues.entity.MembershipDue;
 import com.mdau.ushirika.module.dues.enums.DuesStatus;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
+import com.mdau.ushirika.module.election.entity.Election;
+import com.mdau.ushirika.module.election.entity.ElectionResult;
+import com.mdau.ushirika.module.election.enums.ElectionStatus;
+import com.mdau.ushirika.module.election.repository.ElectionRepository;
+import com.mdau.ushirika.module.election.repository.ElectionResultRepository;
+import com.mdau.ushirika.module.loan.entity.LoanApplication;
+import com.mdau.ushirika.module.loan.repository.LoanApplicationRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.mgr.entity.MgrContribution;
 import com.mdau.ushirika.module.mgr.repository.MgrContributionRepository;
+import com.mdau.ushirika.module.program.entity.ProgramApplication;
+import com.mdau.ushirika.module.program.enums.ProgramType;
+import com.mdau.ushirika.module.program.repository.ProgramApplicationRepository;
 import com.mdau.ushirika.module.report.dto.*;
 import com.mdau.ushirika.module.report.util.CsvBuilder;
 import com.mdau.ushirika.module.report.util.PdfBuilder;
 import com.mdau.ushirika.module.report.util.TableBuilder;
 import com.mdau.ushirika.module.report.util.XlsxBuilder;
+import com.mdau.ushirika.module.scholarship.entity.ScholarshipApplication;
+import com.mdau.ushirika.module.scholarship.entity.ScholarshipAward;
+import com.mdau.ushirika.module.scholarship.repository.ScholarshipApplicationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,6 +64,12 @@ public class ReportService {
     private final AttendanceRecordRepository attendanceRepository;
     private final MgrContributionRepository  contributionRepository;
     private final DashboardService           dashboardService;
+    private final BenevolenceClaimRepository benevolenceClaimRepository;
+    private final LoanApplicationRepository  loanApplicationRepository;
+    private final ScholarshipApplicationRepository scholarshipApplicationRepository;
+    private final ElectionRepository         electionRepository;
+    private final ElectionResultRepository   electionResultRepository;
+    private final ProgramApplicationRepository programApplicationRepository;
 
     // ── Members ──────────────────────────────────────────────────────────────
 
@@ -277,6 +299,216 @@ public class ReportService {
                  .col(c.getPaidAt() != null ? c.getPaidAt().toLocalDate() : "")
                  .col(c.getPaymentMethod() != null ? c.getPaymentMethod() : "")
                  .col(c.getPaymentReference() != null ? c.getPaymentReference() : "")
+                 .newRow();
+        }
+    }
+
+    // ── Benevolence claims ───────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] benevolenceClaimsCsv() { var t = CsvBuilder.create(); populateBenevolenceClaimsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] benevolenceClaimsXlsx() { var t = XlsxBuilder.create("Benevolence Claims"); populateBenevolenceClaimsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] benevolenceClaimsPdf() { var t = PdfBuilder.create("Benevolence Claims Report"); populateBenevolenceClaimsTable(t); return t.toBytes(); }
+
+    private void populateBenevolenceClaimsTable(TableBuilder table) {
+        List<BenevolenceClaim> claims = benevolenceClaimRepository.findAll(Sort.by("submittedAt").descending());
+
+        Map<UUID, String> memberIds = profileRepository.findAll()
+                .stream()
+                .filter(p -> p.getMemberId() != null)
+                .collect(Collectors.toMap(p -> p.getUser().getId(), MemberProfile::getMemberId));
+
+        table.header("Reference", "Member ID", "Name", "Email", "Deceased", "Relationship",
+                "Category", "Date of Death", "Amount Approved", "Status", "Submitted", "Reviewed", "Disbursed");
+
+        for (BenevolenceClaim c : claims) {
+            User u = c.getEnrollment().getUser();
+            table.col(c.getReferenceNumber())
+                 .col(memberIds.getOrDefault(u.getId(), ""))
+                 .col(u.getFullName())
+                 .col(u.getEmail())
+                 .col(c.getDeceasedName())
+                 .col(c.getRelationship())
+                 .col(c.getCategory() != null ? c.getCategory().getName() : "")
+                 .col(c.getDateOfDeath())
+                 .col(c.getAmountApproved())
+                 .col(c.getStatus())
+                 .col(c.getSubmittedAt() != null ? c.getSubmittedAt().toLocalDate() : "")
+                 .col(c.getReviewedAt() != null ? c.getReviewedAt().toLocalDate() : "")
+                 .col(c.getDisbursedAt() != null ? c.getDisbursedAt().toLocalDate() : "")
+                 .newRow();
+        }
+    }
+
+    // ── Loans ────────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] loansCsv() { var t = CsvBuilder.create(); populateLoansTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] loansXlsx() { var t = XlsxBuilder.create("Loans"); populateLoansTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] loansPdf() { var t = PdfBuilder.create("Loans Report"); populateLoansTable(t); return t.toBytes(); }
+
+    private void populateLoansTable(TableBuilder table) {
+        List<LoanApplication> loans = loanApplicationRepository.findAll(Sort.by("createdAt").descending());
+
+        Map<UUID, String> memberIds = profileRepository.findAll()
+                .stream()
+                .filter(p -> p.getMemberId() != null)
+                .collect(Collectors.toMap(p -> p.getUser().getId(), MemberProfile::getMemberId));
+
+        table.header("Reference", "Member ID", "Name", "Email", "Purpose", "Requested Amount",
+                "Approved Amount", "Term (months)", "Interest Rate", "Total Repayable", "Total Paid",
+                "Outstanding", "Status", "Disbursed", "Due Date");
+
+        for (LoanApplication l : loans) {
+            User u = l.getUser();
+            BigDecimal outstanding = l.getTotalRepayable() != null
+                    ? l.getTotalRepayable().subtract(l.getTotalPaid())
+                    : null;
+            table.col(l.getReferenceNumber())
+                 .col(memberIds.getOrDefault(u.getId(), ""))
+                 .col(u.getFullName())
+                 .col(u.getEmail())
+                 .col(l.getPurpose())
+                 .col(l.getRequestedAmount())
+                 .col(l.getApprovedAmount())
+                 .col(l.getTermMonths())
+                 .col(l.getInterestRate())
+                 .col(l.getTotalRepayable())
+                 .col(l.getTotalPaid())
+                 .col(outstanding)
+                 .col(l.getStatus())
+                 .col(l.getDisbursedAt())
+                 .col(l.getDueDate())
+                 .newRow();
+        }
+    }
+
+    // ── Scholarships ─────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] scholarshipsCsv() { var t = CsvBuilder.create(); populateScholarshipsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] scholarshipsXlsx() { var t = XlsxBuilder.create("Scholarships"); populateScholarshipsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] scholarshipsPdf() { var t = PdfBuilder.create("Scholarships Report"); populateScholarshipsTable(t); return t.toBytes(); }
+
+    private void populateScholarshipsTable(TableBuilder table) {
+        List<ScholarshipApplication> apps = scholarshipApplicationRepository.findAll(Sort.by("createdAt").descending());
+
+        Map<UUID, String> memberIds = profileRepository.findAll()
+                .stream()
+                .filter(p -> p.getMemberId() != null)
+                .collect(Collectors.toMap(p -> p.getUser().getId(), MemberProfile::getMemberId));
+
+        table.header("Reference", "Member ID", "Name", "Email", "Beneficiary", "Program",
+                "Institution", "Course", "Academic Year", "Amount Awarded", "Status", "Submitted", "Awarded");
+
+        for (ScholarshipApplication a : apps) {
+            User u = a.getMember();
+            ScholarshipAward award = a.getAward();
+            table.col(a.getReferenceNumber())
+                 .col(memberIds.getOrDefault(u.getId(), ""))
+                 .col(u.getFullName())
+                 .col(u.getEmail())
+                 .col(a.getBeneficiaryName())
+                 .col(a.getProgram() != null ? a.getProgram().getName() : "")
+                 .col(a.getInstitutionName())
+                 .col(a.getCourseOfStudy())
+                 .col(a.getAcademicYear())
+                 .col(award != null ? award.getAmountAwarded() : null)
+                 .col(a.getStatus())
+                 .col(a.getSubmittedAt() != null ? a.getSubmittedAt().toLocalDate() : "")
+                 .col(award != null && award.getAwardedAt() != null ? award.getAwardedAt().toLocalDate() : "")
+                 .newRow();
+        }
+    }
+
+    // ── Elections ────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] electionsCsv() { var t = CsvBuilder.create(); populateElectionsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] electionsXlsx() { var t = XlsxBuilder.create("Election Results"); populateElectionsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] electionsPdf() { var t = PdfBuilder.create("Election Results Report"); populateElectionsTable(t); return t.toBytes(); }
+
+    /** Only COMPLETED elections have declared ElectionResult rows -- results are computed once
+     * at declare-results time, not derived live from raw vote tallies. */
+    private void populateElectionsTable(TableBuilder table) {
+        List<Election> elections = electionRepository.findAllByOrderByYearDescCreatedAtDesc()
+                .stream()
+                .filter(e -> e.getStatus() == ElectionStatus.COMPLETED)
+                .toList();
+
+        table.header("Election", "Year", "Seat", "Candidate", "Member ID", "Votes", "Rank", "Winner");
+
+        for (Election e : elections) {
+            List<ElectionResult> results = electionResultRepository.findAllByElectionIdOrderBySeatTitleAscRankAsc(e.getId());
+            for (ElectionResult r : results) {
+                table.col(e.getTitle())
+                     .col(e.getYear())
+                     .col(r.getSeatTitle())
+                     .col(r.getMemberName())
+                     .col(r.getMemberId() != null ? r.getMemberId() : "")
+                     .col(r.getVoteCount())
+                     .col(r.getRank())
+                     .col(r.isWinner())
+                     .newRow();
+            }
+        }
+    }
+
+    // ── Program applications (non-MGR, non-Benevolence programs) ──────────────
+
+    @Transactional(readOnly = true)
+    public byte[] programApplicationsCsv() { var t = CsvBuilder.create(); populateProgramApplicationsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] programApplicationsXlsx() { var t = XlsxBuilder.create("Program Applications"); populateProgramApplicationsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] programApplicationsPdf() { var t = PdfBuilder.create("Program Applications Report"); populateProgramApplicationsTable(t); return t.toBytes(); }
+
+    /** MGR and Benevolence each have their own dedicated join-request systems and reports
+     * (MgrContribution / BenevolenceClaim above) -- restricted to CUSTOM programs here so this
+     * doesn't overlap with those, even though the generic ProgramApplication path is technically
+     * still reachable for BENEVOLENCE too. */
+    private void populateProgramApplicationsTable(TableBuilder table) {
+        List<ProgramApplication> apps = programApplicationRepository.findAll(Sort.by("appliedAt").descending())
+                .stream()
+                .filter(a -> a.getProgram().getType() == ProgramType.CUSTOM)
+                .toList();
+
+        Map<UUID, String> memberIds = profileRepository.findAll()
+                .stream()
+                .filter(p -> p.getMemberId() != null)
+                .collect(Collectors.toMap(p -> p.getUser().getId(), MemberProfile::getMemberId));
+
+        table.header("Program", "Member ID", "Name", "Email", "Status", "Applied", "Reviewed", "Reviewed By", "Rejection Reason");
+
+        for (ProgramApplication a : apps) {
+            User u = a.getApplicant();
+            table.col(a.getProgram().getName())
+                 .col(memberIds.getOrDefault(u.getId(), ""))
+                 .col(u.getFullName())
+                 .col(u.getEmail())
+                 .col(a.getStatus())
+                 .col(a.getAppliedAt() != null ? a.getAppliedAt().toLocalDate() : "")
+                 .col(a.getReviewedAt() != null ? a.getReviewedAt().toLocalDate() : "")
+                 .col(a.getReviewedBy() != null ? a.getReviewedBy().getFullName() : "")
+                 .col(a.getRejectionReason() != null ? a.getRejectionReason() : "")
                  .newRow();
         }
     }
