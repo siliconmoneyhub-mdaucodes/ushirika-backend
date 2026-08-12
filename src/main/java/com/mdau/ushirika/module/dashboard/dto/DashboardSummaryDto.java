@@ -18,7 +18,11 @@ public record DashboardSummaryDto(
             long pending,
             long underReview,
             long approved,
-            long rejected
+            long rejected,
+            /** Real, current active membership count -- role MEMBER, active login, not ceased.
+             * Distinct from {@code approved}, which is an application-approval count and never
+             * decreases even after a member's status later lapses to inactive/ceased. */
+            long active
     ) {}
 
     public record WelfareStats(

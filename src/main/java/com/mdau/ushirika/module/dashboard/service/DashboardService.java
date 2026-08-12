@@ -370,7 +370,8 @@ public class DashboardService {
                 + memberApplicationRepository.countByStatus(ApplicationStatus.ONBOARDING_IN_PROGRESS)
                 + memberApplicationRepository.countByStatus(ApplicationStatus.PAYMENT_SUBMITTED),
                 memberApplicationRepository.countByStatus(ApplicationStatus.APPROVED),
-                memberApplicationRepository.countByStatus(ApplicationStatus.REJECTED)
+                memberApplicationRepository.countByStatus(ApplicationStatus.REJECTED),
+                userRepository.countByRoleAndActiveTrueAndMembershipCeasedFalse(UserRole.MEMBER)
         );
     }
 
