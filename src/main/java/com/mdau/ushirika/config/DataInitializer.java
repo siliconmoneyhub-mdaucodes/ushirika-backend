@@ -281,6 +281,14 @@ public class DataInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE mgr_join_requests ALTER COLUMN cycle_id DROP NOT NULL");
         jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS admitted_at TIMESTAMP");
 
+        // Same stale-check-constraint trap as users_role_check -- ddl-auto=update auto-generated
+        // mgr_join_requests_status_check against the original PENDING/APPROVED/REJECTED values and
+        // never widens it on its own. Confirmed live: approving a request into the new WAITLISTED
+        // status threw "violates check constraint mgr_join_requests_status_check". Dropped outright
+        // (no CHECK constraint) rather than recreated, matching user_capabilities/other newer
+        // @Enumerated(STRING) columns in this schema -- validated at the Java layer instead.
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests DROP CONSTRAINT IF EXISTS mgr_join_requests_status_check");
+
         // enrollment_open is retired -- MGR applications are now always accepted (queued via
         // WAITLISTED/ADMITTED status instead of a per-cycle open/closed gate).
         jdbcTemplate.execute("ALTER TABLE mgr_cycles DROP COLUMN IF EXISTS enrollment_open");
