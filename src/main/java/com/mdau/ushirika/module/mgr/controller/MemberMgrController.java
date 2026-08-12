@@ -28,13 +28,13 @@ public class MemberMgrController {
     }
 
     // ── Join Requests ─────────────────────────────────────────────────────────
+    // Applications are accepted at any time -- not gated by whether any cycle is DRAFT or ACTIVE.
 
-    @PostMapping("/cycles/{cycleId}/join-requests")
+    @PostMapping("/join-requests")
     public ResponseEntity<ApiResponse<MgrJoinRequestDto>> requestJoin(
-            @PathVariable UUID cycleId,
             @Valid @RequestBody JoinMgrRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Join request submitted",
-                mgrService.requestJoin(cycleId, req.notes())));
+                mgrService.requestJoin(req.notes())));
     }
 
     @GetMapping("/join-requests")

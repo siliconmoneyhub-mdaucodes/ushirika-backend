@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.mgr.repository;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.mgr.entity.MgrCycle;
 import com.mdau.ushirika.module.mgr.entity.MgrSlot;
+import com.mdau.ushirika.module.mgr.enums.CycleStatus;
 import com.mdau.ushirika.module.mgr.enums.SlotStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,9 +20,16 @@ public interface MgrSlotRepository extends JpaRepository<MgrSlot, UUID> {
 
     Optional<MgrSlot> findByCycleAndUser(MgrCycle cycle, User user);
 
-    Optional<MgrSlot> findByUser(User user);
+    /** A member can hold a slot in more than one cycle over time (past COMPLETED cycles, a new
+     * one after re-applying) -- this resolves specifically their slot in whichever cycle is
+     * presently ACTIVE, which is the only sense of "my current slot" that's ever meaningful for
+     * outstanding-balance / payment-allocation purposes. Plain findByUser() would throw once a
+     * repeat participant has more than one MgrSlot row (a real, expected outcome of this flow). */
+    Optional<MgrSlot> findByUserAndCycleStatus(User user, CycleStatus status);
 
     boolean existsByCycleAndUser(MgrCycle cycle, User user);
+
+    boolean existsByUserAndCycleStatus(User user, CycleStatus status);
 
     int countByCycle(MgrCycle cycle);
 

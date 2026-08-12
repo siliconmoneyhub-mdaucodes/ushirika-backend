@@ -19,13 +19,14 @@ public record MgrJoinRequestDto(
         String adminNotes,
         String respondedByName,
         LocalDateTime respondedAt,
+        LocalDateTime admittedAt,
         LocalDateTime createdAt
 ) {
     public static MgrJoinRequestDto from(MgrJoinRequest r, String memberId) {
         return new MgrJoinRequestDto(
                 r.getId(),
-                r.getCycle().getId(),
-                r.getCycle().getName(),
+                r.getCycle() != null ? r.getCycle().getId() : null,
+                r.getCycle() != null ? r.getCycle().getName() : null,
                 r.getUser().getId(),
                 r.getUser().getFullName(),
                 r.getUser().getEmail(),
@@ -35,6 +36,7 @@ public record MgrJoinRequestDto(
                 r.getAdminNotes(),
                 r.getRespondedBy() != null ? r.getRespondedBy().getFullName() : null,
                 r.getRespondedAt(),
+                r.getAdmittedAt(),
                 r.getCreatedAt()
         );
     }

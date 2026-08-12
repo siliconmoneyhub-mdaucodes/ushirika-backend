@@ -272,6 +272,18 @@ public class DataInitializer implements ApplicationRunner {
                 """);
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bjr_user ON benevolence_join_requests (user_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bjr_status ON benevolence_join_requests (status)");
+
+        // MGR join requests are no longer tied to a specific cycle at application time --
+        // applications are accepted any time and only get a cycle_id once actually ADMITTED (swept
+        // in at that cycle's activation). cycle_id must become nullable and its old (cycle_id,
+        // user_id) uniqueness no longer makes sense now that cycle_id starts out null for everyone.
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests DROP CONSTRAINT IF EXISTS uq_mgr_jr_cycle_user");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ALTER COLUMN cycle_id DROP NOT NULL");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS admitted_at TIMESTAMP");
+
+        // enrollment_open is retired -- MGR applications are now always accepted (queued via
+        // WAITLISTED/ADMITTED status instead of a per-cycle open/closed gate).
+        jdbcTemplate.execute("ALTER TABLE mgr_cycles DROP COLUMN IF EXISTS enrollment_open");
     }
 
     /**

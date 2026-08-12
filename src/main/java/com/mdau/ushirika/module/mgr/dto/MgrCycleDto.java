@@ -21,7 +21,6 @@ public record MgrCycleDto(
         BigDecimal payoutAmountPerSlot,
         BigDecimal reservePercentage,
         int benefitPayoutDay,
-        boolean enrollmentOpen,
         String notes,
         CycleStatus status,
         LocalDateTime activatedAt,
@@ -37,7 +36,7 @@ public record MgrCycleDto(
                 c.getId(), c.getName(), c.getYear(), c.getStartDate(), c.getEndDate(),
                 c.getTotalSlots(), c.getMonthlyContribution(), c.getPayoutsPerMonth(),
                 c.getPayoutAmountPerSlot(), c.getReservePercentage(), c.getBenefitPayoutDay(),
-                c.isEnrollmentOpen(), c.getNotes(), c.getStatus(),
+                c.getNotes(), c.getStatus(),
                 c.getActivatedAt(), c.getCompletedAt(),
                 assignedSlots, paidPayouts, pendingContributions, slots
         );
@@ -48,7 +47,7 @@ public record MgrCycleDto(
                 c.getId(), c.getName(), c.getYear(), c.getStartDate(), c.getEndDate(),
                 c.getTotalSlots(), c.getMonthlyContribution(), c.getPayoutsPerMonth(),
                 c.getPayoutAmountPerSlot(), c.getReservePercentage(), c.getBenefitPayoutDay(),
-                c.isEnrollmentOpen(), c.getNotes(), c.getStatus(),
+                c.getNotes(), c.getStatus(),
                 c.getActivatedAt(), c.getCompletedAt(),
                 assignedSlots, paidPayouts, 0, null
         );

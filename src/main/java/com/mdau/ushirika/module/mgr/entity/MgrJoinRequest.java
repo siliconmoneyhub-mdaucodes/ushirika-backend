@@ -8,13 +8,17 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * A member's request to join MGR -- decoupled from any specific cycle. Applications are accepted
+ * any time, not gated by a cycle being DRAFT or open. Flow: member applies (PENDING) -> coordinator
+ * approves in principle (WAITLISTED) -> automatically swept into whichever cycle activates next,
+ * first-come-first-served by application date (ADMITTED) -- or coordinator rejects (REJECTED).
+ * {@code cycle} is therefore only ever set once ADMITTED; it records which cycle they landed in,
+ * not which cycle they applied against.
+ */
 @Entity
 @Table(
     name = "mgr_join_requests",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uq_mgr_jr_cycle_user",
-        columnNames = {"cycle_id", "user_id"}
-    ),
     indexes = {
         @Index(name = "idx_mgr_jr_cycle",  columnList = "cycle_id"),
         @Index(name = "idx_mgr_jr_user",   columnList = "user_id"),
@@ -28,8 +32,9 @@ import java.time.LocalDateTime;
 @Builder
 public class MgrJoinRequest extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "cycle_id", nullable = false,
+    /** The cycle they were ultimately admitted into. Null until status becomes ADMITTED. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cycle_id",
                 foreignKey = @ForeignKey(name = "fk_mgr_jr_cycle"))
     private MgrCycle cycle;
 
@@ -56,4 +61,8 @@ public class MgrJoinRequest extends BaseEntity {
 
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
+
+    /** When this request was swept into a cycle at that cycle's activation. */
+    @Column(name = "admitted_at")
+    private LocalDateTime admittedAt;
 }

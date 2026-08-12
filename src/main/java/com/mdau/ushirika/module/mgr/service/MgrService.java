@@ -113,18 +113,6 @@ public class MgrService {
         return toFullDto(cycle);
     }
 
-    @Transactional
-    public MgrCycleDto toggleEnrollment(UUID id) {
-        MgrCycle cycle = findCycle(id);
-        if (cycle.getStatus() != CycleStatus.DRAFT) {
-            throw new BadRequestException("Enrollment can only be toggled for DRAFT cycles.");
-        }
-        cycle.setEnrollmentOpen(!cycle.isEnrollmentOpen());
-        cycleRepo.save(cycle);
-        log.info("MGR cycle enrollment toggled: id={} open={}", id, cycle.isEnrollmentOpen());
-        return toFullDto(cycle);
-    }
-
     // ── Activate / complete / cancel ──────────────────────────────────────────
 
     @Transactional
@@ -133,6 +121,13 @@ public class MgrService {
         if (cycle.getStatus() != CycleStatus.DRAFT) {
             throw new BadRequestException("Only DRAFT cycles can be activated.");
         }
+
+        // Sweep the WAITLISTED queue (FCFS by application date) into whatever capacity remains
+        // beyond members already manually assigned pre-activation, before checking "any members
+        // at all" -- this is the moment applications submitted at any time (even while another
+        // cycle was running) finally land a real seat.
+        List<MgrSlot> admittedFromWaitlist = admitWaitlistedMembers(cycle);
+
         List<MgrSlot> slots = slotRepo.findByCycleOrderBySlotNumber(cycle);
         if (slots.isEmpty()) {
             throw new BadRequestException("Add at least one approved member before activating.");
@@ -153,15 +148,59 @@ public class MgrService {
         contributionRepo.saveAll(contributions);
 
         cycle.setStatus(CycleStatus.ACTIVE);
-        cycle.setEnrollmentOpen(false);
         cycle.setActivatedAt(LocalDateTime.now());
         cycleRepo.save(cycle);
 
-        log.info("MGR cycle activated: id={} slots={}", id, slots.size());
+        log.info("MGR cycle activated: id={} slots={} admittedFromWaitlist={}",
+                id, slots.size(), admittedFromWaitlist.size());
         notifyAllSlotMembers(cycle, slots, "MGR Cycle Activated — " + cycle.getName(),
                 "Your Merry-Go-Round cycle is now active! Log in to your portal to see your contribution schedule.");
 
         return toFullDto(cycle);
+    }
+
+    /**
+     * Drains the global WAITLISTED queue (oldest application first) into this activating cycle,
+     * up to whatever capacity remains after any members already manually assigned pre-activation.
+     * Anyone who doesn't fit stays WAITLISTED and is picked up automatically the next time any
+     * cycle activates -- no extra bookkeeping needed since the queue is just "all WAITLISTED
+     * requests globally," and each activation drains as many as fit.
+     */
+    private List<MgrSlot> admitWaitlistedMembers(MgrCycle cycle) {
+        int existing = slotRepo.countByCycle(cycle);
+        int capacity = cycle.getTotalSlots() - existing;
+        if (capacity <= 0) {
+            return List.of();
+        }
+
+        List<MgrJoinRequest> waitlist = joinRequestRepo.findByStatusOrderByCreatedAtAsc(JoinRequestStatus.WAITLISTED);
+        List<MgrJoinRequest> toAdmit = waitlist.subList(0, Math.min(capacity, waitlist.size()));
+
+        List<MgrSlot> newSlots = new ArrayList<>();
+        int slotNumber = existing;
+        for (MgrJoinRequest request : toAdmit) {
+            slotNumber++;
+            MgrSlot slot = MgrSlot.builder()
+                    .cycle(cycle)
+                    .user(request.getUser())
+                    .slotNumber(slotNumber)
+                    .build();
+            slotRepo.save(slot);
+            newSlots.add(slot);
+
+            request.setStatus(JoinRequestStatus.ADMITTED);
+            request.setCycle(cycle);
+            request.setAdmittedAt(LocalDateTime.now());
+            joinRequestRepo.save(request);
+
+            sendAdmittedEmail(request);
+        }
+
+        if (!toAdmit.isEmpty()) {
+            log.info("MGR waitlist swept into cycle {}: admitted={} stillWaiting={}",
+                    cycle.getId(), toAdmit.size(), waitlist.size() - toAdmit.size());
+        }
+        return newSlots;
     }
 
     @Transactional
@@ -188,37 +227,33 @@ public class MgrService {
     }
 
     // ── Join Requests ─────────────────────────────────────────────────────────
+    // Applications are accepted at any time, independent of whether any cycle is DRAFT or
+    // ACTIVE -- there is no cycle-status gate here at all. A request only ever becomes tied to a
+    // specific cycle once ADMITTED (see admitWaitlistedMembers above).
+
+    private static final Set<JoinRequestStatus> OPEN_JOIN_REQUEST_STATUSES =
+            Set.of(JoinRequestStatus.PENDING, JoinRequestStatus.WAITLISTED);
 
     @Transactional
-    public MgrJoinRequestDto requestJoin(UUID cycleId, String memberNotes) {
+    public MgrJoinRequestDto requestJoin(String memberNotes) {
         User member = currentUser();
-        MgrCycle cycle = findCycle(cycleId);
-
-        if (!cycle.isEnrollmentOpen()) {
-            throw new BadRequestException("Enrollment for this MGR cycle is currently closed.");
+        if (!member.isActive()) {
+            throw new BadRequestException("Only active members may apply to join MGR.");
         }
-        if (cycle.getStatus() != CycleStatus.DRAFT) {
-            throw new BadRequestException("Join requests can only be submitted for cycles that are open for enrollment.");
+        if (joinRequestRepo.existsByUserAndStatusIn(member, OPEN_JOIN_REQUEST_STATUSES)) {
+            throw new ConflictException("You already have a pending or waitlisted MGR join request.");
         }
-        if (joinRequestRepo.existsByCycleAndUser(cycle, member)) {
-            throw new ConflictException("You have already submitted a join request for this cycle.");
-        }
-        if (slotRepo.existsByCycleAndUser(cycle, member)) {
-            throw new ConflictException("You are already enrolled in this cycle.");
-        }
-        int currentCount = slotRepo.countByCycle(cycle);
-        if (currentCount >= cycle.getTotalSlots()) {
-            throw new BadRequestException("This cycle is full (" + cycle.getTotalSlots() + " members). Check for a future cycle.");
+        if (slotRepo.existsByUserAndCycleStatus(member, CycleStatus.ACTIVE)) {
+            throw new ConflictException("You are already enrolled in the currently active MGR cycle.");
         }
 
         MgrJoinRequest request = MgrJoinRequest.builder()
-                .cycle(cycle)
                 .user(member)
                 .memberNotes(memberNotes)
                 .build();
         joinRequestRepo.save(request);
 
-        log.info("MGR join request submitted: cycleId={} member={}", cycleId, member.getEmail());
+        log.info("MGR join request submitted: member={}", member.getEmail());
         return MgrJoinRequestDto.from(request, memberId(member));
     }
 
@@ -232,16 +267,18 @@ public class MgrService {
     }
 
     @Transactional(readOnly = true)
-    public List<MgrJoinRequestDto> listJoinRequests(UUID cycleId, JoinRequestStatus status) {
-        MgrCycle cycle = findCycle(cycleId);
+    public List<MgrJoinRequestDto> listJoinRequests(JoinRequestStatus status) {
         List<MgrJoinRequest> requests = status != null
-                ? joinRequestRepo.findByCycleAndStatusOrderByCreatedAtDesc(cycle, status)
-                : joinRequestRepo.findByCycleOrderByCreatedAtDesc(cycle);
+                ? joinRequestRepo.findByStatusOrderByCreatedAtDesc(status)
+                : joinRequestRepo.findAllByOrderByCreatedAtDesc();
         return requests.stream()
                 .map(r -> MgrJoinRequestDto.from(r, memberId(r.getUser())))
                 .toList();
     }
 
+    /** Coordinator approves in principle -- moves PENDING to WAITLISTED. Does not create a slot;
+     * the member is automatically swept into whichever cycle activates next (see
+     * admitWaitlistedMembers), first-come-first-served by application date. */
     @Transactional
     public MgrJoinRequestDto approveJoinRequest(UUID requestId, String adminNotes) {
         User admin = currentUser();
@@ -251,33 +288,15 @@ public class MgrService {
         if (request.getStatus() != JoinRequestStatus.PENDING) {
             throw new BadRequestException("Only PENDING requests can be approved.");
         }
-        MgrCycle cycle = request.getCycle();
-        if (cycle.getStatus() != CycleStatus.DRAFT) {
-            throw new BadRequestException("Cannot approve requests for a non-DRAFT cycle.");
-        }
-        int currentCount = slotRepo.countByCycle(cycle);
-        if (currentCount >= cycle.getTotalSlots()) {
-            throw new BadRequestException("Cycle is full — cannot approve more members.");
-        }
 
-        // Create slot (sequential number, no payout month yet — assigned at monthly draw)
-        MgrSlot slot = MgrSlot.builder()
-                .cycle(cycle)
-                .user(request.getUser())
-                .slotNumber(currentCount + 1)
-                .build();
-        slotRepo.save(slot);
-
-        request.setStatus(JoinRequestStatus.APPROVED);
+        request.setStatus(JoinRequestStatus.WAITLISTED);
         request.setAdminNotes(adminNotes);
         request.setRespondedBy(admin);
         request.setRespondedAt(LocalDateTime.now());
         joinRequestRepo.save(request);
 
-        log.info("MGR join request approved: id={} member={} slot={}", requestId,
-                request.getUser().getEmail(), slot.getSlotNumber());
-
-        sendApprovedJoinEmail(request);
+        log.info("MGR join request waitlisted: id={} member={}", requestId, request.getUser().getEmail());
+        sendWaitlistedEmail(request);
         return MgrJoinRequestDto.from(request, memberId(request.getUser()));
     }
 
@@ -287,8 +306,8 @@ public class MgrService {
         requireMgrCoordinatorAccess(admin);
         MgrJoinRequest request = findJoinRequest(requestId);
 
-        if (request.getStatus() != JoinRequestStatus.PENDING) {
-            throw new BadRequestException("Only PENDING requests can be rejected.");
+        if (request.getStatus() != JoinRequestStatus.PENDING && request.getStatus() != JoinRequestStatus.WAITLISTED) {
+            throw new BadRequestException("Only PENDING or WAITLISTED requests can be rejected.");
         }
 
         request.setStatus(JoinRequestStatus.REJECTED);
@@ -502,7 +521,7 @@ public class MgrService {
     /** Sum of this member's PENDING contribution amounts for their current slot — 0 if not in an active cycle. */
     @Transactional(readOnly = true)
     public BigDecimal outstandingContributionBalance(User member) {
-        return slotRepo.findByUser(member)
+        return slotRepo.findByUserAndCycleStatus(member, CycleStatus.ACTIVE)
                 .map(slot -> contributionRepo.findBySlotOrderByContributionMonth(slot).stream()
                         .filter(c -> c.getStatus() == ContributionStatus.PENDING)
                         .map(MgrContribution::getAmount)
@@ -516,7 +535,7 @@ public class MgrService {
      * (PaymentAllocationService) can keep it as member credit instead of losing it. */
     @Transactional
     public BigDecimal applyContribution(User member, BigDecimal amountUsd) {
-        MgrSlot slot = slotRepo.findByUser(member).orElse(null);
+        MgrSlot slot = slotRepo.findByUserAndCycleStatus(member, CycleStatus.ACTIVE).orElse(null);
         if (slot == null) {
             log.warn("Payment tried to credit MGR contribution for {} but they have no active slot", member.getEmail());
             return amountUsd;
@@ -661,25 +680,52 @@ public class MgrService {
         emailService.sendPlain(email, name, "Your MGR Payout Has Been Disbursed — Ushirika Welfare Organization", html);
     }
 
-    private void sendApprovedJoinEmail(MgrJoinRequest r) {
+    /** Sent when a coordinator approves an application in principle (PENDING -> WAITLISTED).
+     * Mentions the currently active cycle's end date as context if one exists, since that's
+     * typically around when the next cycle -- and this member's automatic admission -- follows. */
+    private void sendWaitlistedEmail(MgrJoinRequest r) {
         String name = r.getUser().getFullName();
         String portal = siteUrl + "/portal/mgr";
+        Optional<MgrCycle> active = cycleRepo.findFirstByStatusOrderByStartDateDesc(CycleStatus.ACTIVE);
+        String cycleContext = active
+                .map(c -> "The current cycle (<strong>" + c.getName() + "</strong>) runs through <strong>"
+                        + c.getEndDate() + "</strong>. New members are admitted automatically when the next cycle begins.")
+                .orElse("You'll be admitted automatically as soon as the next cycle begins.");
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
-              <h2 style="color:#007834">You're In! MGR Join Request Approved</h2>
+              <h2 style="color:#007834">You're on the MGR Waitlist!</h2>
               <p>Hi %s,</p>
-              <p>Your request to join <strong>%s</strong> has been approved.
-                 You have been enrolled in the cycle.</p>
-              <p>Once the cycle is activated, you will receive a notification with your
-                 contribution schedule. Log in to your portal to track your status.</p>
+              <p>Your request to join the Merry-Go-Round program has been approved and you're now
+                 on the admission queue, first-come-first-served by application date.</p>
+              <p>%s You'll receive another email the moment you're enrolled, with your contribution
+                 schedule.</p>
               <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Go to MGR Portal
               </a></p>
               <p>— Ushirika Welfare Organization Team</p>
-            </div>""".formatted(name, r.getCycle().getName(), portal);
-        emailService.sendPlain(r.getUser().getEmail(), name,
-                "MGR Join Request Approved — " + r.getCycle().getName(), html);
+            </div>""".formatted(name, cycleContext, portal);
+        emailService.sendPlain(r.getUser().getEmail(), name, "You're on the MGR Waitlist — Ushirika Welfare Organization", html);
+    }
+
+    /** Sent when a waitlisted member is actually swept into a real cycle at that cycle's activation. */
+    private void sendAdmittedEmail(MgrJoinRequest r) {
+        String name = r.getUser().getFullName();
+        String cycleName = r.getCycle().getName();
+        String portal = siteUrl + "/portal/mgr";
+        String html = """
+            <div style="font-family:sans-serif;max-width:520px;margin:auto">
+              <h2 style="color:#007834">You're In! Enrolled in %s</h2>
+              <p>Hi %s,</p>
+              <p>Great news — you've been enrolled in <strong>%s</strong>. Your contribution
+                 schedule is now live in your member portal.</p>
+              <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
+                 padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
+                 Go to MGR Portal
+              </a></p>
+              <p>— Ushirika Welfare Organization Team</p>
+            </div>""".formatted(cycleName, name, cycleName, portal);
+        emailService.sendPlain(r.getUser().getEmail(), name, "You're Enrolled — " + cycleName, html);
     }
 
     private void sendRejectedJoinEmail(MgrJoinRequest r, String reason) {
@@ -688,16 +734,15 @@ public class MgrService {
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
               <h2 style="color:#B91C1C">MGR Join Request Not Approved</h2>
               <p>Hi %s,</p>
-              <p>Your request to join <strong>%s</strong> was not approved at this time.</p>
+              <p>Your request to join the Merry-Go-Round program was not approved at this time.</p>
               %s
-              <p>You are welcome to request to join a future cycle.
+              <p>You are welcome to submit a new request at any time.
                  Contact <a href="mailto:info@ushirikacommunity.site">info@ushirikacommunity.site</a>
                  if you have questions.</p>
               <p>— Ushirika Welfare Organization Team</p>
-            </div>""".formatted(name, r.getCycle().getName(),
+            </div>""".formatted(name,
                 reason != null ? "<p><strong>Reason:</strong> " + reason + "</p>" : "");
-        emailService.sendPlain(r.getUser().getEmail(), name,
-                "MGR Join Request Update — " + r.getCycle().getName(), html);
+        emailService.sendPlain(r.getUser().getEmail(), name, "MGR Join Request Update — Ushirika Welfare Organization", html);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

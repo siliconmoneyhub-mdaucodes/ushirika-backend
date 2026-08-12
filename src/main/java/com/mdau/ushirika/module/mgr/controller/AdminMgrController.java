@@ -60,19 +60,14 @@ public class AdminMgrController {
         return ResponseEntity.ok(ApiResponse.ok("Cycle cancelled", mgrService.cancelCycle(id)));
     }
 
-    /** Open or close enrollment for a cycle. */
-    @PatchMapping("/cycles/{id}/enrollment")
-    public ResponseEntity<ApiResponse<MgrCycleDto>> toggleEnrollment(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.ok("Enrollment toggled", mgrService.toggleEnrollment(id)));
-    }
-
     // ── Join Requests ─────────────────────────────────────────────────────────
+    // Not scoped to a cycle -- applications are accepted at any time, independent of any cycle's
+    // status, and a request only ever gets tied to a specific cycle once ADMITTED.
 
-    @GetMapping("/cycles/{cycleId}/join-requests")
+    @GetMapping("/join-requests")
     public ResponseEntity<ApiResponse<List<MgrJoinRequestDto>>> listJoinRequests(
-            @PathVariable UUID cycleId,
             @RequestParam(required = false) JoinRequestStatus status) {
-        return ResponseEntity.ok(ApiResponse.ok(mgrService.listJoinRequests(cycleId, status)));
+        return ResponseEntity.ok(ApiResponse.ok(mgrService.listJoinRequests(status)));
     }
 
     @PostMapping("/join-requests/{requestId}/approve")

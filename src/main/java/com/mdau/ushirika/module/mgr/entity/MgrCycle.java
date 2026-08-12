@@ -80,11 +80,6 @@ public class MgrCycle extends BaseEntity {
     @Builder.Default
     private int benefitPayoutDay = 15;
 
-    /** Whether new join requests are currently accepted for this cycle. */
-    @Column(name = "enrollment_open", nullable = false)
-    @Builder.Default
-    private boolean enrollmentOpen = false;
-
     @Column(length = 500)
     private String notes;
 
