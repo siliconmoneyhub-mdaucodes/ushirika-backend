@@ -247,6 +247,31 @@ public class DataInitializer implements ApplicationRunner {
                     PRIMARY KEY (user_id, capability)
                 )
                 """);
+
+        // Benevolence's own dedicated join-request flow (mirrors mgr_join_requests, which reached
+        // production fine, but new tables in this project have repeatedly NOT been created by
+        // ddl-auto=update alone -- e.g. conversation_threads/conversation_messages above -- so
+        // this gets the same explicit idempotent DDL treatment on principle.
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS benevolence_join_requests (
+                    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id         UUID NOT NULL REFERENCES users(id),
+                    status          VARCHAR(15) NOT NULL DEFAULT 'PENDING',
+                    member_notes    VARCHAR(500),
+                    admin_notes     VARCHAR(500),
+                    form_sent_by_id UUID REFERENCES users(id),
+                    form_sent_at    TIMESTAMP,
+                    responded_by_id UUID REFERENCES users(id),
+                    responded_at    TIMESTAMP,
+                    version         BIGINT NOT NULL DEFAULT 0,
+                    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                    created_by      VARCHAR(150),
+                    updated_by      VARCHAR(150)
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bjr_user ON benevolence_join_requests (user_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bjr_status ON benevolence_join_requests (status)");
     }
 
     /**

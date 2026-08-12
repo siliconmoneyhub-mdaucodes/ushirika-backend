@@ -27,6 +27,41 @@ public class AdminBenevolenceController {
     private final BenevolenceClaimService claimService;
     private final BenevolenceClaimCategoryService categoryService;
 
+    // ── Join Requests ─────────────────────────────────────────────────────────
+
+    @GetMapping("/join-requests")
+    public ResponseEntity<ApiResponse<java.util.List<BenevolenceJoinRequestDto>>> listJoinRequests(
+            @RequestParam(required = false) com.mdau.ushirika.module.benevolence.enums.BenevolenceJoinRequestStatus status) {
+        return ResponseEntity.ok(ApiResponse.ok(enrollmentService.listJoinRequests(status)));
+    }
+
+    @PostMapping("/join-requests/{id}/send-form")
+    public ResponseEntity<ApiResponse<BenevolenceJoinRequestDto>> sendJoinForm(
+            @PathVariable UUID id,
+            @Valid @RequestBody(required = false) DecideBenevolenceJoinRequest req) {
+        String adminNotes = req != null ? req.adminNotes() : null;
+        return ResponseEntity.ok(ApiResponse.ok("Enrollment form sent",
+                enrollmentService.sendForm(id, adminNotes)));
+    }
+
+    @PostMapping("/join-requests/{id}/approve")
+    public ResponseEntity<ApiResponse<BenevolenceJoinRequestDto>> approveJoinRequest(
+            @PathVariable UUID id,
+            @Valid @RequestBody(required = false) DecideBenevolenceJoinRequest req) {
+        String adminNotes = req != null ? req.adminNotes() : null;
+        return ResponseEntity.ok(ApiResponse.ok("Join request approved",
+                enrollmentService.approveJoinRequest(id, adminNotes)));
+    }
+
+    @PostMapping("/join-requests/{id}/reject")
+    public ResponseEntity<ApiResponse<BenevolenceJoinRequestDto>> rejectJoinRequest(
+            @PathVariable UUID id,
+            @Valid @RequestBody(required = false) DecideBenevolenceJoinRequest req) {
+        String adminNotes = req != null ? req.adminNotes() : null;
+        return ResponseEntity.ok(ApiResponse.ok("Join request rejected",
+                enrollmentService.rejectJoinRequest(id, adminNotes)));
+    }
+
     // ── Enrollments ───────────────────────────────────────────────────────────
 
     @GetMapping("/enrollments")

@@ -23,6 +23,18 @@ public class MemberBenevolenceController {
         return ResponseEntity.ok(ApiResponse.ok(enrollmentService.getMyEnrollment()));
     }
 
+    @PostMapping("/benevolence/join-requests")
+    public ResponseEntity<ApiResponse<BenevolenceJoinRequestDto>> requestJoin(
+            @Valid @RequestBody RequestBenevolenceJoinRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Benevolence join request submitted",
+                enrollmentService.requestJoin(req.memberNotes())));
+    }
+
+    @GetMapping("/benevolence/join-requests/my")
+    public ResponseEntity<ApiResponse<BenevolenceJoinRequestDto>> getMyJoinRequest() {
+        return ResponseEntity.ok(ApiResponse.ok(enrollmentService.getMyJoinRequest()));
+    }
+
     @PostMapping("/benevolence/my/beneficiaries")
     public ResponseEntity<ApiResponse<BenevolenceEnrollmentDto>> submitMyBeneficiaries(
             @Valid @RequestBody SubmitBeneficiariesRequest req) {
