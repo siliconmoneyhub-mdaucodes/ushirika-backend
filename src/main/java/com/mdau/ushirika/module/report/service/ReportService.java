@@ -70,6 +70,7 @@ public class ReportService {
     private final ElectionRepository         electionRepository;
     private final ElectionResultRepository   electionResultRepository;
     private final ProgramApplicationRepository programApplicationRepository;
+    private final com.mdau.ushirika.module.audit.repository.AuditLogRepository auditLogRepository;
 
     // ── Members ──────────────────────────────────────────────────────────────
 
@@ -613,6 +614,88 @@ public class ReportService {
         table.col("Loans").col("Outstanding Principal").col(dto.loans().outstandingPrincipal().toString()).newRow();
 
         table.col("MGR").col("Total Contributed").col(dto.mgr().totalContributed().toString()).newRow();
+    }
+
+    // ── Money flow / ledger (Finance Visibility plan, Phase 5) ─────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] moneyFlowCsv() { var t = CsvBuilder.create(); populateMoneyFlowTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] moneyFlowXlsx() { var t = XlsxBuilder.create("Money Flow"); populateMoneyFlowTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] moneyFlowPdf() { var t = PdfBuilder.create("Money Flow Report"); populateMoneyFlowTable(t); return t.toBytes(); }
+
+    private void populateMoneyFlowTable(TableBuilder table) {
+        List<com.mdau.ushirika.module.audit.entity.AuditLog> entries = auditLogRepository
+                .findLedgerEntries(null, null, null, null,
+                        org.springframework.data.domain.Pageable.unpaged())
+                .getContent();
+
+        table.header("Date", "Actor", "Title", "Program", "Direction", "Amount", "Description");
+
+        for (com.mdau.ushirika.module.audit.entity.AuditLog entry : entries) {
+            table.col(entry.getCreatedAt() != null ? entry.getCreatedAt().toLocalDate() : "")
+                 .col(entry.getActorName())
+                 .col(entry.getActorTitle() != null ? entry.getActorTitle() : "")
+                 .col(entry.getEntityType() != null ? entry.getEntityType() : "")
+                 .col(entry.getDirection())
+                 .col(entry.getAmount() != null ? entry.getAmount().toString() : "")
+                 .col(entry.getDescription() != null ? entry.getDescription() : "")
+                 .newRow();
+        }
+    }
+
+    // ── Balances (Finance Visibility plan, Phase 5) ─────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] balancesCsv() { var t = CsvBuilder.create(); populateBalancesTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] balancesXlsx() { var t = XlsxBuilder.create("Balances"); populateBalancesTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] balancesPdf() { var t = PdfBuilder.create("Balances Report"); populateBalancesTable(t); return t.toBytes(); }
+
+    private void populateBalancesTable(TableBuilder table) {
+        FinanceDashboardDto.Balances balances = dashboardService.getBalances();
+
+        table.header("Program", "Net Balance (all-time)");
+
+        balances.byProgram().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> table.col(e.getKey()).col(e.getValue().toString()).newRow());
+
+        table.col("TOTAL (org-wide)").col(balances.orgWideNet().toString()).newRow();
+    }
+
+    // ── Officials directory (Finance Visibility plan, Phase 5) ─────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] officialsCsv() { var t = CsvBuilder.create(); populateOfficialsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] officialsXlsx() { var t = XlsxBuilder.create("Officials"); populateOfficialsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] officialsPdf() { var t = PdfBuilder.create("Officials Directory Report"); populateOfficialsTable(t); return t.toBytes(); }
+
+    private void populateOfficialsTable(TableBuilder table) {
+        List<User> officials = userRepository.findAllByOfficialTitleIsNotNull().stream()
+                .sorted(Comparator.comparing(u -> u.getOfficialTitle().name()))
+                .toList();
+
+        table.header("Title", "Name", "Email", "Role", "Active");
+
+        for (User u : officials) {
+            table.col(u.getOfficialTitle().getDisplayName())
+                 .col(u.getFullName())
+                 .col(u.getEmail())
+                 .col(u.getRole())
+                 .col(u.isActive())
+                 .newRow();
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

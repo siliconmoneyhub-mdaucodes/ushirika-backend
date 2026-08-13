@@ -107,6 +107,25 @@ public class SecurityConfig {
                         // one's CAP_FINANCE_DUES OR CAP_FINANCE_ADVANCED, blocking CAP_FINANCE_DUES-only users).
                         .requestMatchers(HttpMethod.GET, "/admin/reports/financial")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
+                        // Official-specific report exports (Finance Visibility plan, Phase 5) -- these are
+                        // domain-specific, not finance-only, and must also be declared before the broad
+                        // /admin/reports/** rule below for the same first-match-wins reason as reports/financial.
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/reports/members.csv", "/admin/reports/members.xlsx", "/admin/reports/members.pdf",
+                                "/admin/reports/applications.csv", "/admin/reports/applications.xlsx", "/admin/reports/applications.pdf",
+                                "/admin/reports/officials.csv", "/admin/reports/officials.xlsx", "/admin/reports/officials.pdf")
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_MEMBERS", "CAP_APPLICATIONS")
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/reports/fines.csv", "/admin/reports/fines.xlsx", "/admin/reports/fines.pdf",
+                                "/admin/reports/attendance.csv", "/admin/reports/attendance.xlsx", "/admin/reports/attendance.pdf",
+                                "/admin/reports/attendance")
+                                .hasAnyAuthority("ROLE_CHIEF_WHIP", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_DISCIPLINE", "CAP_MEETINGS_ATTENDANCE")
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/reports/elections.csv", "/admin/reports/elections.xlsx", "/admin/reports/elections.pdf")
+                                .hasAnyAuthority("ROLE_COMPLIANCE", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_ELECTIONS")
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/reports/scholarships.csv", "/admin/reports/scholarships.xlsx", "/admin/reports/scholarships.pdf")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_CONTENT", "CAP_FINANCE_ADVANCED")
                         // Payment links/benevolence/MGR/loans/CSV reports/welfare/programs/money-flow:
                         // Financial Admin only (not delegated to officials) at the role level, or CAP_FINANCE_ADVANCED.
                         .requestMatchers(HttpMethod.GET,

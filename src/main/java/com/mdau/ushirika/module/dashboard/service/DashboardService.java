@@ -309,6 +309,13 @@ public class DashboardService {
         return new FinanceDashboardDto(dues, benevolence, loans, mgr, computeBalances());
     }
 
+    /** Standalone balances lookup for the Balances report (Finance Visibility plan, Phase 5) --
+     *  avoids recomputing the rest of the finance dashboard just to get this one block. */
+    @Transactional(readOnly = true)
+    public Balances getBalances() {
+        return computeBalances();
+    }
+
     /** All-time (unscoped) net per program from the money ledger -- the current running balance,
      *  not a date-filtered total. See Balances' Javadoc for why this stays separate from Money Flow. */
     private Balances computeBalances() {

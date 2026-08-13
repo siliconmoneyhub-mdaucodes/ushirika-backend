@@ -30,6 +30,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findAllByActiveTrue();
 
+    List<User> findAllByOfficialTitleIsNotNull();
+
     long countByRole(UserRole role);
 
     long countByRoleAndActiveTrueAndMembershipCeasedFalse(UserRole role);
