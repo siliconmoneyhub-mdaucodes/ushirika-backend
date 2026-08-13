@@ -44,6 +44,8 @@ import com.mdau.ushirika.module.donation.repository.DonationRepository;
 import com.mdau.ushirika.module.dashboard.dto.ContentDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.ElectionsDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.NotificationsDashboardDto;
+import com.mdau.ushirika.module.dues.entity.MembershipDue;
+import com.mdau.ushirika.module.dues.enums.DuesStatus;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
 import com.mdau.ushirika.module.election.entity.Election;
 import com.mdau.ushirika.module.election.enums.CandidacyStatus;
@@ -56,8 +58,10 @@ import com.mdau.ushirika.module.event.repository.EventRepository;
 import com.mdau.ushirika.module.loan.enums.LoanStatus;
 import com.mdau.ushirika.module.loan.repository.LoanApplicationRepository;
 import com.mdau.ushirika.module.loan.repository.LoanInstallmentRepository;
+import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
+import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.mgr.repository.MgrContributionRepository;
 import com.mdau.ushirika.module.notification.enums.NotificationChannel;
 import com.mdau.ushirika.module.notification.enums.NotificationStatus;
@@ -74,6 +78,7 @@ import com.mdau.ushirika.module.welfare.repository.WelfareCategoryRepository;
 import com.mdau.ushirika.module.welfare.repository.WelfareDisbursementRepository;
 import com.mdau.ushirika.module.welfare.repository.WelfareRequestRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -83,6 +88,8 @@ import java.time.Month;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -112,6 +119,7 @@ public class DashboardService {
     private final GoverningDocumentRepository      governingDocumentRepository;
     private final AuditLogRepository               auditLogRepository;
     private final MembershipDueRepository          membershipDueRepository;
+    private final MemberProfileRepository          memberProfileRepository;
     private final BenevolenceClaimRepository       benevolenceClaimRepository;
     private final LoanApplicationRepository        loanApplicationRepository;
     private final LoanInstallmentRepository        loanInstallmentRepository;
@@ -371,8 +379,37 @@ public class DashboardService {
                 + memberApplicationRepository.countByStatus(ApplicationStatus.PAYMENT_SUBMITTED),
                 memberApplicationRepository.countByStatus(ApplicationStatus.APPROVED),
                 memberApplicationRepository.countByStatus(ApplicationStatus.REJECTED),
-                userRepository.countByRoleAndActiveTrueAndMembershipCeasedFalse(UserRole.MEMBER)
+                countActiveMembers()
         );
+    }
+
+    /**
+     * "Active" mirrors the exact per-member status classification used elsewhere in the app
+     * (UserProfileDto.from(user, profile, duesStatus), as used by the member's own /users/me
+     * endpoint) -- NOT just the login-enabled boolean, and NOT the same as
+     * AdminMembersController's /admin/members listing, which calls the 2-arg overload with
+     * duesStatus always null and therefore misclassifies every real dues-owing member as
+     * "inactive" regardless of their actual dues status. A member only counts as active here if
+     * they're MEMBER role, not suspended/ceased, application-approved (has a memberId), and their
+     * current-year dues are PAID or WAIVED.
+     */
+    private long countActiveMembers() {
+        int year = java.time.LocalDate.now().getYear();
+        Map<UUID, DuesStatus> duesByUser = membershipDueRepository
+                .findAllByYearOrderByCreatedAtDesc(year, Pageable.unpaged())
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        d -> d.getUser().getId(), MembershipDue::getStatus, (a, b) -> a));
+
+        long count = 0;
+        for (var user : userRepository.findAllByRole(UserRole.MEMBER)) {
+            if (user.isMembershipCeased() || !user.isActive()) continue;
+            MemberProfile profile = memberProfileRepository.findByUser(user).orElse(null);
+            if (profile == null || profile.getMemberId() == null) continue;
+            DuesStatus status = duesByUser.get(user.getId());
+            if (status == DuesStatus.PAID || status == DuesStatus.WAIVED) count++;
+        }
+        return count;
     }
 
     private WelfareStats welfareStats() {
