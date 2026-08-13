@@ -314,6 +314,23 @@ public class DataInitializer implements ApplicationRunner {
         // email-verification/password-reset OTP columns above.
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_entry_otp VARCHAR(6)");
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_entry_otp_expiry TIMESTAMP");
+
+        // Bank reconciliation (Finance Visibility plan, Phase 8) -- physical-vs-expected balance
+        // checks, org-wide (scope NULL) and per-program (scope = a ledger entityType).
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS bank_reconciliations (
+                    id                 UUID PRIMARY KEY,
+                    scope              VARCHAR(50),
+                    physical_balance   NUMERIC(12,2) NOT NULL,
+                    expected_balance   NUMERIC(12,2) NOT NULL,
+                    variance           NUMERIC(12,2) NOT NULL,
+                    note               TEXT,
+                    recorded_by_id     UUID NOT NULL REFERENCES users(id),
+                    recorded_by_name   VARCHAR(200) NOT NULL,
+                    recorded_by_title  VARCHAR(30),
+                    recorded_at        TIMESTAMP NOT NULL DEFAULT now()
+                )
+                """);
     }
 
     /**
