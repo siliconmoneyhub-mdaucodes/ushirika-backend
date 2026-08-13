@@ -9,6 +9,7 @@ import com.mdau.ushirika.module.benevolence.dto.*;
 import com.mdau.ushirika.module.benevolence.entity.*;
 import com.mdau.ushirika.module.benevolence.enums.*;
 import com.mdau.ushirika.module.benevolence.repository.*;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
@@ -201,9 +202,10 @@ public class BenevolenceClaimService {
         }
 
         User admin = currentUser();
-        auditLogService.log(admin, "CLAIM_DISBURSED", "BenevolenceClaim", claim.getId(),
+        auditLogService.log(admin, "CLAIM_DISBURSED", "BENEVOLENCE_CLAIM", claim.getId(),
                 "Claim " + claim.getReferenceNumber() + " ($" + claim.getAmountApproved()
-                        + ") marked disbursed by " + admin.getFullName());
+                        + ") marked disbursed by " + admin.getFullName(),
+                claim.getAmountApproved(), LedgerDirection.OUT);
         return BenevolenceClaimDto.from(claim, memberId(claim.getEnrollment().getUser()));
     }
 

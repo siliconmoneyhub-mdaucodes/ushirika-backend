@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.payment.service;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.attendance.service.FineService;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -412,6 +413,7 @@ public class PaymentBasketService {
                 } else {
                     allocate(basket.getMember(), line);
                 }
+                logLedgerEntry(basket, line);
             } catch (Exception e) {
                 log.error("Failed to allocate payment basket line ledger={} targetId={} basket={}",
                         line.getLedger(), line.getTargetId(), basket.getId(), e);
@@ -432,6 +434,23 @@ public class PaymentBasketService {
 
         log.info("Payment basket confirmed [{}]: id={} sessionId={} member={} lines={}",
                 source, basket.getId(), basket.getSessionId(), basket.getMember().getEmail(), basket.getLines().size());
+    }
+
+    /** One ledger entry per basket line for the non-pooled ledgers only (registration fee,
+     * program-application prepayment, general contribution) -- these go straight to allocate()
+     * with no redistribution, so the basket line's amount IS the real applied amount. Every
+     * wallet-eligible ledger (DUES, MGR_CONTRIBUTION, FINE, BENEVOLENCE_REPLENISHMENT,
+     * BENEVOLENCE_ENROLLMENT, CASH_PAYMENT, CARD_ENTERED_BY_ADMIN) is pooled and can get split
+     * across several obligations in priority order by PaymentAllocationService -- logging those
+     * here against the original basket line would double-count (or misattribute) against the real
+     * per-program amounts, so those are logged instead at the point they're actually applied,
+     * inside PaymentAllocationService's settle* methods. */
+    private void logLedgerEntry(PaymentBasket basket, PaymentBasketLine line) {
+        if (isWalletEligible(line.getLedger())) return;
+
+        auditLogService.log(basket.getMember(), "PAYMENT_RECEIVED", line.getLedger().name(), basket.getId(),
+                describe(line.getLedger()) + " — $" + line.getAmount() + " from " + basket.getMember().getFullName(),
+                line.getAmount(), LedgerDirection.IN);
     }
 
     /** Cash-payment-specific side effects once the pooled allocation above has already run:

@@ -3,6 +3,8 @@ package com.mdau.ushirika.module.donation.service;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.donation.dto.*;
@@ -39,6 +41,7 @@ public class DonationService {
     private final UserRepository userRepository;
     private final StripeService stripeService;
     private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     // ─────────────────────────────────────── Campaigns — public/member
 
@@ -225,6 +228,19 @@ public class DonationService {
 
         log.info("Donation completed via Stripe: sessionId={} amount={} USD donor={}",
                 sessionId, amountUsd, donation.getDonorEmail());
+
+        // AuditLog.actorId is NOT NULL, and a donor need not be a registered platform User
+        // (donorName/donorEmail are plain fields precisely because anonymous/guest donations are
+        // allowed) -- only member donations can be ledger-logged today. Anonymous donations still
+        // complete and email-confirm normally, they just don't yet appear in Money In & Out /
+        // per-program totals (Finance Visibility plan, Phases 2/4); a known, documented gap rather
+        // than a silent one.
+        if (donation.getDonor() != null) {
+            auditLogService.log(donation.getDonor(), "DONATION_COMPLETED", "DONATION", donation.getId(),
+                    "Donation of $" + amountUsd + " from " + donation.getDonorName()
+                            + (donation.getCampaign() != null ? " towards \"" + donation.getCampaign().getTitle() + "\"" : ""),
+                    amountUsd, LedgerDirection.IN);
+        }
     }
 
     // ─────────────────────────────────────── Queries — member

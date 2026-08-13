@@ -1,8 +1,10 @@
 package com.mdau.ushirika.module.audit.entity;
 
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -33,6 +35,12 @@ public class AuditLog {
     @Column(name = "actor_role", nullable = false, length = 50)
     private String actorRole;
 
+    /** Snapshot of the actor's OfficialTitle at log time, if they held one. Null otherwise --
+     * same "snapshot, don't join" rationale as actorName/actorRole, so this stays historically
+     * accurate even if the user's title later changes or the account is deactivated. */
+    @Column(name = "actor_title", length = 30)
+    private String actorTitle;
+
     @Column(name = "action", nullable = false, length = 100)
     private String action;
 
@@ -44,6 +52,15 @@ public class AuditLog {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    /** Money-movement amount, null for non-financial audit rows (most of them). */
+    @Column(name = "amount", precision = 12, scale = 2)
+    private BigDecimal amount;
+
+    /** IN (money received) or OUT (money disbursed), null for non-financial audit rows. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "direction", length = 10)
+    private LedgerDirection direction;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

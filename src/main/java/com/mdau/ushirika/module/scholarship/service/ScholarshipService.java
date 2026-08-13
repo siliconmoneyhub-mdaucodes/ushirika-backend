@@ -7,6 +7,7 @@ import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.common.service.QuorumApprovalService;
 import com.mdau.ushirika.common.service.QuorumApprovalService.QuorumResult;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
@@ -326,9 +327,10 @@ public class ScholarshipService {
         application.setStatus(ScholarshipApplicationStatus.AWARDED);
         applicationRepository.save(application);
 
-        auditLogService.log(admin, "SCHOLARSHIP_AWARDED", "ScholarshipApplication", application.getId(),
+        auditLogService.log(admin, "SCHOLARSHIP_AWARDED", "SCHOLARSHIP", application.getId(),
                 "Scholarship of " + req.amountAwarded() + " awarded to " + application.getBeneficiaryName()
-                        + " (ref " + application.getReferenceNumber() + ") by " + admin.getFullName());
+                        + " (ref " + application.getReferenceNumber() + ") by " + admin.getFullName(),
+                req.amountAwarded(), LedgerDirection.OUT);
 
         emailService.sendPlain(
                 application.getMember().getEmail(),

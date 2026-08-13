@@ -1,7 +1,9 @@
 package com.mdau.ushirika.module.audit.dto;
 
 import com.mdau.ushirika.module.audit.entity.AuditLog;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -10,10 +12,13 @@ public record AuditLogDto(
         UUID          actorId,
         String        actorName,
         String        actorRole,
+        String        actorTitle,
         String        action,
         String        entityType,
         UUID          entityId,
         String        description,
+        BigDecimal      amount,
+        LedgerDirection direction,
         LocalDateTime createdAt
 ) {
     public static AuditLogDto from(AuditLog log) {
@@ -22,10 +27,13 @@ public record AuditLogDto(
                 log.getActorId(),
                 log.getActorName(),
                 log.getActorRole(),
+                log.getActorTitle(),
                 log.getAction(),
                 log.getEntityType(),
                 log.getEntityId(),
                 log.getDescription(),
+                log.getAmount(),
+                log.getDirection(),
                 log.getCreatedAt()
         );
     }

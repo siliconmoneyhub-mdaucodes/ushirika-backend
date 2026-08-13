@@ -292,6 +292,14 @@ public class DataInitializer implements ApplicationRunner {
         // enrollment_open is retired -- MGR applications are now always accepted (queued via
         // WAITLISTED/ADMITTED status instead of a per-cycle open/closed gate).
         jdbcTemplate.execute("ALTER TABLE mgr_cycles DROP COLUMN IF EXISTS enrollment_open");
+
+        // Money-movement ledger fields on audit_logs -- amount/direction let a money-moving action
+        // double as a ledger entry instead of needing a separate ledger table; actor_title snapshots
+        // the acting official's title the same way actor_name/actor_role already do, so it stays
+        // historically accurate even if the title later changes.
+        jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_title VARCHAR(30)");
+        jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2)");
+        jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS direction VARCHAR(10)");
     }
 
     /**

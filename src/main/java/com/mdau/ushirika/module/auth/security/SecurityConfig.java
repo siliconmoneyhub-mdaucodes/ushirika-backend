@@ -107,15 +107,15 @@ public class SecurityConfig {
                         // one's CAP_FINANCE_DUES OR CAP_FINANCE_ADVANCED, blocking CAP_FINANCE_DUES-only users).
                         .requestMatchers(HttpMethod.GET, "/admin/reports/financial")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
-                        // Payment links/benevolence/MGR/loans/CSV reports/welfare/programs: Financial Admin
-                        // only (not delegated to officials) at the role level, or CAP_FINANCE_ADVANCED.
+                        // Payment links/benevolence/MGR/loans/CSV reports/welfare/programs/money-flow:
+                        // Financial Admin only (not delegated to officials) at the role level, or CAP_FINANCE_ADVANCED.
                         .requestMatchers(HttpMethod.GET,
                                 "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**",
-                                "/admin/reports/**", "/admin/welfare/**", "/admin/programs/**")
+                                "/admin/reports/**", "/admin/welfare/**", "/admin/programs/**", "/admin/money-flow/**")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_ADVANCED")
                         .requestMatchers(
                                 "/admin/payment-links/**", "/admin/benevolence/**", "/admin/mgr/**", "/admin/loans/**",
-                                "/admin/welfare/**", "/admin/programs/**")
+                                "/admin/welfare/**", "/admin/programs/**", "/admin/money-flow/**")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_FINANCE_ADVANCED")
                         // Content — events, content (news/articles), albums (gallery), forum (stories),
                         // scholarships, donations, partners, leadership. Paths are the real controller

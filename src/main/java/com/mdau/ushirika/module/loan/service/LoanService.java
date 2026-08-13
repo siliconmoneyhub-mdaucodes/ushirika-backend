@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -306,9 +307,10 @@ public class LoanService {
         installmentRepo.saveAll(installments);
 
         User admin = currentUser();
-        auditLogService.log(admin, "LOAN_DISBURSED", "LoanApplication", loan.getId(),
+        auditLogService.log(admin, "LOAN_DISBURSED", "LOAN", loan.getId(),
                 "Loan " + loan.getReferenceNumber() + " ($" + principal + ") disbursed to "
-                        + loan.getUser().getFullName() + " by " + admin.getFullName());
+                        + loan.getUser().getFullName() + " by " + admin.getFullName(),
+                principal, LedgerDirection.OUT);
         return toFullDto(loan);
     }
 
@@ -354,9 +356,10 @@ public class LoanService {
         loanRepo.save(loan);
 
         User admin = currentUser();
-        auditLogService.log(admin, "LOAN_REPAYMENT_RECORDED", "LoanInstallment", inst.getId(),
+        auditLogService.log(admin, "LOAN_REPAYMENT_RECORDED", "LOAN", inst.getId(),
                 "Repayment of $" + req.amountPaid() + " recorded on installment #" + inst.getInstallmentNumber()
-                        + " for loan " + loan.getReferenceNumber() + " by " + admin.getFullName());
+                        + " for loan " + loan.getReferenceNumber() + " by " + admin.getFullName(),
+                req.amountPaid(), LedgerDirection.IN);
         return LoanInstallmentDto.from(inst);
     }
 

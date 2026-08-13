@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.payment.service;
 
 import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.attendance.service.FineService;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.benevolence.entity.ReplenishmentPayment;
@@ -46,6 +47,7 @@ class PaymentAllocationServiceTest {
     @Mock private MgrService mgrService;
     @Mock private BenevolenceClaimService benevolenceClaimService;
     @Mock private BenevolenceEnrollmentService benevolenceEnrollmentService;
+    @Mock private AuditLogService auditLogService;
 
     private PaymentAllocationService service;
     private User member;
@@ -54,7 +56,7 @@ class PaymentAllocationServiceTest {
     void setUp() {
         service = new PaymentAllocationService(
                 creditBalanceRepository, fineService, membershipDuesService, mgrService,
-                benevolenceClaimService, benevolenceEnrollmentService);
+                benevolenceClaimService, benevolenceEnrollmentService, auditLogService);
 
         member = User.builder().email("member@test.ushirika.org").role(UserRole.MEMBER).build();
         member.setId(UUID.randomUUID());

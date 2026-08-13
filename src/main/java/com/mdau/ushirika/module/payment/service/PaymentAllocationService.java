@@ -2,6 +2,8 @@ package com.mdau.ushirika.module.payment.service;
 
 import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.attendance.service.FineService;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.benevolence.entity.ReplenishmentPayment;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimService;
@@ -39,6 +41,7 @@ public class PaymentAllocationService {
     private final MgrService mgrService;
     private final BenevolenceClaimService benevolenceClaimService;
     private final BenevolenceEnrollmentService benevolenceEnrollmentService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public void applyPayment(User member, BigDecimal amount) {
@@ -90,6 +93,7 @@ public class PaymentAllocationService {
             if (pool.compareTo(fine.amount()) < 0) break;
             fineService.markPaid(fine.id());
             pool = pool.subtract(fine.amount());
+            logApplied(member, "FINE", fine.amount(), "Fine paid: " + fine.reason());
         }
         return pool;
     }
@@ -100,6 +104,7 @@ public class PaymentAllocationService {
         if (owed.signum() <= 0) return pool;
         BigDecimal toApply = pool.min(owed);
         membershipDuesService.applyExternalPayment(member, toApply);
+        logApplied(member, "DUES", toApply, "Membership dues paid");
         return pool.subtract(toApply);
     }
 
@@ -112,6 +117,10 @@ public class PaymentAllocationService {
         // consume it in whole months with nothing left over -- but capture the return anyway
         // in case of a mid-flight race (a contribution got waived between the two reads).
         BigDecimal unconsumed = mgrService.applyContribution(member, toApply);
+        BigDecimal actuallyApplied = toApply.subtract(unconsumed);
+        if (actuallyApplied.signum() > 0) {
+            logApplied(member, "MGR_CONTRIBUTION", actuallyApplied, "MGR contribution paid");
+        }
         return pool.subtract(toApply).add(unconsumed);
     }
 
@@ -121,6 +130,7 @@ public class PaymentAllocationService {
             if (pool.compareTo(rp.getAmountDue()) < 0) break;
             benevolenceClaimService.applyReplenishmentPayment(rp.getId(), rp.getAmountDue());
             pool = pool.subtract(rp.getAmountDue());
+            logApplied(member, "BENEVOLENCE_REPLENISHMENT", rp.getAmountDue(), "Benevolence replenishment paid");
         }
         return pool;
     }
@@ -131,7 +141,19 @@ public class PaymentAllocationService {
         if (balance == null || balance.balance().signum() <= 0) return pool;
         BigDecimal toApply = pool.min(balance.balance());
         benevolenceEnrollmentService.applyPayment(member, toApply);
+        logApplied(member, "BENEVOLENCE_ENROLLMENT", toApply, "Benevolence enrollment fee paid");
         return pool.subtract(toApply);
+    }
+
+    /** One ledger entry per obligation actually settled -- the real amount that landed on that
+     * specific program after pooled cross-obligation redistribution, which is what Money In & Out
+     * and per-program totals (Finance Visibility plan, Phases 2/4) need. entityType matches the
+     * same PaymentBasketLedger-name convention used in PaymentBasketService's own (non-pooled)
+     * ledger entries, so both sources group together cleanly. */
+    private void logApplied(User member, String entityType, BigDecimal amount, String description) {
+        auditLogService.log(member, "PAYMENT_APPLIED", entityType, null,
+                description + " — $" + amount + " for " + member.getFullName(),
+                amount, LedgerDirection.IN);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
