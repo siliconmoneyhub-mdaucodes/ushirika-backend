@@ -24,7 +24,7 @@ iii. Provide oversight to the Subcommittees.
 iv. Provide long-range planning and set goals for the Organization.
 v. Organize and prepare events and budgets.
 vi. Make binding decisions on issues that require urgent resolution.
-CHAIRPERSON
+CHAIRMAN
 
 i. Preside all meetings.
 ii. Signatory to the bank accounts and any other area requiring such signing.
@@ -38,11 +38,11 @@ ix. Ensure that decisions taken by the Executive and Management committees are e
 x. Ensure that the Organization adheres to constitutional policies and that the Organization lives up to its mission statement.
 xi. Ensure that the Organization stays aligned to the vision and mission as stipulated in the Constitution.
 xii. Chair annual general meetings, quarterly meetings, and any other Organization's meetings
-VICE-CHAIRPERSON
+VICE CHAIRMAN
 
-i. Assume responsibilities of the Chairperson as needed in the absence of the Chair.
+i. Assume responsibilities of the Chairman as needed in the absence of the Chair.
 ii. Consult and advise all appointed committee members.
-iii. Consult and advise the Chairperson on organizational matters
+iii. Consult and advise the Chairman on organizational matters
 SECRETARY
 
 i. The chief custodian of the UWO official documents
@@ -57,7 +57,7 @@ ix. Write and or distribute all notifications of the members.
 x. Prepare annual reports in coordination with the Treasury.
 xi. Maintain accurate time keeping and complete list of members present and absent in any meeting in coordination with the Chief Whip
 xii. Any official communication to The Secretary shall be via email or regular mail
-ASSISTANT SECRETARY
+VICE SECRETARY
 
 i. The principal assist to the secretary
 TREASURER
@@ -75,9 +75,6 @@ x. Handle and oversee tax-related affairs and maintain the organization's nonpro
 xi. Custodian of all current financial documents
 xii. Accepts payments from members
 xiii. Tracks all deposits, withdrawals, expenses, and other financial dealings
-ASSISTANT TREASURER
-
-Deputies the Treasurer
 CHIEF WHIP
 
 The Chief Whip shall serve as a liaison between the leadership and members, fostering unity and discipline and facilitating collective action to achieve the goals and objectives of the Ushirika organization.
@@ -115,12 +112,12 @@ Functions of Compliance
 IMPEACHMENT OF EXECUTIVE MEMBER
 
 i. Executive committee members may be impeached for not fulfilling the organization's purposes and policies as outlined in the Constitution and Bylaws or for violating UWO's financial handling.
-ii. Any organization member may initiate impeachment proceedings by giving written notice to the Secretary. If the Secretary is being impeached, notice should be given to the Chairperson.
-iii. Upon formal notification, it is the responsibility of the Chairperson (or Vice-Chairperson), in consultation and approval of the executive committee, to convene an ad hoc committee of inquiry made up of two (2) members of the executive committee and three (3) members selected by the general membership to consider the filed allegations.
+ii. Any organization member may initiate impeachment proceedings by giving written notice to the Secretary. If the Secretary is being impeached, notice should be given to the Chairman.
+iii. Upon formal notification, it is the responsibility of the Chairman (or Vice Chairman), in consultation and approval of the executive committee, to convene an ad hoc committee of inquiry made up of two (2) members of the executive committee and three (3) members selected by the general membership to consider the filed allegations.
 iv. Any impeached individual shall be given full notice of the allegations against him/her and shall have an opportunity to respond to them.
 v. The ad-hoc committee of inquiry will investigate the allegations, determine the validity of the charges, and recommend sanctioning to the full body for its consideration.
 vi. To be implemented, the ad hoc committee of inquiry's recommendations for sanctioning must be approved by two-thirds (2/3) of the members present and voting.
-vii. The Chairperson shall call a special meeting to discuss the findings.
+vii. The Chairman shall call a special meeting to discuss the findings.
 viii. An appeal may be requested only based on one of the following two claims.
 i. That there was a procedural error in the conduct of the Impeachment proceedings.
 ii. That there is significant new evidence that was previously not available. If the impeachment allegation was found to be malicious, the executive committee may penalize the person presenting the allegations.
@@ -161,7 +158,7 @@ Article 5. BENEVOLENCE
 
 i. The benevolence coordinator will be APPOINTED by the executive and will hold office for 2 terms (4 calendar years)
 ii. A Committee established under the bylaws of the UWO to support members who belong to the committee financially in time of bereavement of NAMED beloved relatives.
-iii. There shall be three (3) decision-making members of this committee elected by the members belonging to the committee who shall hold office for 2 years. Made up of the coordinator, Chairperson & Treasury
+iii. There shall be three (3) decision-making members of this committee elected by the members belonging to the committee who shall hold office for 2 years. Made up of the coordinator, Chairman & Treasurer
 iv. Benevolent membership is voluntary and achieved through an agreed upon membership contribution amount. The amount agreed upon at the writing of this document is $600.
 v. Upon completion of the $600 payment, the member will be on probation for 6 months, during which time they will be ineligible for benefits and exempted from any replenishment activities.
 vi. The Replenishment Amount is $100 at the passing of these Bylaws.
