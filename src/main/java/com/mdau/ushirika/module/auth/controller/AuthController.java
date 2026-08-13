@@ -93,4 +93,22 @@ public class AuthController {
         authService.changePassword(req);
         return ResponseEntity.ok(ApiResponse.ok("Password changed successfully. Please log in again with your new password."));
     }
+
+    @PostMapping("/admin-entry/request")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Email a step-up confirmation code before entering the admin panel")
+    public ResponseEntity<ApiResponse<Void>> requestAdminEntryOtp() {
+        authService.requestAdminEntryOtp();
+        return ResponseEntity.ok(ApiResponse.ok("Confirmation code sent. Check your email."));
+    }
+
+    @PostMapping("/admin-entry/verify")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Verify the admin-entry confirmation code")
+    public ResponseEntity<ApiResponse<Void>> verifyAdminEntryOtp(@Valid @RequestBody VerifyAdminEntryOtpRequest req) {
+        authService.verifyAdminEntryOtp(req.otp());
+        return ResponseEntity.ok(ApiResponse.ok("Confirmed"));
+    }
 }

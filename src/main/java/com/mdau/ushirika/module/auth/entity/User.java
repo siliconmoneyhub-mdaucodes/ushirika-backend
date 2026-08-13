@@ -78,6 +78,14 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "password_reset_otp_expiry")
     private LocalDateTime passwordResetOtpExpiry;
 
+    /** Step-up confirmation required before an admin-tier user's portal session can enter
+     *  /admin — see AuthService#requestAdminEntryOtp/verifyAdminEntryOtp. */
+    @Column(name = "admin_entry_otp", length = 6)
+    private String adminEntryOtp;
+
+    @Column(name = "admin_entry_otp_expiry")
+    private LocalDateTime adminEntryOtpExpiry;
+
     /**
      * One-time magic-login token issued alongside the temp password when an application's
      * form is sent — lets the "Continue Your Application" email button log the applicant

@@ -347,6 +347,43 @@ public class AuthService {
         log.info("Password changed for user: {}", email);
     }
 
+    // ── Admin panel entry step-up ────────────────────────────────────────────
+
+    /** Emails the current user a fresh admin-entry OTP — called the first time a session
+     *  moves from the member portal into /admin. */
+    @Transactional
+    public void requestAdminEntryOtp() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = findByEmail(email);
+
+        String otp = generateOtp();
+        user.setAdminEntryOtp(otp);
+        user.setAdminEntryOtpExpiry(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));
+        userRepository.save(user);
+        emailService.sendAdminEntryOtp(user.getEmail(), user.getFirstName(), otp);
+    }
+
+    /** Verifies the code from requestAdminEntryOtp(). Throws on mismatch/expiry; clears the
+     *  OTP either way so it can't be reused. */
+    @Transactional
+    public void verifyAdminEntryOtp(String otp) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = findByEmail(email);
+
+        String storedOtp = user.getAdminEntryOtp();
+        LocalDateTime expiry = user.getAdminEntryOtpExpiry();
+        user.setAdminEntryOtp(null);
+        user.setAdminEntryOtpExpiry(null);
+        userRepository.save(user);
+
+        if (storedOtp == null || !storedOtp.equals(otp)) {
+            throw new BadRequestException("Invalid or expired confirmation code");
+        }
+        if (expiry == null || LocalDateTime.now().isAfter(expiry)) {
+            throw new BadRequestException("Confirmation code has expired. Request a new one");
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private User findByEmail(String email) {

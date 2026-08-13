@@ -308,6 +308,12 @@ public class DataInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_title VARCHAR(30)");
         jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2)");
         jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS direction VARCHAR(10)");
+
+        // Admin-panel entry OTP -- step-up confirmation required the first time an admin-tier
+        // session moves from the member portal into /admin, same shape as the existing
+        // email-verification/password-reset OTP columns above.
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_entry_otp VARCHAR(6)");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_entry_otp_expiry TIMESTAMP");
     }
 
     /**

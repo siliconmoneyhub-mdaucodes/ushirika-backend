@@ -89,6 +89,22 @@ public class BrevoEmailService implements EmailService {
 
     @Async
     @Override
+    public void sendAdminEntryOtp(String toEmail, String name, String otp) {
+        String subject = "Your Ushirika Admin Panel Confirmation Code";
+        String html = """
+                <div style="font-family:sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#007834">Admin Panel Access</h2>
+                  <p>Hi %s,</p>
+                  <p>Use this code to confirm it's you before entering the admin panel. It expires in <strong>15 minutes</strong>.</p>
+                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#007834;margin:24px 0">%s</div>
+                  <p style="color:#888;font-size:13px">If you did not request this, secure your account and contact an administrator.</p>
+                </div>
+                """.formatted(name, otp);
+        sendPlain(toEmail, name, subject, html);
+    }
+
+    @Async
+    @Override
     public void sendWelcome(String toEmail, String name, String memberId) {
         String subject = "Welcome to Ushirika Welfare Organization!";
         String html = """

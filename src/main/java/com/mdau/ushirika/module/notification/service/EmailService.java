@@ -10,6 +10,9 @@ public interface EmailService {
 
     void sendPasswordResetOtp(String toEmail, String name, String otp);
 
+    /** Step-up confirmation code before an admin-tier user's portal session enters /admin. */
+    void sendAdminEntryOtp(String toEmail, String name, String otp);
+
     void sendWelcome(String toEmail, String name, String memberId);
 
     /** Sent when admin clicks "Send Form" — applicant's onboarding login credentials. */
