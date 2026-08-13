@@ -13,7 +13,7 @@ public record UpdateRoleRequest(
         UserRole role,
 
         /** Official organizational title — can be set independently of role.
-         *  A MEMBER can hold a title (e.g. PATRON) without admin approval powers. */
+         *  A MEMBER can hold a title (e.g. BENEVOLENCE_COORDINATOR) without admin approval powers. */
         OfficialTitle officialTitle,
 
         /** Granular admin permissions attached independently of role — null/omitted means

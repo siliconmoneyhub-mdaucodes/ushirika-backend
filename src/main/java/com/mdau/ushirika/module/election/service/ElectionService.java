@@ -6,7 +6,6 @@ import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
-import com.mdau.ushirika.module.auth.enums.OfficialTitle;
 import com.mdau.ushirika.module.election.dto.*;
 import com.mdau.ushirika.module.election.entity.*;
 import com.mdau.ushirika.module.election.enums.CandidacyStatus;

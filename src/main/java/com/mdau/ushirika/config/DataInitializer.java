@@ -165,6 +165,14 @@ public class DataInitializer implements ApplicationRunner {
                 ))
                 """);
 
+        // Same stale-check-constraint trap as users_role_check -- official_title is an
+        // @Enumerated(STRING) column with no explicit CHECK in the entity, so if Hibernate ever
+        // auto-generated one against the old 11-value OfficialTitle set (CHAIRPERSON, PATRON, etc.)
+        // it would reject every new 7-title executive value on write. Dropped outright rather than
+        // recreated, matching mgr_join_requests_status_check/user_capabilities -- validated at the
+        // Java layer instead.
+        jdbcTemplate.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_official_title_check");
+
         jdbcTemplate.execute(
                 "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_24h_sent BOOLEAN NOT NULL DEFAULT false");
         jdbcTemplate.execute(

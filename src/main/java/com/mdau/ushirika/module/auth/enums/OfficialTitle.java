@@ -9,17 +9,13 @@ import lombok.Getter;
  */
 @Getter
 public enum OfficialTitle {
-    CHAIRPERSON("Chairperson"),
-    VICE_CHAIRPERSON("Vice Chairperson"),
-    SECRETARY_GENERAL("Secretary General"),
-    ASSISTANT_SECRETARY("Assistant Secretary"),
-    TREASURER("Treasurer"),
-    ASSISTANT_TREASURER("Assistant Treasurer"),
-    WELFARE_COORDINATOR("Welfare Coordinator"),
-    PROGRAMS_DIRECTOR("Programs Director"),
-    PATRON("Patron"),
-    TRUSTEE("Trustee"),
-    AUDITOR("Auditor");
+    EXECUTIVE_CHAIRMAN("Chairman"),
+    EXECUTIVE_VICE_CHAIRMAN("Vice Chairman"),
+    EXECUTIVE_SECRETARY("Secretary"),
+    EXECUTIVE_VICE_SECRETARY("Vice Secretary"),
+    EXECUTIVE_TREASURER("Treasurer"),
+    EXECUTIVE_CHIEF_WHIP("Chief Whip"),
+    BENEVOLENCE_COORDINATOR("Benevolence Coordinator");
 
     private final String displayName;
 
