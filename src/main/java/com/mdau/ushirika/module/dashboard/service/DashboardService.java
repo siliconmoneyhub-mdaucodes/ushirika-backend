@@ -9,6 +9,7 @@ import com.mdau.ushirika.module.attendance.repository.AttendanceExcuseRepository
 import com.mdau.ushirika.module.attendance.repository.AttendanceRecordRepository;
 import com.mdau.ushirika.module.attendance.repository.FineRepository;
 import com.mdau.ushirika.module.attendance.repository.MeetingRepository;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.repository.AuditLogRepository;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -33,6 +34,7 @@ import com.mdau.ushirika.module.dashboard.dto.WelfareBreakdownDto.CategoryRow;
 import com.mdau.ushirika.module.benevolence.enums.ClaimStatus;
 import com.mdau.ushirika.module.benevolence.repository.BenevolenceClaimRepository;
 import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto;
+import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.Balances;
 import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.BenevolenceHealth;
 import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.DuesHealth;
 import com.mdau.ushirika.module.dashboard.dto.FinanceDashboardDto.LoanPortfolio;
@@ -304,7 +306,28 @@ public class DashboardService {
                 toPoints(mgrContributionRepository.monthlyPaidTotals(from))
         );
 
-        return new FinanceDashboardDto(dues, benevolence, loans, mgr);
+        return new FinanceDashboardDto(dues, benevolence, loans, mgr, computeBalances());
+    }
+
+    /** All-time (unscoped) net per program from the money ledger -- the current running balance,
+     *  not a date-filtered total. See Balances' Javadoc for why this stays separate from Money Flow. */
+    private Balances computeBalances() {
+        List<Object[]> rows = auditLogRepository.sumLedgerByEntityTypeAndDirection(null, null);
+
+        Map<String, BigDecimal> byProgram = new java.util.LinkedHashMap<>();
+        BigDecimal orgWideNet = BigDecimal.ZERO;
+
+        for (Object[] row : rows) {
+            String entityType = (String) row[0];
+            LedgerDirection direction = (LedgerDirection) row[1];
+            BigDecimal amount = (BigDecimal) row[2];
+            BigDecimal signed = direction == LedgerDirection.IN ? amount : amount.negate();
+
+            byProgram.merge(entityType, signed, BigDecimal::add);
+            orgWideNet = orgWideNet.add(signed);
+        }
+
+        return new Balances(orgWideNet, byProgram);
     }
 
     @Transactional(readOnly = true)
