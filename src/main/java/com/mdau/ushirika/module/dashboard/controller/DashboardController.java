@@ -64,6 +64,7 @@ public class DashboardController {
     }
 
     @GetMapping("/admin/reports/welfare")
+    @PreAuthorize("hasAnyAuthority('ROLE_FINANCIAL_ADMIN','ROLE_ADMIN','ROLE_SUPERADMIN','CAP_FINANCE_DUES','CAP_FINANCE_ADVANCED')")
     @Operation(summary = "Welfare requests broken down by category and status")
     public ResponseEntity<ApiResponse<WelfareBreakdownDto>> welfareReport() {
         return ResponseEntity.ok(ApiResponse.ok("Welfare report generated",
@@ -71,6 +72,7 @@ public class DashboardController {
     }
 
     @GetMapping("/admin/reports/scholarships")
+    @PreAuthorize("hasAnyAuthority('ROLE_FINANCIAL_ADMIN','ROLE_ADMIN','ROLE_SUPERADMIN','CAP_FINANCE_DUES','CAP_FINANCE_ADVANCED')")
     @Operation(summary = "Scholarship applications broken down by program and status")
     public ResponseEntity<ApiResponse<ScholarshipBreakdownDto>> scholarshipReport() {
         return ResponseEntity.ok(ApiResponse.ok("Scholarship report generated",

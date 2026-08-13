@@ -100,6 +100,13 @@ public class SecurityConfig {
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_NOTIFICATIONS")
                         .requestMatchers("/admin/notifications/**")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_NOTIFICATIONS")
+                        // /admin/reports/financial is narrower than the /admin/reports/** rule below and must
+                        // be declared first -- requestMatchers are evaluated in declaration order (first match
+                        // wins), so if this stayed after the broad rule it would never actually apply (the
+                        // broad rule's CAP_FINANCE_ADVANCED-only authority set would silently override this
+                        // one's CAP_FINANCE_DUES OR CAP_FINANCE_ADVANCED, blocking CAP_FINANCE_DUES-only users).
+                        .requestMatchers(HttpMethod.GET, "/admin/reports/financial")
+                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
                         // Payment links/benevolence/MGR/loans/CSV reports/welfare/programs: Financial Admin
                         // only (not delegated to officials) at the role level, or CAP_FINANCE_ADVANCED.
                         .requestMatchers(HttpMethod.GET,
@@ -134,8 +141,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/admin/dashboard/compliance")
                                 .hasAnyAuthority("ROLE_COMPLIANCE", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_CONSTITUTION", "CAP_REINSTATEMENT")
                         .requestMatchers(HttpMethod.GET, "/admin/dashboard")
-                                .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
-                        .requestMatchers(HttpMethod.GET, "/admin/reports/financial")
                                 .hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_FINANCE_DUES", "CAP_FINANCE_ADVANCED")
                         // Leadership (read-only): full GET access to admin data, no mutations
                         .requestMatchers(HttpMethod.GET, "/admin/**").hasAnyRole("ADMIN", "SUPERADMIN", "LEADERSHIP")
