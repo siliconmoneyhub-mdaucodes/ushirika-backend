@@ -67,7 +67,7 @@ public class AdminUserService {
                 .filter(u -> u.getRole() != UserRole.SUPERADMIN || actor.getRole() == UserRole.SUPERADMIN)
                 .map(user -> {
                     MemberProfile profile = profileRepository.findByUser(user).orElse(null);
-                    return UserProfileDto.from(user, profile);
+                    return UserProfileDto.from(user, profile, resolveDuesStatus(user, profile));
                 })
                 .toList();
 
@@ -160,7 +160,7 @@ public class AdminUserService {
 
         profile.setMembershipTier(req.tier());
         profileRepository.save(profile);
-        return UserProfileDto.from(target, profile);
+        return UserProfileDto.from(target, profile, resolveDuesStatus(target, profile));
     }
 
     /**
@@ -240,10 +240,25 @@ public class AdminUserService {
         }
 
         log.info("[createMember] building UserProfileDto");
-        return UserProfileDto.from(user, profile);
+        return UserProfileDto.from(user, profile, resolveDuesStatus(user, profile));
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Mirrors UserController.me()'s dues-status resolution -- only meaningful for approved
+     * MEMBER-role users (a memberId assigned). Without this, UserProfileDto.from(user, profile)
+     * (the 2-arg overload) always passes a null duesStatus, which its status-derivation logic
+     * treats identically to "no dues record" -- i.e. every approved member shows "inactive"
+     * regardless of whether they've actually paid, which is exactly what the Member Directory
+     * was doing before this fix.
+     */
+    private String resolveDuesStatus(User user, MemberProfile profile) {
+        if (user.getRole() != UserRole.MEMBER || profile == null || profile.getMemberId() == null) {
+            return null;
+        }
+        return membershipDuesService.getCurrentYearStatus(user).map(Enum::name).orElse(null);
+    }
 
     private String generateMemberId() {
         int year = LocalDate.now().getYear();
