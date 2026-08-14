@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.program.dto.*;
 import com.mdau.ushirika.module.program.entity.Program;
@@ -94,6 +95,16 @@ public class ProgramService {
         Program program = findProgram(programId);
         User user = userRepository.findById(req.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // A program coordinator needs a live, approved membership underneath -- an APPLICANT is
+        // still mid-onboarding (no dues/governance standing yet) and an inactive account has
+        // lapsed. Neither should be handed program-coordinator authority.
+        if (user.getRole() == UserRole.APPLICANT) {
+            throw new BadRequestException("This person hasn't completed membership onboarding yet -- only members can coordinate a program.");
+        }
+        if (!user.isActive()) {
+            throw new BadRequestException("This member's account is inactive -- reactivate them before assigning them to coordinate a program.");
+        }
 
         if (assignmentRepository.existsByProgramIdAndUserId(programId, user.getId())) {
             throw new ConflictException("This user already administers this program");
