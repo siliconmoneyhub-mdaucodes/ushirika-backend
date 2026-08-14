@@ -173,6 +173,23 @@ public class DataInitializer implements ApplicationRunner {
         // Java layer instead.
         jdbcTemplate.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_official_title_check");
 
+        // Dropping the constraint above stopped writes from being rejected, but rows written under
+        // the old 11-value OfficialTitle set (CHAIRPERSON, PATRON, SECRETARY_GENERAL, etc.) are
+        // still sitting in the column. @Enumerated(STRING) has no tolerance for an unknown name --
+        // Hibernate throws IllegalArgumentException deserializing any such row, which crashes every
+        // endpoint that loads that User (Applications, Contributions, Officials...), not just ones
+        // that touch title directly. Null out anything that isn't one of the current 7 values;
+        // affected officials just need a current title re-assigned from the Officials UI.
+        jdbcTemplate.update("""
+                UPDATE users SET official_title = NULL
+                WHERE official_title IS NOT NULL
+                AND official_title NOT IN (
+                    'EXECUTIVE_CHAIRMAN','EXECUTIVE_VICE_CHAIRMAN','EXECUTIVE_SECRETARY',
+                    'EXECUTIVE_VICE_SECRETARY','EXECUTIVE_TREASURER','EXECUTIVE_CHIEF_WHIP',
+                    'BENEVOLENCE_COORDINATOR'
+                )
+                """);
+
         jdbcTemplate.execute(
                 "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS reminder_24h_sent BOOLEAN NOT NULL DEFAULT false");
         jdbcTemplate.execute(
