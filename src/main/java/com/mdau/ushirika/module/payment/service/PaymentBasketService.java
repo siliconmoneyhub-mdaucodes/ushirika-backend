@@ -17,10 +17,8 @@ import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
-import com.mdau.ushirika.module.payment.dto.AdminCardEntryRequest;
 import com.mdau.ushirika.module.payment.dto.AdminCashPaymentRequest;
 import com.mdau.ushirika.module.payment.dto.BasketLineDto;
-import com.mdau.ushirika.module.payment.dto.CardPaymentResultDto;
 import com.mdau.ushirika.module.payment.dto.MemberBalanceDto;
 import com.mdau.ushirika.module.payment.dto.OutstandingBalancesDto;
 import com.mdau.ushirika.module.payment.dto.PayBalancesLineDto;
@@ -257,52 +255,48 @@ public class PaymentBasketService {
     }
 
     /**
-     * An admin entering a member's card details directly, relayed by phone or in person, via
-     * Stripe Elements on the frontend -- the raw card number/CVC never reach our backend, only
-     * the tokenized paymentMethodId Stripe.js produces client-side. Confirms immediately; if the
-     * card needs 3D Secure the caller gets back status "requires_action" + a clientSecret for
-     * the frontend to finish with stripe.confirmCardPayment(). Either way the member is only
-     * credited once payment_intent.succeeded actually lands, same as every other payment path.
+     * An admin starting a card charge on a member's behalf, relayed by phone or in person -- the
+     * card is entered on Stripe's own hosted Checkout page, never on ours. The admin opens the
+     * returned checkoutUrl (or sends it to the member) and either the admin types what the member
+     * reads out, or the member completes it themselves; either way Stripe collects the card, not
+     * our frontend. The member is only credited once checkout.session.completed actually lands,
+     * same as every other payment path. Mirrors startAdminCashCheckout exactly except the Stripe
+     * customer of record is the member (they're the one paying), not the admin.
      */
     @Transactional
-    public CardPaymentResultDto startAdminCardEntry(AdminCardEntryRequest req) {
+    public PaymentInitDto startAdminCardCheckout(AdminCashPaymentRequest req) {
         User admin = currentUser();
         User targetMember = userRepository.findById(req.memberId())
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + req.memberId()));
+
+        List<StripeService.LineItem> stripeLines = List.of(
+                new StripeService.LineItem("Ushirika Welfare Organization — Card Payment for " + targetMember.getFullName(), req.amount()));
 
         Map<String, String> metadata = Map.of(
                 "purpose", "BASKET",
                 "memberId", targetMember.getId().toString()
         );
 
-        StripeService.PaymentIntentResult result = stripeService.createAndConfirmPaymentIntent(
-                req.amount(), req.paymentMethodId(),
-                "Ushirika Welfare Organization — Card payment for " + targetMember.getFullName(),
-                metadata);
+        StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
+                targetMember.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata);
 
         PaymentBasket basket = PaymentBasket.builder()
                 .member(targetMember)
-                .sessionId(result.paymentIntentId())
+                .sessionId(result.sessionId())
                 .build();
         basket.getLines().add(PaymentBasketLine.builder()
                 .basket(basket)
                 .ledger(PaymentBasketLedger.CARD_ENTERED_BY_ADMIN)
                 .targetId(admin.getId())
-                .description("Card payment entered by admin " + admin.getFullName())
+                .description("Card payment checkout started by admin " + admin.getFullName())
                 .amount(req.amount())
                 .build());
         basketRepository.save(basket);
 
-        log.info("Admin card-entry PaymentIntent created: id={} status={} member={} admin={} amount={} USD",
-                result.paymentIntentId(), result.status(), targetMember.getEmail(), admin.getEmail(), req.amount());
+        log.info("Admin card-entry checkout created: sessionId={} member={} admin={} amount={} USD",
+                result.sessionId(), targetMember.getEmail(), admin.getEmail(), req.amount());
 
-        // In dev-fallback mode there's no real webhook coming, so complete it immediately —
-        // same accommodation the /admin/payments/simulate test tool makes for Checkout baskets.
-        if ("succeeded".equals(result.status()) && result.clientSecret() == null) {
-            completeBasket(basket, "SIMULATED (dev fallback, no real payment)");
-        }
-
-        return new CardPaymentResultDto(result.paymentIntentId(), result.status(), result.clientSecret(), req.amount());
+        return new PaymentInitDto(result.sessionId(), result.checkoutUrl(), req.amount(), "USD");
     }
 
     /** Called by StripeWebhookController after a payment_intent.succeeded event. */

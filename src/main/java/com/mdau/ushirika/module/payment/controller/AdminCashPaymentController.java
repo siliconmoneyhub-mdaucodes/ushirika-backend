@@ -1,9 +1,7 @@
 package com.mdau.ushirika.module.payment.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
-import com.mdau.ushirika.module.payment.dto.AdminCardEntryRequest;
 import com.mdau.ushirika.module.payment.dto.AdminCashPaymentRequest;
-import com.mdau.ushirika.module.payment.dto.CardPaymentResultDto;
 import com.mdau.ushirika.module.payment.dto.MemberBalanceDto;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
 import com.mdau.ushirika.module.payment.service.PaymentAllocationService;
@@ -22,11 +20,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 /**
- * An admin processing a cash payment they physically received from a member. There is no
- * "record it and move on" path anymore — the admin must complete a real Stripe Checkout
- * session (their own card) before the member is credited. Sits under /financial/** so the
- * same roles who could record manual payments before (Financial Admin, delegated Financial
- * Official, plus Admin/Superadmin) can still process cash.
+ * An admin processing a cash payment they physically received, or starting a card charge on a
+ * member's behalf. Neither path lets the admin just "record it and move on" — the admin (cash)
+ * or the member (card) must complete a real Stripe Checkout session before the member is
+ * credited; card details are always entered on Stripe's own hosted page, never on ours. Sits
+ * under /financial/** so the same roles who could record manual payments before (Financial
+ * Admin, delegated Financial Official, plus Admin/Superadmin) can still process these.
  */
 @RestController
 @RequestMapping("/financial/cash-payments")
@@ -46,9 +45,9 @@ public class AdminCashPaymentController {
     }
 
     @PostMapping("/card-entry")
-    @Operation(summary = "Charge a member's card entered directly by an admin (Stripe Elements, tokenized client-side)")
-    public ResponseEntity<ApiResponse<CardPaymentResultDto>> cardEntry(@Valid @RequestBody AdminCardEntryRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.startAdminCardEntry(req)));
+    @Operation(summary = "Start a Stripe checkout for a member's card, relayed to an admin by phone or in person — the card is entered on Stripe's own page, never ours")
+    public ResponseEntity<ApiResponse<PaymentInitDto>> cardEntry(@Valid @RequestBody AdminCashPaymentRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.startAdminCardCheckout(req)));
     }
 
     @GetMapping("/members/{memberId}/balance")
