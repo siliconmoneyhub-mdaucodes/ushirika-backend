@@ -31,14 +31,19 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     /** Money In & Out view -- only rows a ledger backfill (Finance Visibility plan, Phase 2)
      * actually populated with amount/direction; every other audit row (the vast majority) is
-     * non-financial and stays out of this view entirely. */
+     * non-financial and stays out of this view entirely.
+     * <p>from/to are REQUIRED (never null) -- a "(:from IS NULL OR a.createdAt >= :from)" guard
+     * here reproducibly threw "could not determine data type of parameter $1" against Postgres,
+     * because Hibernate binds the same named parameter as two separate JDBC positions and the
+     * IS-NULL-only position at PREPARE time has no typed column to infer from. Callers resolve
+     * "no filter" to a wide sentinel range instead of passing null. */
     @Query("""
             SELECT a FROM AuditLog a
             WHERE a.direction IS NOT NULL
               AND (:entityType IS NULL OR a.entityType = :entityType)
               AND (:direction IS NULL OR a.direction = :direction)
-              AND (:from IS NULL OR a.createdAt >= :from)
-              AND (:to IS NULL OR a.createdAt <= :to)
+              AND a.createdAt >= :from
+              AND a.createdAt <= :to
             ORDER BY a.createdAt DESC
             """)
     Page<AuditLog> findLedgerEntries(
@@ -55,13 +60,14 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<String> findDistinctLedgerEntityTypes();
 
     /** Per-program totals for a date range -- feeds Phase 4's per-program + org-wide balance
-     * totals directly from the ledger, grouped by entityType and direction. */
+     * totals directly from the ledger, grouped by entityType and direction.
+     * <p>from/to are REQUIRED (never null) -- see findLedgerEntries' Javadoc for why; same fix. */
     @Query("""
             SELECT a.entityType, a.direction, COALESCE(SUM(a.amount), 0)
             FROM AuditLog a
             WHERE a.direction IS NOT NULL
-              AND (:from IS NULL OR a.createdAt >= :from)
-              AND (:to IS NULL OR a.createdAt <= :to)
+              AND a.createdAt >= :from
+              AND a.createdAt <= :to
             GROUP BY a.entityType, a.direction
             """)
     List<Object[]> sumLedgerByEntityTypeAndDirection(

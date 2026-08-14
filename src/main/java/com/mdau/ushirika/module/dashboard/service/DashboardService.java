@@ -317,9 +317,12 @@ public class DashboardService {
     }
 
     /** All-time (unscoped) net per program from the money ledger -- the current running balance,
-     *  not a date-filtered total. See Balances' Javadoc for why this stays separate from Money Flow. */
+     *  not a date-filtered total. See Balances' Javadoc for why this stays separate from Money Flow.
+     *  <p>Passes a wide sentinel range rather than null -- see AuditLogRepository.findLedgerEntries'
+     *  Javadoc for why a null from/to breaks these queries on Postgres. */
     private Balances computeBalances() {
-        List<Object[]> rows = auditLogRepository.sumLedgerByEntityTypeAndDirection(null, null);
+        List<Object[]> rows = auditLogRepository.sumLedgerByEntityTypeAndDirection(
+                LocalDateTime.of(2000, 1, 1, 0, 0), LocalDateTime.now());
 
         Map<String, BigDecimal> byProgram = new java.util.LinkedHashMap<>();
         BigDecimal orgWideNet = BigDecimal.ZERO;

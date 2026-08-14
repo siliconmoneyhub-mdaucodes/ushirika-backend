@@ -38,6 +38,11 @@ import java.util.Map;
 @Tag(name = "Money In & Out", description = "Filterable money-movement ledger derived from the audit trail")
 public class AdminMoneyFlowController {
 
+    /** Sentinel lower bound standing in for "no from filter" -- predates the organization, so it
+     * behaves as an open lower bound while keeping the ledger queries' date parameters non-null
+     * (see AuditLogRepository.findLedgerEntries' Javadoc for why null breaks them on Postgres). */
+    private static final LocalDateTime EPOCH = LocalDateTime.of(2000, 1, 1, 0, 0);
+
     private final AuditLogRepository auditLogRepository;
 
     @GetMapping
@@ -51,7 +56,9 @@ public class AdminMoneyFlowController {
             @RequestParam(defaultValue = "50") int size
     ) {
         Page<AuditLogDto> result = auditLogRepository
-                .findLedgerEntries(entityType, direction, from, to,
+                .findLedgerEntries(entityType, direction,
+                        from != null ? from : EPOCH,
+                        to != null ? to : LocalDateTime.now(),
                         PageRequest.of(page, size, Sort.by("createdAt").descending()))
                 .map(AuditLogDto::from);
 
@@ -70,7 +77,9 @@ public class AdminMoneyFlowController {
             @RequestParam(required = false) LocalDateTime from,
             @RequestParam(required = false) LocalDateTime to
     ) {
-        List<Object[]> rows = auditLogRepository.sumLedgerByEntityTypeAndDirection(from, to);
+        List<Object[]> rows = auditLogRepository.sumLedgerByEntityTypeAndDirection(
+                from != null ? from : EPOCH,
+                to != null ? to : LocalDateTime.now());
 
         Map<String, Map<String, BigDecimal>> byProgram = new java.util.LinkedHashMap<>();
         BigDecimal grandIn = BigDecimal.ZERO;

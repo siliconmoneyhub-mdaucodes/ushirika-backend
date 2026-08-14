@@ -628,8 +628,10 @@ public class ReportService {
     public byte[] moneyFlowPdf() { var t = PdfBuilder.create("Money Flow Report"); populateMoneyFlowTable(t); return t.toBytes(); }
 
     private void populateMoneyFlowTable(TableBuilder table) {
+        // from/to must be non-null -- see AuditLogRepository.findLedgerEntries' Javadoc.
         List<com.mdau.ushirika.module.audit.entity.AuditLog> entries = auditLogRepository
-                .findLedgerEntries(null, null, null, null,
+                .findLedgerEntries(null, null,
+                        java.time.LocalDateTime.of(2000, 1, 1, 0, 0), java.time.LocalDateTime.now(),
                         org.springframework.data.domain.Pageable.unpaged())
                 .getContent();
 
