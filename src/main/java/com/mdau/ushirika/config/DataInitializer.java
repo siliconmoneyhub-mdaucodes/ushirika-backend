@@ -331,6 +331,27 @@ public class DataInitializer implements ApplicationRunner {
                     recorded_at        TIMESTAMP NOT NULL DEFAULT now()
                 )
                 """);
+
+        // mgr_slots had no unique constraint on (cycle_id, slot_number) -- only on (cycle_id,
+        // user_id) -- so a removed mid-cycle slot could make the next admission reissue an
+        // in-use number (see MgrService#admitWaitlistedMembers/#assignSlot, now fixed to seed
+        // from MAX(slotNumber) instead of COUNT). This adds the constraint as defense-in-depth,
+        // but guarded: only if no existing duplicate would violate it, since this environment has
+        // hit boot-crashing constraint additions against dirty data before (see users_role_check
+        // below). If a duplicate already exists, this silently skips rather than crashing startup
+        // -- the app-level fix above is what actually stops new duplicates.
+        jdbcTemplate.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM mgr_slots GROUP BY cycle_id, slot_number HAVING COUNT(*) > 1
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'uq_mgr_slot_cycle_number'
+                    ) THEN
+                        ALTER TABLE mgr_slots ADD CONSTRAINT uq_mgr_slot_cycle_number UNIQUE (cycle_id, slot_number);
+                    END IF;
+                END $$;
+                """);
     }
 
     /**

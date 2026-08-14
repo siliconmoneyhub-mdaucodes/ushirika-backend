@@ -177,7 +177,7 @@ public class MgrService {
         List<MgrJoinRequest> toAdmit = waitlist.subList(0, Math.min(capacity, waitlist.size()));
 
         List<MgrSlot> newSlots = new ArrayList<>();
-        int slotNumber = existing;
+        int slotNumber = slotRepo.findMaxSlotNumberByCycle(cycle);
         for (MgrJoinRequest request : toAdmit) {
             slotNumber++;
             MgrSlot slot = MgrSlot.builder()
@@ -495,7 +495,7 @@ public class MgrService {
         }
         int slotNumber = req.slotNumber() != null
                 ? req.slotNumber()
-                : slotRepo.countByCycle(cycle) + 1;
+                : slotRepo.findMaxSlotNumberByCycle(cycle) + 1;
 
         MgrSlot slot = MgrSlot.builder()
                 .cycle(cycle)

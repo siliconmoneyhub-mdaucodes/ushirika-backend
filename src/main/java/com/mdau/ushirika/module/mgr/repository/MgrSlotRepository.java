@@ -33,6 +33,12 @@ public interface MgrSlotRepository extends JpaRepository<MgrSlot, UUID> {
 
     int countByCycle(MgrCycle cycle);
 
+    /** Highest slotNumber currently assigned in this cycle -- used to seed the next slot number
+     * instead of countByCycle(), which drifts once a mid-cycle slot is removed (count and max
+     * diverge, and the next admission can silently reissue an in-use number). */
+    @Query("SELECT COALESCE(MAX(s.slotNumber), 0) FROM MgrSlot s WHERE s.cycle = :cycle")
+    int findMaxSlotNumberByCycle(@Param("cycle") MgrCycle cycle);
+
     long countByCycleAndStatus(MgrCycle cycle, SlotStatus status);
 
     /** Slots drawn for a specific payout month (payoutMonth is now nullable). */
