@@ -167,6 +167,23 @@ public class DataInitializer implements ApplicationRunner {
                 ))
                 """);
 
+        // Same stale-check-constraint trap as users_role_check, but predating that pattern
+        // entirely -- payment_basket_lines_ledger_check was hand-migrated via V020-V022 as each
+        // PaymentBasketLedger value was added, but CASH_PAYMENT and CARD_ENTERED_BY_ADMIN (the
+        // manual-payment features) were added straight to the Java enum with no accompanying
+        // migration. Confirmed live: every admin card-entry payment failed with "violates check
+        // constraint payment_basket_lines_ledger_check" -- the Stripe charge succeeded but our own
+        // write of the payment line failed, so the payment was taken but never recorded. Folded
+        // into the idempotent-DDL pattern now so it can't silently drift again.
+        jdbcTemplate.execute("ALTER TABLE payment_basket_lines DROP CONSTRAINT IF EXISTS payment_basket_lines_ledger_check");
+        jdbcTemplate.execute("""
+                ALTER TABLE payment_basket_lines ADD CONSTRAINT payment_basket_lines_ledger_check CHECK (ledger IN (
+                    'REGISTRATION_FEE','DUES','BENEVOLENCE_ENROLLMENT','MGR_CONTRIBUTION','FINE',
+                    'BENEVOLENCE_REPLENISHMENT','PROGRAM_APPLICATION_PREPAY','GENERAL_CONTRIBUTION',
+                    'CASH_PAYMENT','CARD_ENTERED_BY_ADMIN'
+                ))
+                """);
+
         // Same stale-check-constraint trap as users_role_check -- official_title is an
         // @Enumerated(STRING) column with no explicit CHECK in the entity, so if Hibernate ever
         // auto-generated one against the old 11-value OfficialTitle set (CHAIRPERSON, PATRON, etc.)
