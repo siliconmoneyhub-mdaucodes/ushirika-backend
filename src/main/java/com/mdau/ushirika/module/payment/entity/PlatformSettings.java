@@ -28,4 +28,10 @@ public class PlatformSettings extends BaseEntity {
 
     @Column(name = "registration_fee_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal registrationFeeAmount;
+
+    /** "USD" or "KES" -- controls the default currency money is displayed in across the app.
+     *  Money itself is always stored and charged in USD; this only affects the initial display
+     *  state before a user's own session toggle takes over. */
+    @Column(name = "default_display_currency", nullable = false, length = 3)
+    private String defaultDisplayCurrency;
 }
