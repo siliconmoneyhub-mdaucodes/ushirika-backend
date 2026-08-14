@@ -14,6 +14,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
 
@@ -82,6 +83,19 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(errors));
+    }
+
+    /** A query/path param that doesn't match its declared type (e.g. a full ISO datetime sent
+     *  where a plain LocalDate is expected) is bad client input, not a server fault -- was falling
+     *  through to the catch-all below and returning 500 with a full stack trace for what should
+     *  always be a 400. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String expected = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "the expected type";
+        log.warn("Rejected request — parameter '{}' value '{}' is not a valid {}",
+                ex.getName(), ex.getValue(), expected);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("'" + ex.getName() + "' must be a valid " + expected + "."));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
