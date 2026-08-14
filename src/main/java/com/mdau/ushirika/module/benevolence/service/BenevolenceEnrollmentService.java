@@ -151,6 +151,12 @@ public class BenevolenceEnrollmentService {
         BenevolenceEnrollment e = enrollmentRepo.findByUser(user)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "You have not been enrolled in the benevolence program yet."));
+        // A CANCELLED enrollment (join request rejected after the form was already sent) reads
+        // the same as never having enrolled -- the member's own join-request status (REJECTED)
+        // is what portal/benevolence.tsx actually renders instead.
+        if (e.getStatus() == EnrollmentStatus.CANCELLED) {
+            throw new ResourceNotFoundException("You have not been enrolled in the benevolence program yet.");
+        }
         return toFullDto(e);
     }
 
@@ -310,16 +316,35 @@ public class BenevolenceEnrollmentService {
             throw new BadRequestException("Only PENDING or FORM_SENT requests can be rejected.");
         }
 
+        // FORM_SENT means sendForm() already opened a live enrollment via ensureEnrolled() --
+        // without this, a rejected applicant kept an active, payable enrollment with no
+        // member-visible sign anything was rejected. See getMyEnrollment()/applyPayment() above
+        // for how CANCELLED is then treated as "not enrolled."
+        boolean hadOpenEnrollment = request.getStatus() == BenevolenceJoinRequestStatus.FORM_SENT;
+
         request.setStatus(BenevolenceJoinRequestStatus.REJECTED);
         request.setAdminNotes(adminNotes);
         request.setRespondedBy(admin);
         request.setRespondedAt(LocalDateTime.now());
         joinRequestRepo.save(request);
 
+        String paidNote = "";
+        if (hadOpenEnrollment) {
+            BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(request.getUser()).orElse(null);
+            if (enrollment != null) {
+                enrollment.setStatus(EnrollmentStatus.CANCELLED);
+                enrollmentRepo.save(enrollment);
+                if (enrollment.getTotalPaid() != null && enrollment.getTotalPaid().signum() > 0) {
+                    paidNote = " -- had already paid $" + enrollment.getTotalPaid()
+                            + " toward enrollment; needs a manual refund follow-up.";
+                }
+            }
+        }
+
         log.info("Benevolence join request rejected: id={} member={} by={}",
                 requestId, request.getUser().getEmail(), admin.getEmail());
         auditLogService.log(admin, "BENEVOLENCE_JOIN_REJECTED", "BenevolenceJoinRequest", request.getId(),
-                "Benevolence membership rejected for " + request.getUser().getFullName() + " by " + admin.getFullName());
+                "Benevolence membership rejected for " + request.getUser().getFullName() + " by " + admin.getFullName() + paidNote);
         return BenevolenceJoinRequestDto.from(request, memberId(request.getUser()));
     }
 
@@ -394,7 +419,8 @@ public class BenevolenceEnrollmentService {
         BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(user)
                 .orElseGet(() -> createEnrollment(user));
 
-        if (enrollment.getStatus() == EnrollmentStatus.ELIGIBLE || enrollment.getStatus() == EnrollmentStatus.PROBATION) {
+        if (enrollment.getStatus() == EnrollmentStatus.ELIGIBLE || enrollment.getStatus() == EnrollmentStatus.PROBATION
+                || enrollment.getStatus() == EnrollmentStatus.CANCELLED) {
             return;
         }
 
