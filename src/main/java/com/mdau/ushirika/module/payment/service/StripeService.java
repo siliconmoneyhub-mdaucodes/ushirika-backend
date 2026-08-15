@@ -87,12 +87,51 @@ public class StripeService {
                     "https://checkout.stripe.com/dev/" + fakeSessionId);
         }
 
+        SessionCreateParams.Builder builder = buildSessionParams(email, lineItems, successUrl, cancelUrl, metadata,
+                SessionCreateParams.PaymentMethodType.CARD, SessionCreateParams.PaymentMethodType.CASHAPP);
+
+        try {
+            Session session = Session.create(builder.build());
+            log.info("[Stripe] Checkout session created: id={} lineItems={} email={}",
+                    session.getId(), lineItems.size(), email);
+            return new StripeCheckoutResult(session.getId(), session.getUrl());
+        } catch (StripeException e) {
+            // Cash App Pay must be toggled on per-account in the Stripe Dashboard; until that's done,
+            // Stripe rejects the session outright. Retry card-only so a missing Dashboard toggle can't
+            // take down card checkout too.
+            log.warn("[Stripe] Checkout session with Cash App Pay failed ({}) — retrying card-only. "
+                    + "If this keeps happening, confirm Cash App Pay is enabled in the Stripe Dashboard.", e.getMessage());
+            SessionCreateParams.Builder cardOnlyBuilder = buildSessionParams(email, lineItems, successUrl, cancelUrl,
+                    metadata, SessionCreateParams.PaymentMethodType.CARD);
+            try {
+                Session session = Session.create(cardOnlyBuilder.build());
+                log.info("[Stripe] Checkout session created (card-only fallback): id={} lineItems={} email={}",
+                        session.getId(), lineItems.size(), email);
+                return new StripeCheckoutResult(session.getId(), session.getUrl());
+            } catch (StripeException fallbackException) {
+                log.error("[Stripe] Failed to create checkout session: {}", fallbackException.getMessage());
+                throw new BadRequestException("Payment initialization failed: " + fallbackException.getMessage());
+            }
+        }
+    }
+
+    private SessionCreateParams.Builder buildSessionParams(
+            String email,
+            List<LineItem> lineItems,
+            String successUrl,
+            String cancelUrl,
+            Map<String, String> metadata,
+            SessionCreateParams.PaymentMethodType... paymentMethodTypes
+    ) {
         SessionCreateParams.Builder builder = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.PAYMENT)
-                .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
                 .setCustomerEmail(email)
                 .setSuccessUrl(successUrl + (successUrl.contains("?") ? "&" : "?") + "session_id={CHECKOUT_SESSION_ID}")
                 .setCancelUrl(cancelUrl);
+
+        for (SessionCreateParams.PaymentMethodType type : paymentMethodTypes) {
+            builder.addPaymentMethodType(type);
+        }
 
         for (LineItem item : lineItems) {
             long amountCents = item.amountUsd().multiply(BigDecimal.valueOf(100)).longValue();
@@ -112,15 +151,7 @@ public class StripeService {
             metadata.forEach(builder::putMetadata);
         }
 
-        try {
-            Session session = Session.create(builder.build());
-            log.info("[Stripe] Checkout session created: id={} lineItems={} email={}",
-                    session.getId(), lineItems.size(), email);
-            return new StripeCheckoutResult(session.getId(), session.getUrl());
-        } catch (StripeException e) {
-            log.error("[Stripe] Failed to create checkout session: {}", e.getMessage());
-            throw new BadRequestException("Payment initialization failed: " + e.getMessage());
-        }
+        return builder;
     }
 
     public record LineItem(String productName, BigDecimal amountUsd) {}
