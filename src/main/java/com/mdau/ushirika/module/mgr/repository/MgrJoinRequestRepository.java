@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.mgr.repository;
 
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.mgr.entity.MgrCycle;
 import com.mdau.ushirika.module.mgr.entity.MgrJoinRequest;
 import com.mdau.ushirika.module.mgr.enums.JoinRequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +22,7 @@ public interface MgrJoinRequestRepository extends JpaRepository<MgrJoinRequest, 
 
     /** FCFS admission queue -- oldest application first. */
     List<MgrJoinRequest> findByStatusOrderByCreatedAtAsc(JoinRequestStatus status);
+
+    /** Members currently invited to (asked about) a specific cycle, regardless of their response. */
+    List<MgrJoinRequest> findByInvitedCycle(MgrCycle cycle);
 }

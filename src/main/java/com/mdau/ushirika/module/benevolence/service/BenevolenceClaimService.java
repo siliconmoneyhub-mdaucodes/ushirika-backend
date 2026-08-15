@@ -54,7 +54,7 @@ public class BenevolenceClaimService {
         if (enrollment.getStatus() != EnrollmentStatus.ELIGIBLE) {
             String reason = enrollment.getStatus() == EnrollmentStatus.PAYING
                     ? "Your enrollment fee is not fully paid."
-                    : "You are still in the 6-month probation period ending "
+                    : "You are still in your probation period, ending "
                       + enrollment.getProbationEndsAt() + ".";
             throw new BadRequestException("Claim not allowed: " + reason);
         }

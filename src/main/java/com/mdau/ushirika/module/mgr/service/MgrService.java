@@ -53,6 +53,16 @@ public class MgrService {
 
     @Transactional
     public MgrCycleDto createCycle(CreateCycleRequest req) {
+        // Creating a cycle re-invites every WAITLISTED member and overwrites whatever they were
+        // last asked about (see askWaitlistForNewCycle) -- that's fine when it's the only cycle
+        // currently recruiting, but a second DRAFT cycle would silently wipe out responses
+        // already collected for the first one before an admin ever gets to activate it.
+        cycleRepo.findFirstByStatusOrderByStartDateDesc(CycleStatus.DRAFT).ifPresent(existing -> {
+            throw new BadRequestException("A cycle (\"" + existing.getName() + "\") is already in DRAFT and " +
+                    "collecting waitlist responses. Activate or cancel it before creating another -- creating a " +
+                    "second DRAFT cycle would overwrite everyone's responses to the first one.");
+        });
+
         MgrCycle cycle = MgrCycle.builder()
                 .name(req.name())
                 .year(req.year())
@@ -247,6 +257,20 @@ public class MgrService {
         }
         cycle.setStatus(CycleStatus.CANCELLED);
         cycleRepo.save(cycle);
+
+        // Members invited to (or who opted into) this cycle would otherwise be stuck showing
+        // "you're enrolled once it activates" for a cycle that never will. Clear the invite so
+        // they fall back to plain WAITLISTED and pick up the next real cycle's ask instead.
+        List<MgrJoinRequest> invited = joinRequestRepo.findByInvitedCycle(cycle);
+        for (MgrJoinRequest request : invited) {
+            request.setInvitedCycle(null);
+            request.setInvitedAt(null);
+            request.setCycleOptIn(null);
+            request.setCycleRespondedAt(null);
+            joinRequestRepo.save(request);
+        }
+        log.info("MGR cycle cancelled: id={} — cleared invite state for {} member(s)", cycle.getId(), invited.size());
+
         return toFullDto(cycle);
     }
 
@@ -435,11 +459,26 @@ public class MgrService {
             throw new BadRequestException("No remaining members to draw — all have been paid this cycle.");
         }
 
-        int drawCount = Math.min(cycle.getPayoutsPerMonth(), undrawn.size());
+        // Only draw from members who are current on *this month's* contribution -- being behind
+        // on payment shouldn't be rewarded with a payout draw.
+        Set<UUID> currentSlotIds = contributionRepo.findByCycleAndContributionMonthOrderBySlotSlotNumber(cycle, month)
+                .stream()
+                .filter(c -> c.getStatus() == ContributionStatus.PAID || c.getStatus() == ContributionStatus.WAIVED)
+                .map(c -> c.getSlot().getId())
+                .collect(Collectors.toSet());
+        List<MgrSlot> eligible = undrawn.stream()
+                .filter(s -> currentSlotIds.contains(s.getId()))
+                .collect(Collectors.toList());
+        if (eligible.isEmpty()) {
+            throw new BadRequestException("No members are current on month " + month +
+                    "'s contribution yet — nobody is eligible for this draw.");
+        }
+
+        int drawCount = Math.min(cycle.getPayoutsPerMonth(), eligible.size());
 
         // Shuffle and pick
-        Collections.shuffle(undrawn, new Random());
-        List<MgrSlot> drawn = undrawn.subList(0, drawCount);
+        Collections.shuffle(eligible, new Random());
+        List<MgrSlot> drawn = eligible.subList(0, drawCount);
 
         int year = drawYear != null ? drawYear : cycle.getStartDate().getYear();
         LocalDate payoutDate = LocalDate.of(year, month, Math.min(cycle.getBenefitPayoutDay(),
