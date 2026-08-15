@@ -307,6 +307,69 @@ harmless. Don't re-flag this without new evidence.
 **Not yet done**: the events/notifications work the user originally asked to defer until MGR/
 Benevolence were solid — that's next, per explicit instruction, once these two are confirmed good.
 
+### Later still (2026-08-15): second MGR/Benevolence pass, donations migration, sidebar cleanup
+
+**Second, deeper audit pass on MGR/Benevolence** (user-requested follow-up before moving to
+events), found and fixed 5 more real issues:
+1. Restricted `cancelCycle()` to DRAFT only, backend + frontend — the Cancel Cycle button added in
+   the first pass was reachable on ACTIVE cycles too, but does nothing to slots/contributions
+   already in flight and never notifies enrolled members. Unwinding a live-money cycle needs a
+   deliberate process, not a confirm-dialog button.
+2. `MgrReminderScheduler` compared the current contribution month against `totalSlots` (member
+   capacity) instead of the fixed 12-month cycle length — any cycle with fewer than 12 slots
+   silently stopped getting all reminders once `currentMonth` exceeded `totalSlots`.
+3. `BenevolenceClaimService.createReplenishment()` now rejects a second replenishment for the same
+   claim — no idempotency guard existed; a double-click would've doubled every eligible member's
+   obligation for one payout.
+4. `ReplenishmentReminderScheduler`'s in-app notification call (a plain synchronous save, unlike
+   the `@Async` email send next to it) now has its own try/catch — an unhandled exception there
+   aborted the rest of that day's reminder loop for every other member, no makeup run since the
+   14/7/0-day thresholds each fire once.
+5. Verified two audit claims that turned out wrong before acting on them: `MgrCycle`/`MgrSlot`/
+   `BenevolenceClaim` all extend `BaseEntity`, which carries `@Version` — optimistic locking exists
+   (the "no @Version field exists anywhere" claim was false), though it doesn't fully cover the
+   double-draw race described (different rows, not concurrent writes to the same one) — left as a
+   known, low-real-world-likelihood gap given typical admin team size. The "6-month probation" text
+   fixed in the first pass was already correctly 6 in code (a prior commit fixed the default); the
+   only open question is whether an already-persisted settings row still holds a stale explicit 4 —
+   **check this in the live admin panel**, it's not something fixable in code.
+
+**Major discovery — donations.tsx migrated to a real Stripe donation system.** The public
+`/donations` page was a fully manual self-report flow (donor sends money via Zelle/Venmo/Cash App
+on their own, clicks "Log this contribution," a treasurer manually matches it within 48 hours).
+Found a **complete, already-built** guest Stripe donation system —
+`module/donation/{controller,service,entity}` — campaigns, guest checkout (no account needed),
+webhook handling (`purpose=DONATION` already routed in `StripeWebhookController`), automatic
+receipt email — that was never wired to any frontend page. Rewired `donations.tsx` to use it:
+donor name/email + amount + real "Pay with Card"/"Pay with Cash App" buttons (added
+`paymentMethod` support to `DonationInitRequest`/`DonationService` for consistency with every
+other checkout entry point), opens in a new tab, no polling needed since Stripe's own success page
+confirms and the receipt email fires automatically from the webhook. Zero campaigns currently
+exist (`GET /public/donations/campaigns` returns empty) — the "Cause" selector on the page is
+informational only (folded into the donation's `message` field), not tied to real `DonationCampaign`
+rows; wiring that up is a separate future task if/when the org wants tracked campaigns.
+`scholarship.tsx`'s donation-instructions copy updated to match (was plain text, no functional
+form there).
+
+**Removed the "Pay Links" admin tab.** With donations off the legacy system, nothing in the
+frontend uses `PaymentLink`/`getPublicPaymentLinks` anymore — confirmed via grep before removing.
+Deleted `admin/payment-links.tsx` and its now-dead `client.ts` functions
+(`getPublicPaymentLinks`/`getAdminPaymentLinks`/`upsertPaymentLink`/`deletePaymentLink`).
+**Backend `AdminPaymentLinksController`/`PublicPaymentLinksController` and the `payment_links`
+table are untouched** — not requested, and removing backend API surface + a table is a bigger,
+different-risk cleanup than a frontend tab; flagged as a possible future pass, not done here.
+
+**Sidebar reorganized.** Audit Log moved out of the generic "System" nav section into the bottom
+"Developer Tools" area, now sharing that visual space with the superadmin-only Developer/Demo
+Guide links — but keeping its own real access rules (`compliance` role / `audit_log` cap) rather
+than being folded into the superadmin-only gate those two are under, so a Compliance official who
+isn't a superadmin still sees it. New `NAV_DEV` array in `admin.tsx`, same pattern as
+`NAV_PRIMARY`/`NAV_CONTENT`/`NAV_SYSTEM`.
+
+**Not yet done — the events/notifications scoping is next**, per the user's explicit ordering
+("after these now scope events... ask me questions"). See the scoping artifact from earlier this
+session (module × role list) as the starting point for that conversation.
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
