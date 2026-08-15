@@ -27,6 +27,7 @@ import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
 import com.mdau.ushirika.module.payment.enums.PaymentBasketLedger;
 import com.mdau.ushirika.module.payment.enums.PaymentStatus;
+import com.mdau.ushirika.module.payment.enums.PreferredPaymentMethod;
 import com.mdau.ushirika.module.payment.repository.PaymentBasketRepository;
 import com.mdau.ushirika.module.payment.service.PaymentBasketService;
 import lombok.RequiredArgsConstructor;
@@ -340,11 +341,13 @@ public class OnboardingService {
     }
 
     /** Registration fee (fixed $100) + an optional amount toward a Benevolence application
-     * already created in the "Programs" step — one combined Stripe Checkout session. */
+     * already created in the "Programs" step — one Stripe Checkout session, scoped to the
+     * applicant's chosen payment method. */
     @Transactional
     public PaymentInitDto startRegistrationCheckout(BigDecimal benevolenceAmount, UUID benevolenceApplicationId,
-                                                      String successUrl, String cancelUrl) {
-        return paymentBasketService.startOnboardingCheckout(benevolenceAmount, benevolenceApplicationId, successUrl, cancelUrl);
+                                                      String successUrl, String cancelUrl,
+                                                      PreferredPaymentMethod paymentMethod) {
+        return paymentBasketService.startOnboardingCheckout(benevolenceAmount, benevolenceApplicationId, successUrl, cancelUrl, paymentMethod);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

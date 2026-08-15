@@ -106,6 +106,7 @@ public class OnboardingController {
     @Operation(summary = "Start the combined Stripe checkout — registration fee, plus an optional amount toward a Benevolence application")
     public ResponseEntity<ApiResponse<PaymentInitDto>> checkout(@Valid @RequestBody OnboardingCheckoutRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(onboardingService.startRegistrationCheckout(
-                req.benevolenceAmount(), req.benevolenceApplicationId(), req.successUrl(), req.cancelUrl())));
+                req.benevolenceAmount(), req.benevolenceApplicationId(), req.successUrl(), req.cancelUrl(),
+                req.paymentMethod())));
     }
 }

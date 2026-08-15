@@ -102,7 +102,7 @@ class PaymentBasketServiceTest {
 
     @Test
     void onboarding_registrationOnly_buildsSingleLine() {
-        service.startOnboardingCheckout(null, null, "https://x/success", "https://x/cancel");
+        service.startOnboardingCheckout(null, null, "https://x/success", "https://x/cancel", null);
 
         ArgumentCaptor<List<StripeService.LineItem>> captor = ArgumentCaptor.forClass(List.class);
         verify(stripeService).createCheckoutSession(anyString(), captor.capture(), anyString(), anyString(), anyMap());
@@ -116,7 +116,7 @@ class PaymentBasketServiceTest {
         UUID appId = UUID.randomUUID();
         doNothing().when(programApplicationService).validatePrepayable(eq(appId), eq(member), eq(new BigDecimal("250")));
 
-        service.startOnboardingCheckout(new BigDecimal("250"), appId, "https://x/success", "https://x/cancel");
+        service.startOnboardingCheckout(new BigDecimal("250"), appId, "https://x/success", "https://x/cancel", null);
 
         verify(programApplicationService).validatePrepayable(appId, member, new BigDecimal("250"));
         ArgumentCaptor<List<StripeService.LineItem>> captor = ArgumentCaptor.forClass(List.class);
@@ -127,7 +127,7 @@ class PaymentBasketServiceTest {
     @Test
     void onboarding_benevolenceAmountWithoutApplicationId_throws() {
         assertThrows(BadRequestException.class, () ->
-                service.startOnboardingCheckout(new BigDecimal("100"), null, "https://x/success", "https://x/cancel"));
+                service.startOnboardingCheckout(new BigDecimal("100"), null, "https://x/success", "https://x/cancel", null));
         verifyNoInteractions(stripeService);
     }
 
@@ -138,7 +138,7 @@ class PaymentBasketServiceTest {
                 .when(programApplicationService).validatePrepayable(eq(appId), eq(member), any());
 
         assertThrows(BadRequestException.class, () ->
-                service.startOnboardingCheckout(new BigDecimal("700"), appId, "https://x/success", "https://x/cancel"));
+                service.startOnboardingCheckout(new BigDecimal("700"), appId, "https://x/success", "https://x/cancel", null));
         verifyNoInteractions(stripeService);
     }
 

@@ -190,7 +190,8 @@ public class PaymentBasketService {
      * created — full $600, a partial installment, or omitted entirely to defer. */
     @Transactional
     public PaymentInitDto startOnboardingCheckout(BigDecimal benevolenceAmount, UUID benevolenceApplicationId,
-                                                    String successUrl, String cancelUrl) {
+                                                    String successUrl, String cancelUrl,
+                                                    PreferredPaymentMethod paymentMethod) {
         User applicant = currentUser();
         List<BasketLineDto> lines = new ArrayList<>();
         lines.add(new BasketLineDto(PaymentBasketLedger.REGISTRATION_FEE, null, platformSettingsService.getRegistrationFeeAmount()));
@@ -203,7 +204,7 @@ public class PaymentBasketService {
             lines.add(new BasketLineDto(PaymentBasketLedger.PROGRAM_APPLICATION_PREPAY, benevolenceApplicationId, benevolenceAmount));
         }
 
-        return startCheckout(lines, successUrl, cancelUrl, null);
+        return startCheckout(lines, successUrl, cancelUrl, paymentMethod);
     }
 
     @Transactional(readOnly = true)
