@@ -80,6 +80,9 @@ public class PaymentBasketService {
         User member = currentUser();
 
         BigDecimal duesBalance = membershipDuesService.outstandingBalance(member);
+        OutstandingBalancesDto.DuesGuidance duesGuidance = membershipDuesService.currentYearOutstandingDue(member)
+                .map(d -> new OutstandingBalancesDto.DuesGuidance(d.remainingMonths(), d.recommendedMonthlyAmount()))
+                .orElse(null);
 
         BenevolenceEnrollmentService.EnrollmentBalance benBalance = benevolenceEnrollmentService.outstandingBalance(member);
         OutstandingBalancesDto.BenevolenceBalance benevolence = benBalance != null
@@ -105,7 +108,7 @@ public class PaymentBasketService {
                 .map(f -> new OutstandingBalancesDto.FineItem(f.id(), f.amount(), f.reason(), true))
                 .toList();
 
-        return new OutstandingBalancesDto(duesBalance, benevolence, mgrBalance, replenishments, fines,
+        return new OutstandingBalancesDto(duesBalance, duesGuidance, benevolence, mgrBalance, replenishments, fines,
                 contributionService.listActivePlans());
     }
 

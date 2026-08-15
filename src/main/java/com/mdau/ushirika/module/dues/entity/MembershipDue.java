@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -67,4 +68,22 @@ public class MembershipDue extends BaseEntity {
 
     @Column(length = 500)
     private String notes;
+
+    /**
+     * Number of months from when this due was created through the community's October cutoff
+     * (inclusive), minimum 1. The total owed is always the full {@code amount} regardless of
+     * when a member joins -- this only spreads it thinner the later in the year they join, so
+     * {@link #recommendedMonthlyAmount()} doesn't read as one big lump-sum ask right after
+     * registration. Confirmed 2026-08-15: "they should contribute 100 usd no matter when they
+     * join thus it is the 100 divided by the number of months remaining to get to October."
+     */
+    public int remainingMonths() {
+        LocalDate start = getCreatedAt() != null ? getCreatedAt().toLocalDate() : LocalDate.of(year, 1, 1);
+        LocalDate cutoff = LocalDate.of(year, 10, 1);
+        return Math.max(1, (cutoff.getYear() - start.getYear()) * 12 + (cutoff.getMonthValue() - start.getMonthValue()) + 1);
+    }
+
+    public BigDecimal recommendedMonthlyAmount() {
+        return amount.divide(BigDecimal.valueOf(remainingMonths()), 2, RoundingMode.HALF_UP);
+    }
 }

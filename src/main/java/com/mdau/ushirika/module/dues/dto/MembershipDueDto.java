@@ -20,11 +20,14 @@ public record MembershipDueDto(
         String paymentMethod,
         String paymentReference,
         String notes,
-        String createdAt
+        String createdAt,
+        int remainingMonths,
+        BigDecimal recommendedMonthlyAmount
 ) {
     public static MembershipDueDto from(MembershipDue d, String memberId) {
         BigDecimal paid = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal remaining = d.getAmount().subtract(paid).max(BigDecimal.ZERO);
+
         return new MembershipDueDto(
                 d.getId().toString(),
                 d.getUser().getId().toString(),
@@ -41,7 +44,9 @@ public record MembershipDueDto(
                 d.getPaymentMethod(),
                 d.getPaymentReference(),
                 d.getNotes(),
-                d.getCreatedAt() != null ? d.getCreatedAt().toString() : null
+                d.getCreatedAt() != null ? d.getCreatedAt().toString() : null,
+                d.remainingMonths(),
+                d.recommendedMonthlyAmount()
         );
     }
 }

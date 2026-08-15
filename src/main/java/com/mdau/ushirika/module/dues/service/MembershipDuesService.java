@@ -225,6 +225,15 @@ public class MembershipDuesService {
                 .orElse(BigDecimal.ZERO);
     }
 
+    /** The current year's still-owed due row, if any — used to surface recommended monthly
+     * pace (see {@link MembershipDue#recommendedMonthlyAmount()}) alongside the outstanding
+     * balance on "Pay My Balances". */
+    @Transactional(readOnly = true)
+    public Optional<MembershipDue> currentYearOutstandingDue(User user) {
+        return dueRepository.findByUserAndYear(user, LocalDate.now().getYear())
+                .filter(d -> d.getStatus() != DuesStatus.PAID && d.getStatus() != DuesStatus.WAIVED);
+    }
+
     // ── Membership activation helpers ─────────────────────────────────────────
 
     private void reactivateIfNeeded(User user, String reason) {
