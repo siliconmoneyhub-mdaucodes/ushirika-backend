@@ -164,6 +164,48 @@ trigger it against yet).**
    `components/site/Nav.tsx` (public-site topbar pill). No backend changes needed. Pushed
    (`3b2e2cb`).
 
+### Later still the same day (2026-08-15): checkout UX, events scoping, dues proration
+
+1. **All Stripe checkout redirects now open in a new tab.** User-requested. Every flow (onboarding
+   registration fee, Pay My Balances, Benevolence application fee, admin Cash Payment) used
+   `window.location.href` before — replaced with `openCheckoutTab()` from new
+   `src/lib/checkoutPoll.ts`. Since the successUrl/cancelUrl redirect now lands in the *new* tab,
+   each flow polls its own completion signal on the original tab instead: Pay My Balances polls
+   `getMyBalance()` for a balance increase, onboarding polls `submitRegistration()` itself (already
+   validates payment server-side) until it stops throwing, Benevolence polls
+   `getMyBenevolenceEnrollment()` for `totalPaid > 0`, admin Cash Payment polls
+   `getMemberBalanceAdmin()`. All four show a "waiting, will update automatically" state and a
+   "check again" fallback after ~5 min. Pushed, builds/tests clean. **Not yet click-tested live.**
+2. **Events/notifications scoping — list only, no implementation**, per explicit instruction
+   ("premium scoping" before any build). Produced a module × role list (Applications, Dues,
+   Benevolence, MGR, Meetings/Attendance, Elections, Messaging, Finance, Governance, Reports/Audit
+   for admin roles; the member-facing equivalents for MEMBER/APPLICANT) — published as an artifact,
+   not committed to the repo. Explicitly distinguished from the existing broadcast `Notifications`
+   module (admin → members) — this would be the reverse direction (system → admin/member "you have
+   something to act on"). Flagged messaging as the clearest phase-1 candidate if this gets scoped
+   further. **No code written — next step is a mechanism-design pass (real-time vs. badge vs.
+   digest, read/dismiss state) once the module list itself is confirmed.**
+3. **Annual dues now show a recommended monthly pace instead of one lump "$100 due now."**
+   Confirmed with the user: **the total owed is always the full $100** regardless of join
+   timing — what was wrong was asking for it all immediately, right after a new member had just
+   paid a registration fee. `MembershipDue.remainingMonths()`/`recommendedMonthlyAmount()` spread
+   the same $100 across the months from when the due was created through the community's October
+   cutoff (join in August → ~3 months → ~$33/month; renew in January → ~10 months → ~$10/month).
+   Purely informational — stored amount, due date, and PAID threshold are all unchanged. Also added
+   a partial-amount input to the dues line on Pay My Balances (the backend already capped whatever
+   amount was sent at the real balance — only the frontend was hardcoding the full amount, so this
+   was a small, low-risk addition). **Explicitly not retroactive** — only new due rows going
+   forward show meaningfully-prorated guidance; existing rows (including Brian Wafula's) are
+   untouched, per the user's own choice when asked.
+   - **Found but deliberately NOT fixed, flagging per standing instruction not to silently correct
+     flow discrepancies discovered during other work**: `createInitialDues()`/
+     `AnnualDuesRenewalScheduler` always set `dueDate = October 31 of the current calendar year`. A
+     member approved in **November or December** would get a due date that's already in the past
+     the moment the record is created (showing as immediately overdue). This predates today's
+     session — not introduced by the proration work — but the proration work is exactly the kind of
+     change that would naturally also fix it (roll Nov/Dec approvals into next year's cycle). Left
+     alone on purpose; raise with the user before touching it.
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
