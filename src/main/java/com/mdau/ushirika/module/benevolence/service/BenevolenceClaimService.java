@@ -75,6 +75,9 @@ public class BenevolenceClaimService {
             if (!category.isActive()) {
                 throw new BadRequestException("This claim category is no longer available.");
             }
+            if (category.isRequiresDocuments() && (req.documentUrls() == null || req.documentUrls().isEmpty())) {
+                throw new BadRequestException("\"" + category.getName() + "\" claims require at least one supporting document.");
+            }
         }
 
         BenevolenceClaim claim = BenevolenceClaim.builder()
