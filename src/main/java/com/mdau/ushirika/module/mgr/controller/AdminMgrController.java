@@ -70,13 +70,13 @@ public class AdminMgrController {
         return ResponseEntity.ok(ApiResponse.ok(mgrService.listJoinRequests(status)));
     }
 
-    @PostMapping("/join-requests/{requestId}/approve")
-    public ResponseEntity<ApiResponse<MgrJoinRequestDto>> approveJoinRequest(
+    @PostMapping("/join-requests/{requestId}/send-form")
+    public ResponseEntity<ApiResponse<MgrJoinRequestDto>> sendForm(
             @PathVariable UUID requestId,
             @RequestBody(required = false) RespondJoinRequest req) {
         String notes = req != null ? req.adminNotes() : null;
-        return ResponseEntity.ok(ApiResponse.ok("Join request approved",
-                mgrService.approveJoinRequest(requestId, notes)));
+        return ResponseEntity.ok(ApiResponse.ok("Form sent",
+                mgrService.sendForm(requestId, notes)));
     }
 
     @PostMapping("/join-requests/{requestId}/reject")

@@ -65,4 +65,31 @@ public class MgrJoinRequest extends BaseEntity {
     /** When this request was swept into a cycle at that cycle's activation. */
     @Column(name = "admitted_at")
     private LocalDateTime admittedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "form_sent_by_id",
+                foreignKey = @ForeignKey(name = "fk_mgr_jr_form_sent_by"))
+    private User formSentBy;
+
+    @Column(name = "form_sent_at")
+    private LocalDateTime formSentAt;
+
+    /** The cycle this WAITLISTED member is currently being asked about -- set fresh whenever a
+     * new cycle is created, overwriting any prior invite. Null until their first invite. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "invited_cycle_id",
+                foreignKey = @ForeignKey(name = "fk_mgr_jr_invited_cycle"))
+    private MgrCycle invitedCycle;
+
+    @Column(name = "invited_at")
+    private LocalDateTime invitedAt;
+
+    /** Null = no response yet to the current invite. TRUE = wants to join invitedCycle. FALSE =
+     * wants to keep waiting. No response by the time invitedCycle activates defaults to "keep
+     * waiting" -- they simply aren't swept in and stay WAITLISTED for the next invite. */
+    @Column(name = "cycle_opt_in")
+    private Boolean cycleOptIn;
+
+    @Column(name = "cycle_responded_at")
+    private LocalDateTime cycleRespondedAt;
 }

@@ -20,6 +20,12 @@ public record MgrJoinRequestDto(
         String respondedByName,
         LocalDateTime respondedAt,
         LocalDateTime admittedAt,
+        LocalDateTime formSentAt,
+        UUID invitedCycleId,
+        String invitedCycleName,
+        LocalDateTime invitedAt,
+        Boolean cycleOptIn,
+        LocalDateTime cycleRespondedAt,
         LocalDateTime createdAt
 ) {
     public static MgrJoinRequestDto from(MgrJoinRequest r, String memberId) {
@@ -37,6 +43,12 @@ public record MgrJoinRequestDto(
                 r.getRespondedBy() != null ? r.getRespondedBy().getFullName() : null,
                 r.getRespondedAt(),
                 r.getAdmittedAt(),
+                r.getFormSentAt(),
+                r.getInvitedCycle() != null ? r.getInvitedCycle().getId() : null,
+                r.getInvitedCycle() != null ? r.getInvitedCycle().getName() : null,
+                r.getInvitedAt(),
+                r.getCycleOptIn(),
+                r.getCycleRespondedAt(),
                 r.getCreatedAt()
         );
     }

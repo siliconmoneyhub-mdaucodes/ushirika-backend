@@ -75,13 +75,13 @@ class MgrServiceCoordinatorAccessTest {
     }
 
     @Test
-    void plainAdmin_notCoordinator_cannotApproveJoinRequest() {
+    void plainAdmin_notCoordinator_cannotSendForm() {
         User admin = User.builder().email("admin@test.ushirika.org").role(UserRole.ADMIN).build();
         admin.setId(UUID.randomUUID());
         loginAs(admin);
         when(programAdminAssignmentRepo.existsByProgramIdAndUserId(mgrProgramId, admin.getId())).thenReturn(false);
 
-        assertThrows(ForbiddenException.class, () -> service.approveJoinRequest(UUID.randomUUID(), null));
+        assertThrows(ForbiddenException.class, () -> service.sendForm(UUID.randomUUID(), null));
         // The guard must run BEFORE the request is even looked up.
         verifyNoInteractions(joinRequestRepo);
     }
@@ -108,7 +108,7 @@ class MgrServiceCoordinatorAccessTest {
 
         // Guard passes; fails downstream on "not found" instead of "forbidden" — proves the
         // coordinator check let it through rather than the lookup being skipped.
-        assertThrows(ResourceNotFoundException.class, () -> service.approveJoinRequest(requestId, null));
+        assertThrows(ResourceNotFoundException.class, () -> service.sendForm(requestId, null));
     }
 
     @Test
@@ -120,6 +120,6 @@ class MgrServiceCoordinatorAccessTest {
         UUID requestId = UUID.randomUUID();
         when(joinRequestRepo.findById(requestId)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> service.approveJoinRequest(requestId, null));
+        assertThrows(ResourceNotFoundException.class, () -> service.sendForm(requestId, null));
     }
 }

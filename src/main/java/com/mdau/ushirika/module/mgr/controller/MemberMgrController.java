@@ -42,6 +42,23 @@ public class MemberMgrController {
         return ResponseEntity.ok(ApiResponse.ok(mgrService.getMyJoinRequests()));
     }
 
+    /** Member confirms they want to join the waitlist after reviewing the coordinator's form. */
+    @PostMapping("/join-requests/{requestId}/confirm")
+    public ResponseEntity<ApiResponse<MgrJoinRequestDto>> confirmJoinWaitlist(
+            @PathVariable UUID requestId) {
+        return ResponseEntity.ok(ApiResponse.ok("You're on the waitlist",
+                mgrService.confirmJoinWaitlist(requestId)));
+    }
+
+    /** Member responds to the automated "join this cycle or keep waiting?" ask. */
+    @PostMapping("/join-requests/{requestId}/cycle-response")
+    public ResponseEntity<ApiResponse<MgrJoinRequestDto>> respondToCycleInvite(
+            @PathVariable UUID requestId,
+            @Valid @RequestBody CycleInviteResponseRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Response recorded",
+                mgrService.respondToCycleInvite(requestId, req.joining())));
+    }
+
     // ── Beneficiaries (slot machine data) ────────────────────────────────────
 
     /** Returns beneficiaries for a given month — public view (name + photo, no contact info). */

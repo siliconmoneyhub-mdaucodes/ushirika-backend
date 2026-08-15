@@ -336,6 +336,16 @@ public class DataInitializer implements ApplicationRunner {
         // @Enumerated(STRING) columns in this schema -- validated at the Java layer instead.
         jdbcTemplate.execute("ALTER TABLE mgr_join_requests DROP CONSTRAINT IF EXISTS mgr_join_requests_status_check");
 
+        // Send Form step (mirrors benevolence_join_requests) + per-cycle waitlist opt-in ask --
+        // added when MGR's join flow was rebuilt to add a proper info-form step and replace blind
+        // FCFS admission with an automated per-cycle "join this one or keep waiting" invite.
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS form_sent_by_id UUID");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS form_sent_at TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS invited_cycle_id UUID");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS invited_at TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS cycle_opt_in BOOLEAN");
+        jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS cycle_responded_at TIMESTAMP");
+
         // enrollment_open is retired -- MGR applications are now always accepted (queued via
         // WAITLISTED/ADMITTED status instead of a per-cycle open/closed gate).
         jdbcTemplate.execute("ALTER TABLE mgr_cycles DROP COLUMN IF EXISTS enrollment_open");

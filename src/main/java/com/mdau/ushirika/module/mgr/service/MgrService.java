@@ -72,7 +72,27 @@ public class MgrService {
                 .build();
         cycleRepo.save(cycle);
         log.info("MGR cycle created: id={} name={}", cycle.getId(), cycle.getName());
+        askWaitlistForNewCycle(cycle);
         return MgrCycleDto.summary(cycle, 0, 0);
+    }
+
+    /** Automatically asks every currently WAITLISTED member whether they want to join this newly
+     * created cycle or keep waiting -- overwrites any prior invite, since a fresh cycle supersedes
+     * whatever they were last asked about. Response happens in the member's portal; see
+     * respondToCycleInvite and admitWaitlistedMembers. */
+    private void askWaitlistForNewCycle(MgrCycle cycle) {
+        List<MgrJoinRequest> waitlisted = joinRequestRepo.findByStatusOrderByCreatedAtAsc(JoinRequestStatus.WAITLISTED);
+        for (MgrJoinRequest request : waitlisted) {
+            request.setInvitedCycle(cycle);
+            request.setInvitedAt(LocalDateTime.now());
+            request.setCycleOptIn(null);
+            request.setCycleRespondedAt(null);
+            joinRequestRepo.save(request);
+            sendCycleInviteEmail(request, cycle);
+        }
+        if (!waitlisted.isEmpty()) {
+            log.info("MGR cycle invite sent to {} waitlisted member(s) for cycle {}", waitlisted.size(), cycle.getId());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -160,11 +180,11 @@ public class MgrService {
     }
 
     /**
-     * Drains the global WAITLISTED queue (oldest application first) into this activating cycle,
-     * up to whatever capacity remains after any members already manually assigned pre-activation.
-     * Anyone who doesn't fit stays WAITLISTED and is picked up automatically the next time any
-     * cycle activates -- no extra bookkeeping needed since the queue is just "all WAITLISTED
-     * requests globally," and each activation drains as many as fit.
+     * Admits only WAITLISTED members who explicitly opted in to THIS cycle when asked (see
+     * askWaitlistForNewCycle/respondToCycleInvite), oldest opt-in first, up to whatever capacity
+     * remains after any members already manually assigned pre-activation. Anyone who said "keep
+     * waiting," never responded, or was invited to a different cycle stays WAITLISTED -- they're
+     * picked up by the next cycle's automated ask instead of being swept in blind.
      */
     private List<MgrSlot> admitWaitlistedMembers(MgrCycle cycle) {
         int existing = slotRepo.countByCycle(cycle);
@@ -173,8 +193,12 @@ public class MgrService {
             return List.of();
         }
 
-        List<MgrJoinRequest> waitlist = joinRequestRepo.findByStatusOrderByCreatedAtAsc(JoinRequestStatus.WAITLISTED);
-        List<MgrJoinRequest> toAdmit = waitlist.subList(0, Math.min(capacity, waitlist.size()));
+        List<MgrJoinRequest> optedIn = joinRequestRepo.findByStatusOrderByCreatedAtAsc(JoinRequestStatus.WAITLISTED)
+                .stream()
+                .filter(r -> r.getInvitedCycle() != null && r.getInvitedCycle().getId().equals(cycle.getId())
+                        && Boolean.TRUE.equals(r.getCycleOptIn()))
+                .toList();
+        List<MgrJoinRequest> toAdmit = optedIn.subList(0, Math.min(capacity, optedIn.size()));
 
         List<MgrSlot> newSlots = new ArrayList<>();
         int slotNumber = slotRepo.findMaxSlotNumberByCycle(cycle);
@@ -197,8 +221,8 @@ public class MgrService {
         }
 
         if (!toAdmit.isEmpty()) {
-            log.info("MGR waitlist swept into cycle {}: admitted={} stillWaiting={}",
-                    cycle.getId(), toAdmit.size(), waitlist.size() - toAdmit.size());
+            log.info("MGR waitlist swept into cycle {}: admitted={} optedInNotFit={}",
+                    cycle.getId(), toAdmit.size(), optedIn.size() - toAdmit.size());
         }
         return newSlots;
     }
@@ -232,7 +256,7 @@ public class MgrService {
     // specific cycle once ADMITTED (see admitWaitlistedMembers above).
 
     private static final Set<JoinRequestStatus> OPEN_JOIN_REQUEST_STATUSES =
-            Set.of(JoinRequestStatus.PENDING, JoinRequestStatus.WAITLISTED);
+            Set.of(JoinRequestStatus.PENDING, JoinRequestStatus.FORM_SENT, JoinRequestStatus.WAITLISTED);
 
     @Transactional
     public MgrJoinRequestDto requestJoin(String memberNotes) {
@@ -276,27 +300,87 @@ public class MgrService {
                 .toList();
     }
 
-    /** Coordinator approves in principle -- moves PENDING to WAITLISTED. Does not create a slot;
-     * the member is automatically swept into whichever cycle activates next (see
-     * admitWaitlistedMembers), first-come-first-served by application date. */
+    /** Coordinator sends the applicant an info form explaining how MGR works -- moves PENDING to
+     * FORM_SENT. No payment involved; the member just needs to confirm in their portal that they
+     * want to join the waitlist (see confirmJoinWaitlist below). */
     @Transactional
-    public MgrJoinRequestDto approveJoinRequest(UUID requestId, String adminNotes) {
+    public MgrJoinRequestDto sendForm(UUID requestId, String adminNotes) {
         User admin = currentUser();
         requireMgrCoordinatorAccess(admin);
         MgrJoinRequest request = findJoinRequest(requestId);
 
         if (request.getStatus() != JoinRequestStatus.PENDING) {
-            throw new BadRequestException("Only PENDING requests can be approved.");
+            throw new BadRequestException("Only PENDING requests can have the form sent.");
+        }
+
+        request.setStatus(JoinRequestStatus.FORM_SENT);
+        request.setAdminNotes(adminNotes);
+        request.setFormSentBy(admin);
+        request.setFormSentAt(LocalDateTime.now());
+        joinRequestRepo.save(request);
+
+        log.info("MGR join-request form sent: id={} member={} by={}",
+                requestId, request.getUser().getEmail(), admin.getEmail());
+        sendMgrFormEmail(request);
+        return MgrJoinRequestDto.from(request, memberId(request.getUser()));
+    }
+
+    /** Member confirms they want to join the waitlist after reviewing the form -- moves FORM_SENT
+     * to WAITLISTED. Does not create a slot; they're automatically asked about each new cycle as
+     * it's created (see askWaitlistForNewCycle) and swept in at activation if they opt in. */
+    @Transactional
+    public MgrJoinRequestDto confirmJoinWaitlist(UUID requestId) {
+        User member = currentUser();
+        MgrJoinRequest request = findJoinRequest(requestId);
+
+        if (!request.getUser().getId().equals(member.getId())) {
+            throw new BadRequestException("You can only confirm your own MGR join request.");
+        }
+        if (request.getStatus() != JoinRequestStatus.FORM_SENT) {
+            throw new BadRequestException("This request isn't awaiting your confirmation.");
         }
 
         request.setStatus(JoinRequestStatus.WAITLISTED);
-        request.setAdminNotes(adminNotes);
-        request.setRespondedBy(admin);
         request.setRespondedAt(LocalDateTime.now());
         joinRequestRepo.save(request);
 
-        log.info("MGR join request waitlisted: id={} member={}", requestId, request.getUser().getEmail());
+        log.info("MGR join request confirmed by member: id={} member={}", requestId, member.getEmail());
         sendWaitlistedEmail(request);
+
+        // A cycle may already be sitting in DRAFT waiting for members -- give this brand-new
+        // waitlist entry the same invite everyone else already got instead of making them wait
+        // for the next cycle to be created.
+        cycleRepo.findFirstByStatusOrderByStartDateDesc(CycleStatus.DRAFT).ifPresent(draft -> {
+            request.setInvitedCycle(draft);
+            request.setInvitedAt(LocalDateTime.now());
+            request.setCycleOptIn(null);
+            request.setCycleRespondedAt(null);
+            joinRequestRepo.save(request);
+            sendCycleInviteEmail(request, draft);
+        });
+
+        return MgrJoinRequestDto.from(request, memberId(request.getUser()));
+    }
+
+    /** Member responds to the automated "join this cycle or keep waiting?" ask. No response by
+     * the time the invited cycle activates defaults to "keep waiting" (see admitWaitlistedMembers). */
+    @Transactional
+    public MgrJoinRequestDto respondToCycleInvite(UUID requestId, boolean joining) {
+        User member = currentUser();
+        MgrJoinRequest request = findJoinRequest(requestId);
+
+        if (!request.getUser().getId().equals(member.getId())) {
+            throw new BadRequestException("You can only respond to your own MGR cycle invite.");
+        }
+        if (request.getStatus() != JoinRequestStatus.WAITLISTED || request.getInvitedCycle() == null) {
+            throw new BadRequestException("You don't have an open cycle invite to respond to right now.");
+        }
+
+        request.setCycleOptIn(joining);
+        request.setCycleRespondedAt(LocalDateTime.now());
+        joinRequestRepo.save(request);
+
+        log.info("MGR cycle invite response: id={} member={} joining={}", requestId, member.getEmail(), joining);
         return MgrJoinRequestDto.from(request, memberId(request.getUser()));
     }
 
@@ -306,8 +390,10 @@ public class MgrService {
         requireMgrCoordinatorAccess(admin);
         MgrJoinRequest request = findJoinRequest(requestId);
 
-        if (request.getStatus() != JoinRequestStatus.PENDING && request.getStatus() != JoinRequestStatus.WAITLISTED) {
-            throw new BadRequestException("Only PENDING or WAITLISTED requests can be rejected.");
+        if (request.getStatus() != JoinRequestStatus.PENDING
+                && request.getStatus() != JoinRequestStatus.FORM_SENT
+                && request.getStatus() != JoinRequestStatus.WAITLISTED) {
+            throw new BadRequestException("Only PENDING, FORM_SENT, or WAITLISTED requests can be rejected.");
         }
 
         request.setStatus(JoinRequestStatus.REJECTED);
@@ -680,32 +766,97 @@ public class MgrService {
         emailService.sendPlain(email, name, "Your MGR Payout Has Been Disbursed — Ushirika Welfare Organization", html);
     }
 
-    /** Sent when a coordinator approves an application in principle (PENDING -> WAITLISTED).
-     * Mentions the currently active cycle's end date as context if one exists, since that's
-     * typically around when the next cycle -- and this member's automatic admission -- follows. */
+    /** Sent when the coordinator sends the applicant the info form (PENDING -> FORM_SENT).
+     * Explains how MGR works in plain terms since, unlike Benevolence, there's no payment here --
+     * just an informed decision to join the waitlist. */
+    private void sendMgrFormEmail(MgrJoinRequest r) {
+        String name = r.getUser().getFullName();
+        String portal = siteUrl + "/portal/mgr";
+        String html = """
+            <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
+              <h2 style="color:#007834">Your MGR Application is Ready to Complete</h2>
+              <p>Hi %s,</p>
+              <p>A program coordinator has reviewed your request to join the Merry-Go-Round (MGR)
+                 program. Here's how it works before you confirm:</p>
+              <ol style="line-height:1.7">
+                <li>Each cycle runs 12 months. Members contribute a fixed amount every month.</li>
+                <li>Every month, a set number of members are drawn at random to receive a
+                    lump-sum payout — everyone gets their turn by the time the cycle ends.</li>
+                <li>There's nothing to pay right now. Confirming just puts you on the waitlist.</li>
+              </ol>
+              <p>Once you confirm in your portal, you're on the waitlist. Whenever a new cycle is
+                 about to open, we'll email you (and show it in your portal) asking whether you
+                 want to join that cycle or keep waiting for a later one — your choice, every time.</p>
+              <p>
+                <a href="%s"
+                   style="display:inline-block;background:#007834;color:#fff;padding:10px 22px;
+                          border-radius:999px;text-decoration:none;font-weight:600">
+                  Confirm &amp; Join the Waitlist &rarr;
+                </a>
+              </p>
+              <p>— Ushirika Welfare Organization Team</p>
+            </div>
+            """.formatted(name, portal);
+        try {
+            emailService.sendPlain(r.getUser().getEmail(), name,
+                    "Your Ushirika MGR Application is Ready to Complete", html);
+        } catch (Exception e) {
+            log.warn("MGR form-sent email failed for {}: {}", r.getUser().getEmail(), e.getMessage());
+        }
+    }
+
+    /** Sent when the member confirms and lands on the waitlist (FORM_SENT -> WAITLISTED). */
     private void sendWaitlistedEmail(MgrJoinRequest r) {
         String name = r.getUser().getFullName();
         String portal = siteUrl + "/portal/mgr";
-        Optional<MgrCycle> active = cycleRepo.findFirstByStatusOrderByStartDateDesc(CycleStatus.ACTIVE);
-        String cycleContext = active
-                .map(c -> "The current cycle (<strong>" + c.getName() + "</strong>) runs through <strong>"
-                        + c.getEndDate() + "</strong>. New members are admitted automatically when the next cycle begins.")
-                .orElse("You'll be admitted automatically as soon as the next cycle begins.");
         String html = """
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
               <h2 style="color:#007834">You're on the MGR Waitlist!</h2>
               <p>Hi %s,</p>
-              <p>Your request to join the Merry-Go-Round program has been approved and you're now
-                 on the admission queue, first-come-first-served by application date.</p>
-              <p>%s You'll receive another email the moment you're enrolled, with your contribution
-                 schedule.</p>
+              <p>You've confirmed your Merry-Go-Round application and you're now on the waitlist,
+                 first-come-first-served by application date.</p>
+              <p>Whenever a new cycle is created, we'll automatically email you (and show it in
+                 your portal) asking whether you want to join that cycle or keep waiting for a
+                 later one. If a cycle is already open for new members right now, look out for
+                 that ask shortly.</p>
               <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
                  padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
                  Go to MGR Portal
               </a></p>
               <p>— Ushirika Welfare Organization Team</p>
-            </div>""".formatted(name, cycleContext, portal);
+            </div>""".formatted(name, portal);
         emailService.sendPlain(r.getUser().getEmail(), name, "You're on the MGR Waitlist — Ushirika Welfare Organization", html);
+    }
+
+    /** Sent whenever a new cycle is created and this WAITLISTED member is asked whether they want
+     * to join it or keep waiting -- the automated per-cycle opt-in ask. */
+    private void sendCycleInviteEmail(MgrJoinRequest r, MgrCycle cycle) {
+        String name = r.getUser().getFullName();
+        String portal = siteUrl + "/portal/mgr";
+        String html = """
+            <div style="font-family:sans-serif;max-width:520px;margin:auto">
+              <h2 style="color:#007834">A New MGR Cycle Is Opening — Want In?</h2>
+              <p>Hi %s,</p>
+              <p><strong>%s</strong> is opening up, with a monthly contribution of
+                 <strong>$%s</strong> and a payout of <strong>$%s</strong> per beneficiary.</p>
+              <p>You're on the MGR waitlist — do you want to join this cycle, or keep waiting for a
+                 future one? Let us know in your portal.</p>
+              <p>If we don't hear from you before this cycle fills up and activates, you'll simply
+                 stay on the waitlist and get asked again about the next one — no action needed if
+                 you'd rather wait.</p>
+              <p><a href="%s" style="display:inline-block;background:#007834;color:#fff;
+                 padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
+                 Respond in My Portal
+              </a></p>
+              <p>— Ushirika Welfare Organization Team</p>
+            </div>""".formatted(name, cycle.getName(), cycle.getMonthlyContribution(),
+                cycle.getPayoutAmountPerSlot(), portal);
+        try {
+            emailService.sendPlain(r.getUser().getEmail(), name,
+                    "Join " + cycle.getName() + "? — Ushirika MGR", html);
+        } catch (Exception e) {
+            log.warn("MGR cycle-invite email failed for {}: {}", r.getUser().getEmail(), e.getMessage());
+        }
     }
 
     /** Sent when a waitlisted member is actually swept into a real cycle at that cycle's activation. */
