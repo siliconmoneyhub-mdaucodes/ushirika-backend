@@ -32,7 +32,10 @@ public class PlatformSettingsService {
     private static final BigDecimal DEFAULT_REGISTRATION_FEE = new BigDecimal("120.00");
     private static final String DEFAULT_DISPLAY_CURRENCY = "USD";
     private static final Set<String> VALID_CURRENCIES = Set.of("USD", "KES");
-    private static final int DEFAULT_BENEVOLENCE_PROBATION_MONTHS = 4;
+    // Matches the published Bylaws (Article 5.v): "Upon completion of the $600 payment, the
+    // member will be on probation for 6 months." Was hardcoded to 4 -- caught by comparing the
+    // live admin Benevolence page against the bylaws text while live-testing, not by code review.
+    private static final int DEFAULT_BENEVOLENCE_PROBATION_MONTHS = 6;
     /** Deliberately narrower than most /financial/** access -- excludes FINANCIAL_OFFICIAL, since
      *  this is a platform-wide default, not a day-to-day finance operation. */
     private static final Set<UserRole> CAN_CHANGE_DEFAULT_CURRENCY =
