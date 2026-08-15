@@ -12,6 +12,7 @@ import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.repository.InAppNotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
@@ -32,6 +33,9 @@ public class InAppNotificationService {
     private final MemberProfileRepository     memberProfileRepository;
     private final EmailService                emailService;
     private final SmsService                  smsService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     // ── Member-facing ─────────────────────────────────────────────────────────
 
@@ -121,7 +125,7 @@ public class InAppNotificationService {
 
             if (sendEmail) {
                 try {
-                    emailService.sendPlain(user.getEmail(), user.getFullName(), req.title(), toHtml(req.body()));
+                    emailService.sendPlain(user.getEmail(), user.getFullName(), req.title(), toHtml(req.body(), req.actionUrl()));
                 } catch (Exception e) {
                     log.warn("Notification email failed for {}: {}", user.getEmail(), e.getMessage());
                 }
@@ -137,7 +141,12 @@ public class InAppNotificationService {
         }
     }
 
-    private static String toHtml(String text) {
-        return "<p>" + text.replace("\n", "<br/>") + "</p>";
+    private String toHtml(String text, String actionUrl) {
+        String html = "<p>" + text.replace("\n", "<br/>") + "</p>";
+        if (actionUrl != null && !actionUrl.isBlank()) {
+            String fullUrl = actionUrl.startsWith("http") ? actionUrl : siteUrl + actionUrl;
+            html += "<p><a href=\"" + fullUrl + "\" style=\"display:inline-block;background:#007834;color:#fff;padding:10px 20px;border-radius:24px;text-decoration:none;font-weight:600\">Open in Portal</a></p>";
+        }
+        return html;
     }
 }

@@ -44,6 +44,9 @@ public class BrevoEmailService implements EmailService {
     @Value("${spring.mail.password:NOT_SET}")
     private String smtpPassword;
 
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
+
     public BrevoEmailService(JavaMailSender mailSender,
                              NotificationLogRepository logRepository,
                              ObjectMapper objectMapper) {
@@ -157,9 +160,10 @@ public class BrevoEmailService implements EmailService {
                   <p>Your registration fee has been verified and your membership is fully approved. You can now
                      log in with the same credentials to access the full member portal.</p>
                   <p><strong>Your Member ID: %s</strong></p>
+                  <p><a href="%s/login" style="display:inline-block;background:#007834;color:#fff;padding:10px 20px;border-radius:24px;text-decoration:none;font-weight:600">Log In to Your Portal</a></p>
                   <p>— Ushirika Welfare Organization</p>
                 </div>
-                """.formatted(name, memberId);
+                """.formatted(name, memberId, siteUrl);
         sendPlain(toEmail, name, subject, html);
     }
 

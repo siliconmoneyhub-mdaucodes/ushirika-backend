@@ -20,6 +20,7 @@ import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,6 +47,9 @@ public class MeetingService {
     private final InAppNotificationService inAppNotificationService;
     private final EmailService emailService;
     private final FineService fineService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     /** Check-in codes rotate every 45s — long enough to read/scan, short enough that a forwarded screenshot goes stale fast. */
     private static final long CHECKIN_WINDOW_MS = 45_000;
@@ -399,6 +403,7 @@ public class MeetingService {
                     "<p>Dear " + firstName + ",</p>" +
                     "<p>Your Ushirika membership has been <strong>automatically ceased</strong> due to <strong>two consecutive absences</strong> from mandatory quarterly meetings.</p>" +
                     "<p>To restore your membership, please log in to the member portal and submit a reinstatement request under <em>My Attendance</em>. Your request will be reviewed by leadership.</p>" +
+                    "<p><a href=\"" + siteUrl + "/portal/meetings\">Submit a Reinstatement Request</a></p>" +
                     "<p>If you believe this is an error, please contact the administrator immediately.</p>");
         } catch (Exception e) {
             log.warn("Cessation email failed for {}: {}", user.getEmail(), e.getMessage());
@@ -421,7 +426,7 @@ public class MeetingService {
                 emailService.sendPlain(leader.getEmail(), leader.getFullName(),
                         "Membership Cessation — " + user.getFullName(),
                         "<p>" + leaderBody + "</p>" +
-                        "<p>Please review in the <a href=\"/admin/members\">admin portal</a>. The member may submit a reinstatement request.</p>");
+                        "<p>Please review in the <a href=\"" + siteUrl + "/admin/members\">admin portal</a>. The member may submit a reinstatement request.</p>");
             } catch (Exception e) {
                 log.warn("Cessation leader email failed for {}: {}", leader.getEmail(), e.getMessage());
             }

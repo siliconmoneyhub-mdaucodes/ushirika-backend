@@ -519,9 +519,8 @@ public class MembershipService {
                 <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
                   <h2 style="color:#007834">Thank you, %s!</h2>
                   <p>We have received your membership application and it is now under review by our committee.</p>
-                  <p><strong>Your reference number is: %s</strong></p>
-                  <p>You can use this reference number to track your application status at any time by visiting
-                     our website and clicking <em>Track Application</em>.</p>
+                  <p><strong>Your reference number is: %s</strong> — keep this for your records.</p>
+                  <p>You'll receive another email as soon as a decision is made, with next steps if you're approved.</p>
                   <p>The committee will be in touch within 5 business days. If you have any questions in the
                      meantime, please reply to this email.</p>
                   <p>— Ushirika Welfare Organization</p>
@@ -540,7 +539,7 @@ public class MembershipService {
                         "Applicant: " + application.getApplicantName() + "\n" +
                         "Email: " + application.getApplicantEmail() + "\n" +
                         "Reference: " + application.getReferenceNumber() + "\n\n" +
-                        "Log in to the admin portal to review this application.\n\n" +
+                        "Review it here: " + siteUrl + "/admin/applications\n\n" +
                         "Ushirika Welfare Organization"
                 )
         );
@@ -555,7 +554,7 @@ public class MembershipService {
                         "A new membership application requires your review.\n\n" +
                         "Applicant: " + applicant.getFullName() + "\n" +
                         "Reference: " + application.getReferenceNumber() + "\n\n" +
-                        "Log in to the admin portal to cast your vote.\n\n" +
+                        "Review it here: " + siteUrl + "/admin/applications\n\n" +
                         "Ushirika Welfare Organization"
                 )
         );
