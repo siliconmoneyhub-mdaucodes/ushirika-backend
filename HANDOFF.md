@@ -206,6 +206,40 @@ trigger it against yet).**
      change that would naturally also fix it (roll Nov/Dec approvals into next year's cycle). Left
      alone on purpose; raise with the user before touching it.
 
+### Later still (2026-08-15): dues bug fixed, email CTA audit, Benevolence checklist
+
+1. **Nov/Dec dues due-date bug — fixed** (was flagged, not fixed, earlier the same day; user said
+   "of course fix this"). `createInitialDues()` now rolls approvals in November/December into next
+   year's dues cycle instead of dating them Oct 31 of the year that already ended. Composes
+   correctly with the proration work above — a Nov/Dec approval now gets the full ~11-12 month
+   spread automatically, no special-casing needed.
+2. **Every outbound email's CTA audited against the actual frontend routes.** Six real mismatches
+   found and fixed: two `MeetingService` cessation emails (member copy had no link at all; leader
+   copy used a relative href that breaks in most mail clients), `sendMembershipApproved` (told the
+   member to log in, no link), `sendApplicantConfirmation` (promised a "Track Application"
+   click-through that **doesn't exist anywhere in the frontend** — rewrote the copy rather than
+   link to a dead feature; a real "track by reference number" page is a possible future build, not
+   done here), two admin-notify emails (new application / public enquiry — told admins to "log in
+   to the admin portal," no link, now include the real `/admin/applications` URL), and a **systemic**
+   one: `InAppNotificationService.notifyUsers` silently dropped `actionUrl` from the EMAIL channel
+   entirely — any admin composing a broadcast/direct notification with a portal link and picking
+   email sent a dead-end message. All fixed, pushed, backend compiles/tests clean.
+3. **Benevolence enrollment page — added a clear step checklist**, addressing feedback that the
+   three-cards layout (payment, beneficiaries, claims) didn't make it obvious what's required vs.
+   optional or what to do next. Shows "Step 1: pay $600 (live progress) / Step 2: submit
+   beneficiaries" with inline done/not-done state, until the member reaches ELIGIBLE.
+   - **Found, not silently assumed away**: read `BenevolenceScheduler` and
+     `BenevolenceClaimService` — **beneficiary submission is not actually a hard requirement**
+     today. PROBATION→ELIGIBLE only checks `probationEndsAt`, and claim filing only checks
+     `status == ELIGIBLE`; neither checks `beneficiariesLocked`. The new checklist is worded
+     "recommended," not "required," to stay honest about current behavior. Whether it *should*
+     become an enforced gate is a real product decision, not made here.
+   - **The bigger ask — making Benevolence more prominent to a newly-approved member because
+     "this program is the main reason the community was constituted" — is still the same
+     not-yet-scoped idea** noted earlier in this file (see "Open idea, not yet scoped" below). This
+     session's checklist is a bounded clarity fix to the page itself, not that larger onboarding-nudge
+     redesign. Scope that separately before building it.
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
