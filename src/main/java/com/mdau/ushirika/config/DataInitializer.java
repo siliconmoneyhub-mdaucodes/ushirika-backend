@@ -101,6 +101,8 @@ public class DataInitializer implements ApplicationRunner {
                 """);
         jdbcTemplate.execute(
                 "ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS default_display_currency VARCHAR(3) NOT NULL DEFAULT 'USD'");
+        jdbcTemplate.execute(
+                "ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS benevolence_probation_months INTEGER");
 
         jdbcTemplate.execute(
                 "ALTER TABLE membership_applications ADD COLUMN IF NOT EXISTS constitution_signature_name VARCHAR(200)");
