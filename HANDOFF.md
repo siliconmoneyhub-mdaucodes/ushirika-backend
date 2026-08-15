@@ -240,6 +240,73 @@ trigger it against yet).**
      session's checklist is a bounded clarity fix to the page itself, not that larger onboarding-nudge
      redesign. Scope that separately before building it.
 
+### Later still (2026-08-15): full MGR + Benevolence flow audit
+
+User asked to dive into MGR and Benevolence end-to-end and make them "complete and smooth" before
+moving on to the events/notifications work. Ran two thorough read-only audits (backend + frontend,
+every state transition), then fixed the real findings. Full findings list below — fixed items are
+marked, open items are flagged with why they weren't touched.
+
+**Fixed — MGR:**
+1. `createCycle()` now rejects creating a second DRAFT cycle while one already exists —
+   `askWaitlistForNewCycle()` re-invites every WAITLISTED member and overwrites their prior invite
+   by design; a second DRAFT cycle would've silently wiped out real responses already collected.
+2. `cancelCycle()` now clears `invitedCycle`/`cycleOptIn` on affected join requests — previously a
+   cancelled cycle left invited members stuck showing "you're enrolled once it activates" forever.
+3. `runMonthlyDraw()` now only draws from members current on *that month's* contribution
+   (PAID/WAIVED) — previously any SCHEDULED slot was eligible regardless of payment standing.
+4. Added a "Cancel Cycle" button to `admin/mgr.tsx` (DRAFT/ACTIVE) — the backend endpoint and
+   `cancelMgrCycle()` client function already existed with zero UI control.
+5. Added a "Waive" button to `SlotPanel`'s contribution rows — `onWaiveContrib` prop existed,
+   nothing rendered a control for it. Also fixed `handleWaiveContrib()` silently dropping the
+   optional reason (client function supported it, the page-level handler didn't forward it).
+
+**Fixed — Benevolence:**
+6. **Replenishment "Pay" button was completely broken (404)** — `ReplenishmentPayModal` called
+   `submitReplenishmentPayment()`, POSTing to `/benevolence/my/replenishments/{id}/pay`, a route
+   that doesn't exist anywhere in the backend. Every member who clicked Pay and submitted a
+   reference got a request failure. Removed the entire dead QR/payment-link/manual-reference modal
+   (~170 lines) — the real, working path already existed (Pay My Balances → Stripe/cash →
+   `PaymentAllocationService`), the "Pay" button now just links there.
+7. `submitClaim()` now enforces `ClaimCategory.requiresDocuments` server-side (previously stored
+   and shown in admin UI but never checked) — rejects with a named-category message if no
+   `documentUrls` were submitted. Frontend claim modal shows "required" vs "optional" on the
+   documents label and disables Submit until satisfied.
+8. Hardcoded "6-month probation" text fixed in two places — was **already wrong**, not just
+   future-stale: the platform default was changed to 4 months earlier this session
+   (`PlatformSettings.benevolenceProbationMonths`) and this copy never got updated to match.
+
+**Verified as a non-issue, NOT fixed:** an initial pass flagged inconsistent try/catch around
+`emailService.sendPlain()` calls in `MgrService` as a reliability risk ("an SMTP hiccup mid-loop
+rolls back a whole cycle activation"). Checked `UshirikaApplication.java` — `@EnableAsync` is
+active, and `BrevoEmailService.sendPlain()` is `@Async`, called via an external bean reference (not
+self-invocation), so exceptions inside it genuinely cannot propagate back to roll back the caller's
+transaction. The existing try/catch in `sendMgrFormEmail`/`sendCycleInviteEmail` is unnecessary but
+harmless. Don't re-flag this without new evidence.
+
+**Found, NOT fixed — needs more work or a decision before touching:**
+- **No way to remove a member from an ACTIVE cycle** (leaves/defaults mid-cycle) —
+  `removeSlot()` is DRAFT-only; `SlotStatus.CANCELLED` exists in the enum but nothing ever sets it.
+  Real gap, moderate-sized feature (need to decide what happens to already-paid contributions).
+- **No Edit-Cycle UI** — `updateMgrCycle()` client function exists, unused. Lower priority than
+  Cancel since cycles are rarely edited after creation; not built this pass.
+- **Authorization inconsistency**: `sendForm`/`rejectJoinRequest` are coordinator-gated, but cycle
+  creation/activation, monthly draws, and payout recording — arguably more sensitive, real-money
+  actions — are open to any general ADMIN. A real security/process question, not a quick fix.
+- **Benevolence coordinator access is confusing/broken**: holding the "Benevolence Coordinator"
+  official title grants neither page access nor action rights on its own — a separate
+  `ProgramAdminAssignment` row is required, on top of an ADMIN-tier role, and nothing in the UI
+  surfaces this. A titled coordinator with only the title can't act; an ADMIN without the
+  assignment gets an opaque failure toast. This is a real permission-model gap worth discussing
+  with the user before changing, since it touches the security config, not just UI.
+- Minor dead code left alone (harmless, low priority): `recordMgrContribution()` client function
+  posts to a nonexistent endpoint (unused, would 404 if ever wired up); stale pre-rebuild Javadoc on
+  `MgrJoinRequest`; `ReplenishmentStatus.COMPLETED` enum value is never set (replenishments just
+  stay ACTIVE forever once settled — cosmetic, the admin tab still functions correctly).
+
+**Not yet done**: the events/notifications work the user originally asked to defer until MGR/
+Benevolence were solid — that's next, per explicit instruction, once these two are confirmed good.
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
