@@ -28,6 +28,7 @@ import com.mdau.ushirika.module.payment.entity.PaymentBasket;
 import com.mdau.ushirika.module.payment.entity.PaymentBasketLine;
 import com.mdau.ushirika.module.payment.enums.PaymentBasketLedger;
 import com.mdau.ushirika.module.payment.enums.PaymentStatus;
+import com.mdau.ushirika.module.payment.enums.PreferredPaymentMethod;
 import com.mdau.ushirika.module.payment.repository.PaymentBasketRepository;
 import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import com.stripe.model.checkout.Session;
@@ -118,7 +119,8 @@ public class PaymentBasketService {
      *   - REGISTRATION_FEE / PROGRAM_APPLICATION_PREPAY: onboarding-only, rejected here.
      */
     @Transactional
-    public PaymentInitDto startBalancesCheckout(List<PayBalancesLineDto> requested, String successUrl, String cancelUrl) {
+    public PaymentInitDto startBalancesCheckout(List<PayBalancesLineDto> requested, String successUrl, String cancelUrl,
+                                                  PreferredPaymentMethod paymentMethod) {
         User member = currentUser();
         List<BasketLineDto> lines = new ArrayList<>();
 
@@ -170,7 +172,7 @@ public class PaymentBasketService {
             throw new BadRequestException("Nothing to pay — no balances selected and no outstanding fines.");
         }
 
-        return startCheckout(lines, successUrl, cancelUrl);
+        return startCheckout(lines, successUrl, cancelUrl, paymentMethod);
     }
 
     private BigDecimal capped(BigDecimal requested, BigDecimal balance, String label) {
@@ -198,7 +200,7 @@ public class PaymentBasketService {
             lines.add(new BasketLineDto(PaymentBasketLedger.PROGRAM_APPLICATION_PREPAY, benevolenceApplicationId, benevolenceAmount));
         }
 
-        return startCheckout(lines, successUrl, cancelUrl);
+        return startCheckout(lines, successUrl, cancelUrl, null);
     }
 
     @Transactional(readOnly = true)
@@ -229,8 +231,8 @@ public class PaymentBasketService {
 
         // The admin's email is the Stripe customer/payer of record — the basket's "member" is
         // still the person being credited, same as every other basket.
-        StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
-                admin.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata);
+        StripeService.StripeCheckoutResult result = resolveCheckout(
+                admin.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata, req.paymentMethod());
 
         PaymentBasket basket = PaymentBasket.builder()
                 .member(targetMember)
@@ -277,8 +279,8 @@ public class PaymentBasketService {
                 "memberId", targetMember.getId().toString()
         );
 
-        StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
-                targetMember.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata);
+        StripeService.StripeCheckoutResult result = resolveCheckout(
+                targetMember.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata, req.paymentMethod());
 
         PaymentBasket basket = PaymentBasket.builder()
                 .member(targetMember)
@@ -311,7 +313,8 @@ public class PaymentBasketService {
     }
 
     @Transactional
-    public PaymentInitDto startCheckout(List<BasketLineDto> lines, String successUrl, String cancelUrl) {
+    public PaymentInitDto startCheckout(List<BasketLineDto> lines, String successUrl, String cancelUrl,
+                                          PreferredPaymentMethod paymentMethod) {
         User member = currentUser();
         if (lines == null || lines.isEmpty()) {
             throw new BadRequestException("Select at least one item to pay.");
@@ -326,8 +329,8 @@ public class PaymentBasketService {
                 "memberId", member.getId().toString()
         );
 
-        StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
-                member.getEmail(), stripeLines, successUrl, cancelUrl, metadata);
+        StripeService.StripeCheckoutResult result = resolveCheckout(
+                member.getEmail(), stripeLines, successUrl, cancelUrl, metadata, paymentMethod);
 
         PaymentBasket basket = PaymentBasket.builder()
                 .member(member)
@@ -349,6 +352,17 @@ public class PaymentBasketService {
                 result.sessionId(), member.getEmail(), lines.size(), total);
 
         return new PaymentInitDto(result.sessionId(), result.checkoutUrl(), total, "USD");
+    }
+
+    /** null paymentMethod keeps the combined Card+Cash App page with automatic card-only
+     * fallback; a specific choice scopes the session to just that one method. */
+    private StripeService.StripeCheckoutResult resolveCheckout(
+            String email, List<StripeService.LineItem> lineItems, String successUrl, String cancelUrl,
+            Map<String, String> metadata, PreferredPaymentMethod paymentMethod
+    ) {
+        return paymentMethod == null
+                ? stripeService.createCheckoutSession(email, lineItems, successUrl, cancelUrl, metadata)
+                : stripeService.createCheckoutSessionForMethod(email, lineItems, successUrl, cancelUrl, metadata, paymentMethod);
     }
 
     /** Called by StripeWebhookController after a checkout.session.completed event with purpose=BASKET. */

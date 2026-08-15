@@ -152,7 +152,7 @@ class PaymentBasketServiceTest {
 
         service.startBalancesCheckout(
                 List.of(new PayBalancesLineDto(PaymentBasketLedger.DUES, null, new BigDecimal("999.00"))),
-                "https://x/success", "https://x/cancel");
+                "https://x/success", "https://x/cancel", null);
 
         ArgumentCaptor<List<StripeService.LineItem>> captor = ArgumentCaptor.forClass(List.class);
         verify(stripeService).createCheckoutSession(anyString(), captor.capture(), anyString(), anyString(), anyMap());
@@ -165,7 +165,7 @@ class PaymentBasketServiceTest {
 
         assertThrows(BadRequestException.class, () -> service.startBalancesCheckout(
                 List.of(new PayBalancesLineDto(PaymentBasketLedger.DUES, null, new BigDecimal("50.00"))),
-                "https://x/success", "https://x/cancel"));
+                "https://x/success", "https://x/cancel", null));
     }
 
     @Test
@@ -175,7 +175,7 @@ class PaymentBasketServiceTest {
         when(benevolenceClaimService.getMyReplenishments()).thenThrow(new ResourceNotFoundException("not enrolled"));
 
         // Empty request — member selected nothing themselves.
-        service.startBalancesCheckout(List.of(), "https://x/success", "https://x/cancel");
+        service.startBalancesCheckout(List.of(), "https://x/success", "https://x/cancel", null);
 
         ArgumentCaptor<List<StripeService.LineItem>> captor = ArgumentCaptor.forClass(List.class);
         verify(stripeService).createCheckoutSession(anyString(), captor.capture(), anyString(), anyString(), anyMap());
@@ -192,7 +192,7 @@ class PaymentBasketServiceTest {
         // Member (or a tampered request) tries to sneak in a fake $1 fine line.
         service.startBalancesCheckout(
                 List.of(new PayBalancesLineDto(PaymentBasketLedger.FINE, UUID.randomUUID(), new BigDecimal("1.00"))),
-                "https://x/success", "https://x/cancel");
+                "https://x/success", "https://x/cancel", null);
 
         ArgumentCaptor<List<StripeService.LineItem>> captor = ArgumentCaptor.forClass(List.class);
         verify(stripeService).createCheckoutSession(anyString(), captor.capture(), anyString(), anyString(), anyMap());
@@ -204,10 +204,10 @@ class PaymentBasketServiceTest {
     void balances_onboardingOnlyLedgers_rejected() {
         assertThrows(BadRequestException.class, () -> service.startBalancesCheckout(
                 List.of(new PayBalancesLineDto(PaymentBasketLedger.REGISTRATION_FEE, null, new BigDecimal("100"))),
-                "https://x/success", "https://x/cancel"));
+                "https://x/success", "https://x/cancel", null));
         assertThrows(BadRequestException.class, () -> service.startBalancesCheckout(
                 List.of(new PayBalancesLineDto(PaymentBasketLedger.PROGRAM_APPLICATION_PREPAY, UUID.randomUUID(), new BigDecimal("100"))),
-                "https://x/success", "https://x/cancel"));
+                "https://x/success", "https://x/cancel", null));
     }
 
     @Test
@@ -221,7 +221,7 @@ class PaymentBasketServiceTest {
 
         assertThrows(BadRequestException.class, () -> service.startBalancesCheckout(
                 List.of(new PayBalancesLineDto(PaymentBasketLedger.BENEVOLENCE_REPLENISHMENT, paymentId, new BigDecimal("30.00"))),
-                "https://x/success", "https://x/cancel"));
+                "https://x/success", "https://x/cancel", null));
     }
 
     @Test
@@ -230,7 +230,7 @@ class PaymentBasketServiceTest {
         when(benevolenceClaimService.getMyReplenishments()).thenThrow(new ResourceNotFoundException("not enrolled"));
 
         assertThrows(BadRequestException.class, () ->
-                service.startBalancesCheckout(List.of(), "https://x/success", "https://x/cancel"));
+                service.startBalancesCheckout(List.of(), "https://x/success", "https://x/cancel", null));
     }
 
     // ── Journey: webhook delivers "payment succeeded" ───────────────────────

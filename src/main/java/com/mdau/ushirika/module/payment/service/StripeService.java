@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.payment.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
+import com.mdau.ushirika.module.payment.enums.PreferredPaymentMethod;
 import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
@@ -112,6 +113,53 @@ public class StripeService {
                 log.error("[Stripe] Failed to create checkout session: {}", fallbackException.getMessage());
                 throw new BadRequestException("Payment initialization failed: " + fallbackException.getMessage());
             }
+        }
+    }
+
+    /**
+     * Creates a Checkout Session scoped to exactly one payment method — used when the payer has
+     * already picked "Pay with Card" vs "Pay with Cash App" on our site, so Stripe's hosted page
+     * shows only that method instead of a combined page they'd have to search. No card-only
+     * fallback here: if the payer explicitly chose Cash App and it fails, silently downgrading
+     * them to a card form would be more confusing than a clear error telling them to try Card.
+     */
+    public StripeCheckoutResult createCheckoutSessionForMethod(
+            String email,
+            List<LineItem> lineItems,
+            String successUrl,
+            String cancelUrl,
+            Map<String, String> metadata,
+            PreferredPaymentMethod method
+    ) {
+        if (lineItems == null || lineItems.isEmpty()) {
+            throw new BadRequestException("At least one line item is required to start checkout.");
+        }
+
+        if (devMode) {
+            if (!allowDevFallback) {
+                throw new IllegalStateException(
+                        "Stripe is not configured (STRIPE_SECRET_KEY missing) and dev-fallback simulation is disabled. "
+                                + "Card payments cannot be processed until Stripe is configured.");
+            }
+            String fakeSessionId = "cs_dev_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+            log.warn("[Stripe DEV] Simulating {} checkout session for email={} lineItems={}", method, email, lineItems);
+            return new StripeCheckoutResult(fakeSessionId,
+                    "https://checkout.stripe.com/dev/" + fakeSessionId);
+        }
+
+        SessionCreateParams.PaymentMethodType type = method == PreferredPaymentMethod.CASH_APP
+                ? SessionCreateParams.PaymentMethodType.CASHAPP
+                : SessionCreateParams.PaymentMethodType.CARD;
+        SessionCreateParams.Builder builder = buildSessionParams(email, lineItems, successUrl, cancelUrl, metadata, type);
+
+        try {
+            Session session = Session.create(builder.build());
+            log.info("[Stripe] Checkout session created ({}): id={} lineItems={} email={}",
+                    method, session.getId(), lineItems.size(), email);
+            return new StripeCheckoutResult(session.getId(), session.getUrl());
+        } catch (StripeException e) {
+            log.error("[Stripe] Failed to create {} checkout session: {}", method, e.getMessage());
+            throw new BadRequestException("Payment initialization failed: " + e.getMessage());
         }
     }
 

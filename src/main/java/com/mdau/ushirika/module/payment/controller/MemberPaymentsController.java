@@ -37,6 +37,6 @@ public class MemberPaymentsController {
     @PostMapping("/checkout")
     public ResponseEntity<ApiResponse<PaymentInitDto>> checkout(@Valid @RequestBody PayBalancesRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.startBalancesCheckout(
-                req.lines(), req.successUrl(), req.cancelUrl())));
+                req.lines(), req.successUrl(), req.cancelUrl(), req.paymentMethod())));
     }
 }
