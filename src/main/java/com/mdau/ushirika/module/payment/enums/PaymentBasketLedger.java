@@ -9,6 +9,11 @@ public enum PaymentBasketLedger {
     REGISTRATION_FEE,
     DUES,
     BENEVOLENCE_ENROLLMENT,
+    /** The one-time payment that submits a member's Benevolence application ($100 minimum, or the
+     * full $600) — deliberately kept OUT of the pooled wallet so it can never get redirected to
+     * settle an unrelated fine/dues/MGR balance instead of actually crediting the enrollment it's
+     * gating. Ongoing installments after that use BENEVOLENCE_ENROLLMENT (pooled) as before. */
+    BENEVOLENCE_APPLICATION_FEE,
     MGR_CONTRIBUTION,
     FINE,
     BENEVOLENCE_REPLENISHMENT,

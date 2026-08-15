@@ -32,6 +32,7 @@ public class PlatformSettingsService {
     private static final BigDecimal DEFAULT_REGISTRATION_FEE = new BigDecimal("120.00");
     private static final String DEFAULT_DISPLAY_CURRENCY = "USD";
     private static final Set<String> VALID_CURRENCIES = Set.of("USD", "KES");
+    private static final int DEFAULT_BENEVOLENCE_PROBATION_MONTHS = 4;
     /** Deliberately narrower than most /financial/** access -- excludes FINANCIAL_OFFICIAL, since
      *  this is a platform-wide default, not a day-to-day finance operation. */
     private static final Set<UserRole> CAN_CHANGE_DEFAULT_CURRENCY =
@@ -81,6 +82,30 @@ public class PlatformSettingsService {
 
         auditLogService.log(admin, "DEFAULT_CURRENCY_CHANGED", "PlatformSettings", settings.getId(),
                 "Default display currency changed from " + previous + " to " + updated + " by " + admin.getFullName());
+
+        return updated;
+    }
+
+    @Transactional
+    public int getBenevolenceProbationMonths() {
+        Integer months = settings().getBenevolenceProbationMonths();
+        return months != null ? months : DEFAULT_BENEVOLENCE_PROBATION_MONTHS;
+    }
+
+    @Transactional
+    public int updateBenevolenceProbationMonths(int months) {
+        if (months < 1) {
+            throw new BadRequestException("Probation period must be at least 1 month.");
+        }
+        PlatformSettings settings = settings();
+        int previous = settings.getBenevolenceProbationMonths() != null
+                ? settings.getBenevolenceProbationMonths() : DEFAULT_BENEVOLENCE_PROBATION_MONTHS;
+        settings.setBenevolenceProbationMonths(months);
+        int updated = repository.save(settings).getBenevolenceProbationMonths();
+
+        User admin = currentUser();
+        auditLogService.log(admin, "BENEVOLENCE_PROBATION_CHANGED", "PlatformSettings", settings.getId(),
+                "Benevolence probation period changed from " + previous + " to " + months + " month(s) by " + admin.getFullName());
 
         return updated;
     }

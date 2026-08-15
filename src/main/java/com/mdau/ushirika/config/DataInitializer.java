@@ -178,7 +178,8 @@ public class DataInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE payment_basket_lines DROP CONSTRAINT IF EXISTS payment_basket_lines_ledger_check");
         jdbcTemplate.execute("""
                 ALTER TABLE payment_basket_lines ADD CONSTRAINT payment_basket_lines_ledger_check CHECK (ledger IN (
-                    'REGISTRATION_FEE','DUES','BENEVOLENCE_ENROLLMENT','MGR_CONTRIBUTION','FINE',
+                    'REGISTRATION_FEE','DUES','BENEVOLENCE_ENROLLMENT','BENEVOLENCE_APPLICATION_FEE',
+                    'MGR_CONTRIBUTION','FINE',
                     'BENEVOLENCE_REPLENISHMENT','PROGRAM_APPLICATION_PREPAY','GENERAL_CONTRIBUTION',
                     'CASH_PAYMENT','CARD_ENTERED_BY_ADMIN'
                 ))

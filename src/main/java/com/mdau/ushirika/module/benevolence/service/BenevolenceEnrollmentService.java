@@ -17,6 +17,7 @@ import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.notification.service.EmailService;
+import com.mdau.ushirika.module.payment.service.PlatformSettingsService;
 import com.mdau.ushirika.module.program.entity.Program;
 import com.mdau.ushirika.module.program.enums.ProgramType;
 import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
@@ -43,6 +44,7 @@ import java.util.UUID;
 public class BenevolenceEnrollmentService {
 
     private static final BigDecimal ENROLLMENT_TOTAL = new BigDecimal("600.00");
+    private static final BigDecimal MIN_FIRST_PAYMENT = new BigDecimal("100.00");
     private static final int MAX_BENEFICIARIES = 6;
     private static final Set<BenevolenceJoinRequestStatus> OPEN_JOIN_REQUEST_STATUSES =
             Set.of(BenevolenceJoinRequestStatus.PENDING, BenevolenceJoinRequestStatus.FORM_SENT);
@@ -57,6 +59,7 @@ public class BenevolenceEnrollmentService {
     private final EmailService emailService;
     private final ProgramRepository programRepo;
     private final ProgramAdminAssignmentRepository programAdminAssignmentRepo;
+    private final PlatformSettingsService platformSettingsService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -374,27 +377,65 @@ public class BenevolenceEnrollmentService {
 
     private void sendFormEmail(BenevolenceJoinRequest request) {
         User user = request.getUser();
+        int probationMonths = platformSettingsService.getBenevolenceProbationMonths();
         String html = """
                 <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
-                  <h2 style="color:#007834">Your Benevolence Enrollment Form is Ready</h2>
+                  <h2 style="color:#007834">Your Benevolence Application is Ready to Complete</h2>
                   <p>Hi %s,</p>
-                  <p>A program coordinator has reviewed your request to join the Benevolence program.
-                     Log in to your member portal to submit your beneficiaries (up to 6) and pay the
-                     $600 enrollment fee — installments are accepted.</p>
+                  <p>A program coordinator has reviewed your request and it's time to finish your
+                     application. In your member portal, you'll:</p>
+                  <ol style="line-height:1.7">
+                    <li>List up to 6 beneficiaries who could receive the death benefit</li>
+                    <li>Pay at least <strong>$100</strong> toward the $600 enrollment fee to submit —
+                        or pay the full $600 now if you'd rather be done with it</li>
+                  </ol>
+                  <p>As soon as that payment goes through, you're enrolled — no further review needed
+                     on our end. If you pay in installments, the remaining balance is tracked in your
+                     portal until it's cleared; once it is, a %d-month probation period begins, after
+                     which you're eligible to file a claim.</p>
                   <p>
                     <a href="%s/portal/benevolence"
                        style="display:inline-block;background:#007834;color:#fff;padding:10px 22px;
                               border-radius:999px;text-decoration:none;font-weight:600">
-                      Continue Enrollment &rarr;
+                      Complete My Application &rarr;
                     </a>
                   </p>
                 </div>
-                """.formatted(user.getFirstName(), siteUrl);
+                """.formatted(user.getFirstName(), probationMonths, siteUrl);
         try {
             emailService.sendPlain(user.getEmail(), user.getFullName(),
-                    "Your Ushirika Benevolence Enrollment Form is Ready", html);
+                    "Your Ushirika Benevolence Application is Ready to Complete", html);
         } catch (Exception e) {
             log.warn("Benevolence form-sent email failed for {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    private void sendEnrolledEmail(User user) {
+        int probationMonths = platformSettingsService.getBenevolenceProbationMonths();
+        String html = """
+                <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
+                  <h2 style="color:#007834">You're Enrolled in the Benevolence Program</h2>
+                  <p>Hi %s,</p>
+                  <p>Your payment went through and your Benevolence application is approved — you're
+                     in. Your beneficiaries are on file, and your enrollment fee balance (if any is
+                     left) is tracked in your portal until it's fully paid.</p>
+                  <p>Once your $600 fee is fully paid, a %d-month probation period begins. After that,
+                     you're eligible to file a death benefit claim of up to $5,000 for a covered
+                     beneficiary.</p>
+                  <p>
+                    <a href="%s/portal/benevolence"
+                       style="display:inline-block;background:#007834;color:#fff;padding:10px 22px;
+                              border-radius:999px;text-decoration:none;font-weight:600">
+                      View My Enrollment &rarr;
+                    </a>
+                  </p>
+                </div>
+                """.formatted(user.getFirstName(), probationMonths, siteUrl);
+        try {
+            emailService.sendPlain(user.getEmail(), user.getFullName(),
+                    "You're Enrolled — Ushirika Benevolence Program", html);
+        } catch (Exception e) {
+            log.warn("Benevolence enrolled email failed for {}: {}", user.getEmail(), e.getMessage());
         }
     }
 
@@ -411,9 +452,35 @@ public class BenevolenceEnrollmentService {
 
     public record EnrollmentBalance(BigDecimal balance, String status) {}
 
+    /** Confirms this member currently has a FORM_SENT join request open to pay against — the gate
+     * that makes the "pay to submit" flow meaningful. A member with no open application, or one
+     * already decided (approved/rejected), can't just show up and pay. */
+    @Transactional(readOnly = true)
+    public void assertApplicationPayable(User user) {
+        BenevolenceJoinRequest request = joinRequestRepo.findFirstByUserOrderByCreatedAtDesc(user).orElse(null);
+        if (request == null || request.getStatus() != BenevolenceJoinRequestStatus.FORM_SENT) {
+            throw new BadRequestException("You don't have an open Benevolence application to pay for right now.");
+        }
+    }
+
+    /** Enforces the $100 minimum on a member's very first Benevolence enrollment payment — the
+     * "pay to submit your application" gate. Later installment payments have no minimum. */
+    @Transactional(readOnly = true)
+    public void validateFirstPayment(User user, BigDecimal amountUsd) {
+        BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(user).orElse(null);
+        boolean isFirstPayment = enrollment == null || enrollment.getTotalPaid() == null
+                || enrollment.getTotalPaid().signum() == 0;
+        if (isFirstPayment && amountUsd.compareTo(MIN_FIRST_PAYMENT) < 0) {
+            throw new BadRequestException("Your first Benevolence payment must be at least $"
+                    + MIN_FIRST_PAYMENT + " (or pay the full $" + ENROLLMENT_TOTAL + " now).");
+        }
+    }
+
     /** Credits a confirmed Stripe payment-basket line toward this member's enrollment fee.
      * Mirrors recordEnrollmentPayment but no-ops instead of throwing if already paid in full —
-     * this runs from the webhook, not a live user request. */
+     * this runs from the webhook, not a live user request. A member's first payment of any size
+     * also auto-approves their still-FORM_SENT join request — paying is what puts them "in,"
+     * not a separate manual admin click. */
     @Transactional
     public void applyPayment(User user, BigDecimal amountUsd) {
         BenevolenceEnrollment enrollment = enrollmentRepo.findByUser(user)
@@ -423,6 +490,8 @@ public class BenevolenceEnrollmentService {
                 || enrollment.getStatus() == EnrollmentStatus.CANCELLED) {
             return;
         }
+
+        boolean wasFirstPayment = enrollment.getTotalPaid() == null || enrollment.getTotalPaid().signum() == 0;
 
         EnrollmentPayment payment = EnrollmentPayment.builder()
                 .enrollment(enrollment)
@@ -436,12 +505,35 @@ public class BenevolenceEnrollmentService {
         if (newTotal.compareTo(ENROLLMENT_TOTAL) >= 0) {
             enrollment.setTotalPaid(ENROLLMENT_TOTAL);
             enrollment.setCompletedAt(LocalDateTime.now());
-            enrollment.setProbationEndsAt(LocalDate.now().plusMonths(6));
+            enrollment.setProbationEndsAt(LocalDate.now().plusMonths(platformSettingsService.getBenevolenceProbationMonths()));
             enrollment.setStatus(EnrollmentStatus.PROBATION);
         } else {
             enrollment.setTotalPaid(newTotal);
         }
         enrollmentRepo.save(enrollment);
+
+        if (wasFirstPayment) {
+            autoApproveOnFirstPayment(user);
+        }
+    }
+
+    /** Paying is what puts a member "in" — no separate manual admin approval click needed once
+     * the coordinator has already sent the form. Only fires for a request still awaiting the
+     * member's action; a request the coordinator already decided is left alone. */
+    private void autoApproveOnFirstPayment(User user) {
+        joinRequestRepo.findFirstByUserOrderByCreatedAtDesc(user)
+                .filter(r -> r.getStatus() == BenevolenceJoinRequestStatus.FORM_SENT)
+                .ifPresent(request -> {
+                    request.setStatus(BenevolenceJoinRequestStatus.APPROVED);
+                    request.setRespondedAt(LocalDateTime.now());
+                    joinRequestRepo.save(request);
+
+                    log.info("Benevolence join request auto-approved on first payment: id={} member={}",
+                            request.getId(), user.getEmail());
+                    auditLogService.log(user, "BENEVOLENCE_JOIN_APPROVED", "BenevolenceJoinRequest", request.getId(),
+                            user.getFullName() + "'s Benevolence application was automatically approved after their enrollment payment.");
+                    sendEnrolledEmail(user);
+                });
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────

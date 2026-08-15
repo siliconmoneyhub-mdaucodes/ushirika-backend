@@ -34,4 +34,11 @@ public class PlatformSettings extends BaseEntity {
      *  state before a user's own session toggle takes over. */
     @Column(name = "default_display_currency", nullable = false, length = 3)
     private String defaultDisplayCurrency;
+
+    /** Months a Benevolence enrollment spends in PROBATION after the $600 fee is fully paid,
+     *  before the member may submit claims. Nullable, not defaulted at the column level -- this
+     *  row already exists with data in production, and ddl-auto=update adding a NOT NULL column
+     *  to a populated table would fail; PlatformSettingsService falls back to a default in code. */
+    @Column(name = "benevolence_probation_months")
+    private Integer benevolenceProbationMonths;
 }

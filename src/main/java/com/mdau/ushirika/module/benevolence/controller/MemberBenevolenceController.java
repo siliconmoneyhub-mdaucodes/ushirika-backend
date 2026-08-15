@@ -4,6 +4,8 @@ import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.benevolence.dto.*;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimService;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceEnrollmentService;
+import com.mdau.ushirika.module.payment.dto.PaymentInitDto;
+import com.mdau.ushirika.module.payment.service.PaymentBasketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ public class MemberBenevolenceController {
 
     private final BenevolenceEnrollmentService enrollmentService;
     private final BenevolenceClaimService claimService;
+    private final PaymentBasketService paymentBasketService;
 
     @GetMapping("/benevolence/my")
     public ResponseEntity<ApiResponse<BenevolenceEnrollmentDto>> getMyEnrollment() {
@@ -40,6 +43,12 @@ public class MemberBenevolenceController {
             @Valid @RequestBody SubmitBeneficiariesRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Beneficiaries submitted and locked",
                 enrollmentService.submitMyBeneficiaries(req)));
+    }
+
+    @PostMapping("/benevolence/my/application-checkout")
+    public ResponseEntity<ApiResponse<PaymentInitDto>> startApplicationCheckout(
+            @Valid @RequestBody BenevolenceApplicationCheckoutRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok(paymentBasketService.startBenevolenceApplicationCheckout(req)));
     }
 
     @GetMapping("/benevolence/my/claims")

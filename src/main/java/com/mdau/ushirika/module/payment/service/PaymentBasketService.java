@@ -7,6 +7,7 @@ import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.benevolence.dto.BenevolenceApplicationCheckoutRequest;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimService;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceEnrollmentService;
 import com.mdau.ushirika.module.dues.service.MembershipDuesService;
@@ -133,7 +134,9 @@ public class PaymentBasketService {
                 case BENEVOLENCE_ENROLLMENT -> {
                     BenevolenceEnrollmentService.EnrollmentBalance bal = benevolenceEnrollmentService.outstandingBalance(member);
                     BigDecimal balance = bal != null ? bal.balance() : BigDecimal.ZERO;
-                    lines.add(new BasketLineDto(PaymentBasketLedger.BENEVOLENCE_ENROLLMENT, null, capped(req.amount(), balance, "Benevolence enrollment")));
+                    BigDecimal amount = capped(req.amount(), balance, "Benevolence enrollment");
+                    benevolenceEnrollmentService.validateFirstPayment(member, amount);
+                    lines.add(new BasketLineDto(PaymentBasketLedger.BENEVOLENCE_ENROLLMENT, null, amount));
                 }
                 case MGR_CONTRIBUTION -> {
                     BigDecimal balance = mgrService.outstandingContributionBalance(member);
@@ -297,6 +300,44 @@ public class PaymentBasketService {
 
         log.info("Admin card-entry checkout created: sessionId={} member={} admin={} amount={} USD",
                 result.sessionId(), targetMember.getEmail(), admin.getEmail(), req.amount());
+
+        return new PaymentInitDto(result.sessionId(), result.checkoutUrl(), req.amount(), "USD");
+    }
+
+    /** The one-time payment that submits a member's Benevolence application — deliberately its
+     * own single-line, non-pooled checkout (BENEVOLENCE_APPLICATION_FEE) rather than going through
+     * startBalancesCheckout's pooled basket, so this specific payment can never get redirected to
+     * settle an unrelated fine/dues/MGR balance instead of actually unlocking enrollment. */
+    @Transactional
+    public PaymentInitDto startBenevolenceApplicationCheckout(BenevolenceApplicationCheckoutRequest req) {
+        User member = currentUser();
+        benevolenceEnrollmentService.assertApplicationPayable(member);
+        benevolenceEnrollmentService.validateFirstPayment(member, req.amount());
+
+        List<StripeService.LineItem> stripeLines = List.of(
+                new StripeService.LineItem("Ushirika Welfare Organization — Benevolence Application", req.amount()));
+        Map<String, String> metadata = Map.of(
+                "purpose", "BASKET",
+                "memberId", member.getId().toString()
+        );
+
+        StripeService.StripeCheckoutResult result = resolveCheckout(
+                member.getEmail(), stripeLines, req.successUrl(), req.cancelUrl(), metadata, req.paymentMethod());
+
+        PaymentBasket basket = PaymentBasket.builder()
+                .member(member)
+                .sessionId(result.sessionId())
+                .build();
+        basket.getLines().add(PaymentBasketLine.builder()
+                .basket(basket)
+                .ledger(PaymentBasketLedger.BENEVOLENCE_APPLICATION_FEE)
+                .description("Benevolence application payment by " + member.getFullName())
+                .amount(req.amount())
+                .build());
+        basketRepository.save(basket);
+
+        log.info("Benevolence application checkout created: sessionId={} member={} amount={} USD",
+                result.sessionId(), member.getEmail(), req.amount());
 
         return new PaymentInitDto(result.sessionId(), result.checkoutUrl(), req.amount(), "USD");
     }
@@ -493,7 +534,8 @@ public class PaymentBasketService {
         return switch (ledger) {
             case DUES, MGR_CONTRIBUTION, FINE, BENEVOLENCE_REPLENISHMENT, BENEVOLENCE_ENROLLMENT,
                  CASH_PAYMENT, CARD_ENTERED_BY_ADMIN -> true;
-            case REGISTRATION_FEE, PROGRAM_APPLICATION_PREPAY, GENERAL_CONTRIBUTION -> false;
+            case REGISTRATION_FEE, PROGRAM_APPLICATION_PREPAY, GENERAL_CONTRIBUTION,
+                 BENEVOLENCE_APPLICATION_FEE -> false;
         };
     }
 
@@ -505,6 +547,7 @@ public class PaymentBasketService {
             }
             case PROGRAM_APPLICATION_PREPAY -> programApplicationService.applyPrepayment(line.getTargetId(), member, line.getAmount());
             case GENERAL_CONTRIBUTION -> contributionService.applyBasketContribution(member, line.getAmount(), line.getTargetId());
+            case BENEVOLENCE_APPLICATION_FEE -> benevolenceEnrollmentService.applyPayment(member, line.getAmount());
             default -> throw new IllegalStateException("Ledger " + line.getLedger() + " should have been routed through the pooled allocator");
         }
     }
@@ -514,6 +557,7 @@ public class PaymentBasketService {
             case REGISTRATION_FEE -> "Ushirika Welfare Organization — Registration Fee";
             case DUES -> "Ushirika Welfare Organization — Annual Membership Dues";
             case BENEVOLENCE_ENROLLMENT -> "Ushirika Welfare Organization — Benevolence Enrollment";
+            case BENEVOLENCE_APPLICATION_FEE -> "Ushirika Welfare Organization — Benevolence Application";
             case MGR_CONTRIBUTION -> "Ushirika Welfare Organization — MGR Contribution";
             case FINE -> "Ushirika Welfare Organization — Fine";
             case BENEVOLENCE_REPLENISHMENT -> "Ushirika Welfare Organization — Benevolence Replenishment";
