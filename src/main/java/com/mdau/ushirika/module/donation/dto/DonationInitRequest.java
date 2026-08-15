@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.donation.dto;
 
+import com.mdau.ushirika.module.payment.enums.PreferredPaymentMethod;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -28,5 +29,9 @@ public record DonationInitRequest(
         /** Required for guests; optional for members (defaults to account email). */
         String donorEmail,
 
-        String message
+        String message,
+
+        /** Null keeps Stripe's combined Card+Cash App page; a specific choice scopes the
+         * session to just that one method, matching every other checkout entry point. */
+        PreferredPaymentMethod paymentMethod
 ) {}

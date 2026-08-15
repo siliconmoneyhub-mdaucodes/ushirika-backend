@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -173,8 +174,12 @@ public class DonationService {
                 ? "Ushirika Welfare Organization — " + campaign.getTitle()
                 : "Ushirika Welfare Organization — General Donation";
 
-        StripeService.StripeCheckoutResult result = stripeService.createCheckoutSession(
-                email, req.amount(), productName, req.successUrl(), req.cancelUrl(), metadata);
+        StripeService.StripeCheckoutResult result = req.paymentMethod() == null
+                ? stripeService.createCheckoutSession(
+                        email, req.amount(), productName, req.successUrl(), req.cancelUrl(), metadata)
+                : stripeService.createCheckoutSessionForMethod(
+                        email, List.of(new StripeService.LineItem(productName, req.amount())),
+                        req.successUrl(), req.cancelUrl(), metadata, req.paymentMethod());
 
         // Now update with real session ID
         donation.setStripeSessionId(result.sessionId());
