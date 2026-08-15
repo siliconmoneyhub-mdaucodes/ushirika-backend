@@ -53,7 +53,12 @@ public class MembershipDuesService {
 
     @Transactional
     public void createInitialDues(User user) {
-        int year = LocalDate.now().getYear();
+        LocalDate today = LocalDate.now();
+        // The October 31 cutoff for a given calendar year has already passed by the time
+        // November/December arrives -- creating a due dated Oct 31 of *this* year would be
+        // instantly overdue. Roll those approvals into next year's cycle instead, same as
+        // however far into the new cycle a January approval would land.
+        int year = today.getMonthValue() > 10 ? today.getYear() + 1 : today.getYear();
         if (dueRepository.findByUserAndYear(user, year).isPresent()) return;
 
         MembershipDue due = MembershipDue.builder()
