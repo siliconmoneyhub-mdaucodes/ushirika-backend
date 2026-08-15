@@ -222,6 +222,9 @@ public class BenevolenceClaimService {
             if (claim.getStatus() != ClaimStatus.DISBURSED) {
                 throw new BadRequestException("Claim must be DISBURSED before creating replenishment.");
             }
+            if (replenishmentRepo.existsByClaim(claim)) {
+                throw new BadRequestException("A replenishment has already been created for this claim.");
+            }
         }
 
         List<BenevolenceEnrollment> eligible = enrollmentRepo.findAllByStatus(EnrollmentStatus.ELIGIBLE);

@@ -252,8 +252,14 @@ public class MgrService {
     @Transactional
     public MgrCycleDto cancelCycle(UUID id) {
         MgrCycle cycle = findCycle(id);
-        if (cycle.getStatus() == CycleStatus.COMPLETED) {
-            throw new BadRequestException("Completed cycles cannot be cancelled.");
+        // Only DRAFT is safe to cancel through this simple path -- an ACTIVE cycle already has
+        // real contributions collected and possibly payouts made. Cancelling it here would leave
+        // those PAID/DRAWN/SCHEDULED slots and PENDING contributions dangling under a CANCELLED
+        // cycle with zero notification to enrolled members. Unwinding a live-money cycle needs a
+        // deliberate, hands-on process, not a confirm-dialog button.
+        if (cycle.getStatus() != CycleStatus.DRAFT) {
+            throw new BadRequestException("Only DRAFT cycles can be cancelled this way. " +
+                    "An ACTIVE cycle already has real money moving -- contact the developer to unwind it safely.");
         }
         cycle.setStatus(CycleStatus.CANCELLED);
         cycleRepo.save(cycle);

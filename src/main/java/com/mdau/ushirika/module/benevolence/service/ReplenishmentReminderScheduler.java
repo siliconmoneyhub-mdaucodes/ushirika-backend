@@ -76,13 +76,21 @@ public class ReplenishmentReminderScheduler {
                     catch (Exception e) { log.warn("Replenishment SMS failed for {}: {}", user.getPhone(), e.getMessage()); }
                 }
 
-                notificationService.createForUser(
-                        user.getId(),
-                        InAppNotificationCategory.REPLENISHMENT,
-                        subject,
-                        body,
-                        "/portal/benevolence"
-                );
+                try {
+                    notificationService.createForUser(
+                            user.getId(),
+                            InAppNotificationCategory.REPLENISHMENT,
+                            subject,
+                            body,
+                            "/portal/benevolence"
+                    );
+                } catch (Exception e) {
+                    // createForUser() is a plain synchronous save, not @Async like the email send
+                    // above -- letting it throw here would abort this whole day's reminder loop
+                    // for every other member, and there's no makeup run tomorrow (14/7/0-day
+                    // thresholds only fire once each).
+                    log.warn("Replenishment in-app notification failed for {}: {}", user.getEmail(), e.getMessage());
+                }
                 sent++;
             }
         }

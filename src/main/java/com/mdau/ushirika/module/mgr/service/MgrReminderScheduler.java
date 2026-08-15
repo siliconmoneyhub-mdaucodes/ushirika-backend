@@ -50,7 +50,11 @@ public class MgrReminderScheduler {
 
         for (MgrCycle cycle : activeCycles) {
             int currentMonth = (int) ChronoUnit.MONTHS.between(cycle.getStartDate(), today) + 1;
-            if (currentMonth < 1 || currentMonth > cycle.getTotalSlots()) continue;
+            // Every cycle runs a fixed 12 months (see MgrService.createCycle -- endDate is always
+            // startDate + 11 months) regardless of totalSlots, which is member capacity, not cycle
+            // length. Comparing against totalSlots here silently stopped all reminders -- including
+            // weekly past-due nagging -- partway through any cycle configured with fewer than 12 slots.
+            if (currentMonth < 1 || currentMonth > 12) continue;
 
             LocalDate rawCutoff = cycle.getStartDate()
                     .plusMonths(currentMonth - 1)
