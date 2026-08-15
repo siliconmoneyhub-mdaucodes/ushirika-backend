@@ -143,6 +143,27 @@ trigger it against yet).**
     invite → opt-in → activation → admission chain, because no MGR cycle has been created since the
     rebuild and no member has gone through the new PENDING→FORM_SENT→WAITLISTED path yet.
 
+### Later the same day (2026-08-15): two small user-reported fixes
+
+1. **Onboarding registration fee now offers separate Card / Cash App Pay buttons**, matching every
+   other checkout entry point. Previously it was the one holdout still using the old combined
+   Card+Cash App Stripe page (single "Continue to Pay Registration Fee" button). Threaded
+   `paymentMethod` through `OnboardingCheckoutRequest` → `OnboardingController` →
+   `OnboardingService.startRegistrationCheckout` → `PaymentBasketService.startOnboardingCheckout`
+   → the existing `resolveCheckout`/`createCheckoutSessionForMethod` machinery (no new Stripe-side
+   plumbing). Frontend: `StepPayment.tsx` now shows "Pay with Card" / "Pay with Cash App" buttons
+   styled like `portal/payments.tsx`. Backend + frontend both build/test clean and are pushed
+   (`88f726b` / `a0be232`). **Not yet live-clicked in a browser** — verify both buttons land on
+   Stripe's correct single-method page next time onboarding is tested.
+2. **Member profile photos now render in the admin directory and portal nav.** Turned out the data
+   was already fully wired (`MemberProfile.photoUrl` → `UserProfileDto.photoUrl` → frontend
+   `User.photoUrl`) since photo upload was built earlier — it just was never rendered anywhere
+   except the upload widget on `portal/profile.tsx` itself. Added avatar-with-initials-fallback
+   (matching the existing pattern from `admin/forums.tsx`/`admin/mgr.tsx`/elections pages) to:
+   `admin/members.tsx` (directory table + detail slide-over), `portal.tsx` (sidebar profile link),
+   `components/site/Nav.tsx` (public-site topbar pill). No backend changes needed. Pushed
+   (`3b2e2cb`).
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
