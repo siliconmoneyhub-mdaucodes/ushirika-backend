@@ -370,6 +370,43 @@ isn't a superadmin still sees it. New `NAV_DEV` array in `admin.tsx`, same patte
 ("after these now scope events... ask me questions"). See the scoping artifact from earlier this
 session (module × role list) as the starting point for that conversation.
 
+### 2026-08-16: Events Phase 1 built — "Needs Your Attention" (applications + messages)
+
+Following the scoping questions from the previous session (delivery surface, real-time-vs-polling,
+reuse-vs-new-system, V1 scope — all answered, see below), built and shipped Phase 1:
+
+**Confirmed spec:**
+- All three delivery surfaces at once: topbar bell + dropdown, sidebar nav badge counts, dedicated
+  `/admin/action-items` queue page.
+- Polling while the app is open (~45s), not true real-time push.
+- A separate system from the existing member-facing broadcast `Notifications` module, not an
+  extension of it.
+- Computed **live** from existing data each call — no new event-log table, so nothing can drift
+  from reality; an item disappears the instant its real condition resolves.
+- V1 scope: Applications (`SUBMITTED` enquiries) + Messaging (unread `ConversationThread`s) only.
+  Benevolence/MGR/Meetings/Elections/Finance/Governance/Audit are scoped in the earlier scoping
+  artifact for later phases, not built yet.
+
+**What shipped:**
+- Backend: new `module/actionitems` (`ActionItemsController` → `GET /admin/action-items`,
+  `ActionItemsService`). Applications visible to whoever can act on them
+  (SECRETARY/ADMIN/SUPERADMIN/LEADERSHIP/`CAP_APPLICATIONS`). Messages: general/unassigned threads
+  visible to admin-tier roles broadly; program-scoped threads **only** to that program's actual
+  assigned coordinator (`ProgramAdminAssignment`) — deliberately not given to ADMIN/SUPERADMIN as a
+  blanket bypass here, to keep the feed routed to the right person rather than diluted with
+  everything every admin could technically reach via the API. New `SecurityConfig` matcher for the
+  endpoint, broad enough to admit any role that might have something to see; the service does the
+  real per-item filtering.
+- Frontend: `useActionItems()` hook (one shared 45s poll), `ActionItemsBell` component (light
+  variant floating desktop top-right, dark variant blended into the mobile topbar), badge counts on
+  the "Applications"/"Messages" sidebar nav items, new "Needs Attention" nav entry +
+  `/admin/action-items` page with stat tiles and the full list.
+- **Verified live**: `GET /admin/action-items` returns `401` unauthenticated (correctly deployed
+  and secured, not a 404/500). **Not yet click-tested in a real browser session** — I don't have
+  admin login credentials; next session (or the user) should log in and confirm the bell/badges/
+  page actually render and update correctly with real data (a real SUBMITTED application or unread
+  message would be the cleanest test).
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
