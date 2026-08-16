@@ -4,6 +4,7 @@ import com.lowagie.text.*;
 import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.ColumnText;
 import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfGState;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfPageEventHelper;
@@ -126,14 +127,47 @@ public final class PdfBuilder implements TableBuilder {
         }
     }
 
-    /** Draws "Page X of Y" + org name at the bottom of every page. The "of Y" part needs a
-     * template placeholder since the total page count isn't known until the document closes. */
+    /** Draws "Page X of Y" + org name at the bottom of every page, and a faint centered logo
+     * watermark behind the content on every page — the same letterhead treatment (same logo,
+     * ~6% opacity, centered) used for the Constitution/Bylaws viewer on the onboarding site.
+     * The "of Y" part needs a template placeholder since the total page count isn't known
+     * until the document closes. */
     private static final class FooterEvent extends PdfPageEventHelper {
+        private static final float WATERMARK_OPACITY = 0.06f;
+        private static final float WATERMARK_SIZE = 260f;
+
         private PdfTemplate totalPagesTemplate;
+        private final Image watermark = loadLogo();
+        // writer.getPageNumber() reads one too high if called from onCloseDocument -- iText/OpenPDF
+        // pre-opens a "phantom" next page internally after the real last page ends, and that
+        // phantom page's number leaks into getPageNumber() even though the page itself is
+        // discarded and never emitted (onStartPage fires for it, but onEndPage never does).
+        // Tracking the number in onEndPage instead, which only fires for pages actually emitted,
+        // avoids the off-by-one.
+        private int lastPageNumber = 1;
 
         @Override
         public void onOpenDocument(PdfWriter writer, Document document) {
             totalPagesTemplate = writer.getDirectContent().createTemplate(50, 20);
+        }
+
+        @Override
+        public void onStartPage(PdfWriter writer, Document document) {
+            if (watermark == null) return;
+            watermark.scaleToFit(WATERMARK_SIZE, WATERMARK_SIZE);
+            float w = watermark.getScaledWidth();
+            float h = watermark.getScaledHeight();
+            float x = (document.getPageSize().getWidth() - w) / 2;
+            float y = (document.getPageSize().getHeight() - h) / 2;
+
+            PdfContentByte cb = writer.getDirectContentUnder();
+            cb.saveState();
+            PdfGState gs = new PdfGState();
+            gs.setFillOpacity(WATERMARK_OPACITY);
+            gs.setStrokeOpacity(WATERMARK_OPACITY);
+            cb.setGState(gs);
+            cb.addImage(watermark, w, 0, 0, h, x, y);
+            cb.restoreState();
         }
 
         @Override
@@ -154,6 +188,7 @@ public final class PdfBuilder implements TableBuilder {
                     new Phrase("Page " + writer.getPageNumber() + " of", FOOTER_FONT),
                     document.right() - 55, y, 0);
             cb.addTemplate(totalPagesTemplate, document.right() - 50, y);
+            lastPageNumber = writer.getPageNumber();
         }
 
         @Override
@@ -163,7 +198,7 @@ public final class PdfBuilder implements TableBuilder {
                 totalPagesTemplate.beginText();
                 totalPagesTemplate.setFontAndSize(bf, FOOTER_FONT.getSize());
                 totalPagesTemplate.setTextMatrix(0, 0);
-                totalPagesTemplate.showText(String.valueOf(writer.getPageNumber()));
+                totalPagesTemplate.showText(String.valueOf(lastPageNumber));
                 totalPagesTemplate.endText();
             } catch (java.io.IOException | DocumentException e) {
                 // Total page count is a nice-to-have footer detail -- don't fail the whole
