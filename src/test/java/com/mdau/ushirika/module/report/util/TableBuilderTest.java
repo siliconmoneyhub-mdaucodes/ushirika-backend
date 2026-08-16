@@ -25,7 +25,7 @@ class TableBuilderTest {
     }
 
     @Test
-    void xlsx_producesValidZipPackage() {
+    void xlsx_producesValidZipPackage() throws java.io.IOException {
         XlsxBuilder xlsx = XlsxBuilder.create("Test");
         populate(xlsx);
         byte[] bytes = xlsx.toBytes();
@@ -33,6 +33,13 @@ class TableBuilderTest {
         // XLSX is a ZIP archive — "PK" magic bytes
         assertEquals('P', bytes[0]);
         assertEquals('K', bytes[1]);
+        // Round-trip through POI itself -- the strongest available check that the title block,
+        // styling, borders, freeze pane, and auto-filter didn't corrupt the workbook.
+        try (var wb = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes))) {
+            var sheet = wb.getSheetAt(0);
+            assertEquals("Name", sheet.getRow(4).getCell(0).getStringCellValue()); // header row, after the 4 title rows
+            assertEquals("Alice", sheet.getRow(5).getCell(0).getStringCellValue());
+        }
     }
 
     @Test
