@@ -1,9 +1,9 @@
 # Ushirika Welfare Organization — Project Handoff
 
-Updated 2026-08-15, mid-session, so a new Claude Code session can pick up exactly where this one
-stopped. Read this file first before doing anything else on this project. This replaces the
-2026-08-07 version — most of that handoff's open items have since shipped (see task history below);
-this version focuses on current state and the one thing genuinely in progress.
+Updated 2026-08-16, so a new Claude Code session can pick up exactly where this one stopped. Read
+this file first before doing anything else on this project. This replaces the 2026-08-07 version —
+most of that handoff's open items have since shipped (see task history below); this version
+focuses on current state and what's next.
 
 ## What this is
 
@@ -30,7 +30,7 @@ toward Benevolence enrollment heavily — see "Open idea, not yet scoped" below.
 - **Frontend**: `J:\frontend\ushirika-main\ushirika-connect-main` — TanStack Start / React /
   TypeScript. Git remote `MdauCodes/ushirika-connect`, branch `main`. Deployed on **Vercel** at
   `https://ushirikacommunity.site` — pushing to `main` auto-deploys (typically live within ~60s).
-- Both repos are clean and pushed as of this update (backend `75016f1`, frontend `5520b37`).
+- Both repos are clean and pushed as of this update (backend `88aa3cf`, frontend `9f5a3a8`).
 - Admin panel lives inside the frontend app at `/admin/*`. Public site, member portal
   (`/portal/*`), and applicant onboarding (`/membership?apply=1` → enquiry → emailed login →
   `/onboarding`) are all the same frontend app, gated by role.
@@ -493,7 +493,60 @@ that the new Benevolence/MGR/Meetings/Elections badges show real counts.
 equivalent proactive toast (e.g. a member sees a popup when admin replies) — raised twice now by
 the user, still not scoped. Everything built so far is admin-only.
 
-## In progress right now: creating a fresh test member to run the *entire* new flow
+### 2026-08-16: reports visual overhaul + per-tab Download Report buttons — SHIPPED
+
+The user paused the Brian Wafula live test (below) and the other pending-verification items to
+get reports polished first: *"we will refine the pdfs and reports generated and also have
+inclusion of download reports option on every tab for ease of use."* Scoped as (a) full visual
+overhaul of the generated CSV/XLSX/PDF reports, (b) one download button with a format menu on
+every admin tab that has report data, in that order. Both are now done.
+
+**Backend** (`88aa3cf`): `PdfBuilder`/`XlsxBuilder` (in
+`module/report/util/`) fully rewritten to match the brand look used in the regenerated PDF guides
+(`#1F4E3D` forest green). PDFs now get the org logo + name + title + generated-date block, a
+brand-green header row, zebra striping, and a real "Page X of Y" footer (landscape A4, small font
+since some reports run wide). XLSX gets the same title block, a brand-green bold header row with
+real thin borders, zebra striping, a frozen header row, and an auto-filter dropdown on every
+column. `TableBuilder`'s interface didn't change, so `ReportService`'s ~14 report methods needed no
+edits. Covered by `TableBuilderTest`, including a full POI round-trip read-back of the XLSX output
+(the strongest available check that styling/borders/freeze-pane/auto-filter didn't corrupt the
+workbook) since this environment has no PDF/XLSX renderer to eyeball output directly.
+
+**Frontend** (`9f5a3a8`): new shared `src/components/admin/ReportDownloadButton.tsx` — a single
+"Download Report" button that opens a small CSV/XLSX/PDF menu, with its own busy/error state, so
+admins don't have to leave the tab they're on and go to the central Reports page just to export
+what they're already looking at. Wired into all 13 admin pages that have report data: Members,
+Applications, Meetings & Fines (→ attendance report), Annual Dues, MGR, Benevolence, Loans,
+Elections, Scholarships, Money Flow, Bank Reconciliation, Officials & Roles, and Analytics
+(replaced that page's older ad-hoc inline csv/xlsx/pdf button trio with the same shared component
+for visual consistency — folded its `handleExport` down since the shared button now owns its own
+loading/error state). Verified with both `npm run build` and `npx tsc --noEmit` (no errors in any
+touched file — the handful of pre-existing tsc errors elsewhere in the codebase are unrelated and
+predate this change). **Not yet click-tested live in a browser** — same standing limitation as the
+rest of this session (no admin credentials on Claude's end); worth a quick live pass to confirm the
+dropdown/download actually fires correctly on a couple of pages.
+
+## Next up: resume the paused live-testing thread
+
+With reports done, these are next, roughly in the order the user raised them:
+
+1. **Continue Brian Wafula's live onboarding/MGR test** (see full detail below) — waiting on the
+   user to check `mdau910+brianwafula@gmail.com` for the onboarding email, or just log in as Brian
+   directly, then push through profile → fee payment → Active → Benevolence + MGR, with MGR being
+   the one genuinely untested mechanic (cycle create → invite → opt-in → activate → admit).
+2. **Live-verify the toast notification fixes** — per-message keying and the delayed
+   refresh-on-navigation (see "3 bugs from live user testing" above) were fixed and pushed but
+   never confirmed live: does a second message in the same thread now produce its own toast, and
+   does the badge clear immediately after a thread is read?
+3. **Decide**: should the member-facing portal get an equivalent proactive-toast system (e.g. a
+   member sees a toast when admin replies)? Raised twice by the user, still unanswered. Everything
+   built so far is admin-only. Don't build until this is answered.
+4. **Confirm live Benevolence probation setting** — code default is `6` months (matches Bylaws),
+   but whether the live DB's persisted Settings value still holds a stale `4` from before was never
+   confirmed. Check the admin Settings page.
+5. **Confirm the duplicate Constitution row** flagged back on 2026-08-15 was ever cleaned up.
+
+### Creating a fresh test member to run the *entire* new flow (paused, resume at step 1 above)
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
 reuse an existing test account with prior state), specifically so the full chain — enquiry →
@@ -562,10 +615,11 @@ pass and explicit go-ahead, even though the motivation is clear.
    `J:\frontend\ushirika-main\ushirika-connect-main` (this file is duplicated in both repos' roots —
    keep both copies in sync when updating).
 2. Read this file in full. Check `git status` in both repos to confirm still clean.
-3. Ask the user whether Brian Wafula's onboarding email has been checked / whether they want to
-   continue that live-test thread, since it was mid-flight when this handoff was written.
+3. Work through "Next up: resume the paused live-testing thread" above, starting with Brian
+   Wafula's onboarding email / live-test continuation, since it was mid-flight when this thread was
+   paused for the reports work.
 4. Once Brian is Active and has gone through both Benevolence and MGR (including a full MGR cycle
    create → invite → opt-in → activate → admit cycle), MGR rebuild verification (task "Live-test
    MGR rebuild end to end") is complete.
-5. The Benevolence-at-onboarding nudge idea above is the most likely next substantive ask — scope
-   it with the user before writing any code.
+5. The Benevolence-at-onboarding nudge idea above is the most likely next substantive ask after the
+   pending list clears — scope it with the user before writing any code.
