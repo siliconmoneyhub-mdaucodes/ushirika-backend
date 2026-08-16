@@ -161,7 +161,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/admin/action-items")
                                 .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP",
                                         "ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_CHIEF_WHIP", "ROLE_COMPLIANCE",
-                                        "CAP_APPLICATIONS")
+                                        "CAP_APPLICATIONS", "CAP_FINANCE_ADVANCED", "CAP_DISCIPLINE",
+                                        "CAP_MEETINGS_ATTENDANCE", "CAP_ELECTIONS")
                         // Role-scoped dashboard summaries
                         .requestMatchers(HttpMethod.GET, "/admin/dashboard/records")
                                 .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_APPLICATIONS", "CAP_MEMBERS", "CAP_MEETINGS_ATTENDANCE")

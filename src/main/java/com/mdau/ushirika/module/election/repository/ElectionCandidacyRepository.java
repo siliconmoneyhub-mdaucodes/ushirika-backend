@@ -21,4 +21,6 @@ public interface ElectionCandidacyRepository extends JpaRepository<ElectionCandi
     List<ElectionCandidacy> findAllByCandidateIdOrderByCreatedAtDesc(UUID candidateId);
 
     boolean existsByElectionIdAndSeatIdAndCandidateId(UUID electionId, UUID seatId, UUID candidateId);
+
+    List<ElectionCandidacy> findAllByStatusOrderByCreatedAtAsc(CandidacyStatus status);
 }
