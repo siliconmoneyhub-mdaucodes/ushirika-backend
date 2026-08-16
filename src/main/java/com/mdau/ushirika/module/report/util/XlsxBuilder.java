@@ -7,8 +7,13 @@ import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,6 +33,17 @@ public final class XlsxBuilder implements TableBuilder {
 
     /** Rows above the data table: org name, report title, generated date, one blank spacer. */
     private static final int TITLE_ROWS = 4;
+
+    private static final String LOGO_RESOURCE = "/report-assets/ushirika-logo.png";
+    // POI has no per-shape opacity control for XSSF pictures, so the fade is baked directly into
+    // the PNG's own alpha channel instead -- Excel renders real PNG transparency correctly, which
+    // gets the same letterhead effect as the PDF's low-opacity watermark. Higher than the PDF's
+    // 6% since Excel's gridlines and denser UI wash out very faint watermarks more than a PDF page.
+    private static final float WATERMARK_OPACITY = 0.10f;
+    private static final int WATERMARK_TARGET_PX = 260;
+    // Excel's own default cell metrics, used only to roughly center the watermark over the table.
+    private static final int DEFAULT_COL_WIDTH_PX = 64;
+    private static final int DEFAULT_ROW_HEIGHT_PX = 20;
 
     private final XSSFWorkbook workbook = new XSSFWorkbook();
     private final Sheet sheet;
@@ -149,6 +165,7 @@ public final class XlsxBuilder implements TableBuilder {
             // Freeze everything above and including the header row so it stays visible on scroll.
             sheet.createFreezePane(0, headerRowIndex + 1);
             sheet.setAutoFilter(new CellRangeAddress(headerRowIndex, headerRowIndex, 0, maxCols - 1));
+            addWatermark();
         }
 
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -160,6 +177,74 @@ public final class XlsxBuilder implements TableBuilder {
         }
     }
 
+    /** Drops a faint, roughly-centered logo over the data area — the same letterhead treatment
+     * (same logo, low opacity) used for the PDF reports and the Constitution/Bylaws viewer on the
+     * onboarding site. Best-effort: a missing/corrupt logo resource just skips the watermark
+     * rather than failing the whole report, same policy as PdfBuilder's loadLogo(). */
+    private void addWatermark() {
+        byte[] png = buildWatermarkPng();
+        if (png == null) return;
+        try {
+            int pictureIdx = workbook.addPicture(png, Workbook.PICTURE_TYPE_PNG);
+            Drawing<?> drawing = sheet.createDrawingPatriarch();
+            ClientAnchor anchor = workbook.getCreationHelper().createClientAnchor();
+
+            int colSpan = Math.max(1, WATERMARK_TARGET_PX / DEFAULT_COL_WIDTH_PX);
+            int rowSpan = Math.max(1, WATERMARK_TARGET_PX / DEFAULT_ROW_HEIGHT_PX);
+            int centerCol = Math.max(0, (maxCols - colSpan) / 2);
+            int centerRow = Math.max(headerRowIndex + 1, headerRowIndex + 1 + (dataRowCount - rowSpan) / 2);
+            anchor.setCol1(centerCol);
+            anchor.setRow1(centerRow);
+
+            Picture picture = drawing.createPicture(anchor, pictureIdx);
+            picture.resize(1.0);
+        } catch (Exception e) {
+            // A watermark placement failure shouldn't take down the whole report export.
+        }
+    }
+
+    private static byte[] buildWatermarkPng() {
+        try (InputStream in = XlsxBuilder.class.getResourceAsStream(LOGO_RESOURCE)) {
+            if (in == null) return null;
+            BufferedImage src = ImageIO.read(in);
+            if (src == null) return null;
+
+            double scale = Math.min(
+                    (double) WATERMARK_TARGET_PX / src.getWidth(),
+                    (double) WATERMARK_TARGET_PX / src.getHeight());
+            int w = Math.max(1, (int) Math.round(src.getWidth() * scale));
+            int h = Math.max(1, (int) Math.round(src.getHeight() * scale));
+
+            BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = scaled.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(src, 0, 0, w, h, null);
+            g.dispose();
+
+            BufferedImage faded = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int argb = scaled.getRGB(x, y);
+                    int alpha = argb >>> 24;
+                    int fadedAlpha = (int) Math.round(alpha * WATERMARK_OPACITY);
+                    faded.setRGB(x, y, (fadedAlpha << 24) | (argb & 0x00FFFFFF));
+                }
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(faded, "png", out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            return null; // Missing/corrupt logo shouldn't fail report generation.
+        }
+    }
+
+    // Excel's own hard limit -- a value past this throws IllegalArgumentException deep inside POI
+    // and would fail the *entire* export over a single oversized cell. None of this app's real
+    // free-text fields (fine reasons, claim notes, etc.) come close, but truncating defensively
+    // here means one unexpectedly long value degrades gracefully instead of a vague 500.
+    private static final int EXCEL_MAX_CELL_TEXT = 32_767;
+
     private static void writeValue(Cell cell, Object value) {
         if (value == null) {
             cell.setCellValue("");
@@ -168,7 +253,11 @@ public final class XlsxBuilder implements TableBuilder {
         } else if (value instanceof Boolean b) {
             cell.setCellValue(b ? "Yes" : "No");
         } else {
-            cell.setCellValue(value.toString());
+            String text = value.toString();
+            if (text.length() > EXCEL_MAX_CELL_TEXT) {
+                text = text.substring(0, EXCEL_MAX_CELL_TEXT - 15) + "...[truncated]";
+            }
+            cell.setCellValue(text);
         }
     }
 }

@@ -24,6 +24,14 @@ public final class CsvBuilder implements TableBuilder {
         if (!firstCol) sb.append(',');
         firstCol = false;
         String v = value == null ? "" : value.toString();
+        // CSV injection guard: a cell that starts with =, +, -, @ or a tab gets parsed as a
+        // formula by Excel/Sheets on open, which is a real risk for free-text fields that
+        // ultimately came from user input (fine reasons, claim notes, loan purposes, etc.).
+        // Restricted to actual String values -- numeric types (BigDecimal amounts, negative
+        // balances) still go through as real negative numbers, not text-guarded strings.
+        if (value instanceof String && needsFormulaGuard(v)) {
+            v = "'" + v;
+        }
         // Escape: wrap in quotes if the value contains comma, quote, or newline.
         if (v.contains(",") || v.contains("\"") || v.contains("\n") || v.contains("\r")) {
             sb.append('"').append(v.replace("\"", "\"\"")).append('"');
@@ -31,6 +39,12 @@ public final class CsvBuilder implements TableBuilder {
             sb.append(v);
         }
         return this;
+    }
+
+    private static boolean needsFormulaGuard(String v) {
+        if (v.isEmpty()) return false;
+        char c = v.charAt(0);
+        return c == '=' || c == '+' || c == '-' || c == '@' || c == '\t';
     }
 
     @Override
