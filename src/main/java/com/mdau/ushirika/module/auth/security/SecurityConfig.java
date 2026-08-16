@@ -153,6 +153,15 @@ public class SecurityConfig {
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_ELECTIONS")
                         .requestMatchers("/admin/elections/**")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_ELECTIONS")
+                        // "Needs your attention" feed (Phase 1: applications + messages) -- broad enough to
+                        // admit anyone who might have something to see; the service itself filters each
+                        // item down to what the caller's specific role/capabilities/program assignments
+                        // actually allow, the same way SECRETARY only sees applications and a program
+                        // coordinator only sees their own program's messages.
+                        .requestMatchers(HttpMethod.GET, "/admin/action-items")
+                                .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP",
+                                        "ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_CHIEF_WHIP", "ROLE_COMPLIANCE",
+                                        "CAP_APPLICATIONS")
                         // Role-scoped dashboard summaries
                         .requestMatchers(HttpMethod.GET, "/admin/dashboard/records")
                                 .hasAnyAuthority("ROLE_SECRETARY", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_APPLICATIONS", "CAP_MEMBERS", "CAP_MEETINGS_ATTENDANCE")
