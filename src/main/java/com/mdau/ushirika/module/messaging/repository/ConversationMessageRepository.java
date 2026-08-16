@@ -12,4 +12,9 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
     List<ConversationMessage> findAllByThreadOrderByCreatedAtAsc(ConversationThread thread);
 
     long countByThreadIdAndFromMemberAndCreatedAtAfter(UUID threadId, boolean fromMember, java.time.LocalDateTime after);
+
+    /** Individual unread member messages in a thread, for per-message "needs attention" items --
+     * a member sending 3 messages before staff reads any of them should surface as 3 items, not 1. */
+    List<ConversationMessage> findAllByThreadAndFromMemberAndCreatedAtAfterOrderByCreatedAtAsc(
+            ConversationThread thread, boolean fromMember, java.time.LocalDateTime after);
 }

@@ -9,7 +9,9 @@ import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
+import com.mdau.ushirika.module.messaging.entity.ConversationMessage;
 import com.mdau.ushirika.module.messaging.entity.ConversationThread;
+import com.mdau.ushirika.module.messaging.repository.ConversationMessageRepository;
 import com.mdau.ushirika.module.messaging.repository.ConversationThreadRepository;
 import com.mdau.ushirika.module.program.entity.ProgramAdminAssignment;
 import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
@@ -38,8 +40,11 @@ public class ActionItemsService {
     private static final List<UserRole> GLOBAL_ADMIN_ROLES =
             List.of(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.LEADERSHIP);
 
+    private static final int PREVIEW_LENGTH = 80;
+
     private final MembershipApplicationRepository applicationRepository;
     private final ConversationThreadRepository threadRepository;
+    private final ConversationMessageRepository messageRepository;
     private final ProgramAdminAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
 
@@ -86,10 +91,7 @@ public class ActionItemsService {
         // General (unassigned) inbox — visible to admin-tier roles broadly.
         if (GLOBAL_ADMIN_ROLES.contains(me.getRole())) {
             for (ConversationThread t : threadRepository.findAllByProgramIdIsNullOrderByLastMessageAtDesc()) {
-                if (isUnread(t, t.getStaffLastReadAt())) {
-                    items.add(messageItem(t, "/admin/messages"));
-                    count++;
-                }
+                count += addUnreadMessageItems(t, "/admin/messages", items);
             }
         }
 
@@ -98,33 +100,45 @@ public class ActionItemsService {
         for (ProgramAdminAssignment assignment : assignments) {
             var programId = assignment.getProgram().getId();
             for (ConversationThread t : threadRepository.findAllByProgramIdOrderByLastMessageAtDesc(programId)) {
-                if (isUnread(t, t.getStaffLastReadAt())) {
-                    items.add(messageItem(t, "/admin/messages"));
-                    count++;
-                }
+                count += addUnreadMessageItems(t, "/admin/messages", items);
             }
         }
 
         return count;
     }
 
-    private boolean isUnread(ConversationThread t, LocalDateTime staffLastReadAt) {
-        return t.getLastMessageAt() != null
-                && (staffLastReadAt == null || staffLastReadAt.isBefore(t.getLastMessageAt()));
+    /**
+     * One item per unread member MESSAGE, not per thread — a member sending 3 messages before
+     * staff reads any of them surfaces as 3 distinct items (and 3 distinct toasts, since each has
+     * its own message ID), matching how a real inbox reads "3 unread" rather than "1 unread
+     * conversation". Each item's ID is the message's own ID, so it stays a genuinely new item on
+     * every poll until markGeneralThreadRead/markProgramThreadRead bumps staffLastReadAt past it.
+     */
+    private int addUnreadMessageItems(ConversationThread t, String link, List<ActionItemDto> items) {
+        if (t.getLastMessageAt() == null) return 0;
+        LocalDateTime since = t.getStaffLastReadAt() != null ? t.getStaffLastReadAt() : t.getCreatedAt();
+        List<ConversationMessage> unread =
+                messageRepository.findAllByThreadAndFromMemberAndCreatedAtAfterOrderByCreatedAtAsc(t, true, since);
+
+        for (ConversationMessage m : unread) {
+            String subtitle = t.getProgram() != null
+                    ? preview(m.getBody()) + " — " + t.getProgram().getName()
+                    : preview(m.getBody());
+            items.add(new ActionItemDto(
+                    m.getId().toString(),
+                    "MESSAGE",
+                    t.getMember().getFullName(),
+                    subtitle,
+                    link,
+                    m.getCreatedAt().toString()
+            ));
+        }
+        return unread.size();
     }
 
-    private ActionItemDto messageItem(ConversationThread t, String link) {
-        String subtitle = t.getProgram() != null
-                ? "New message — " + t.getProgram().getName()
-                : "New message";
-        return new ActionItemDto(
-                t.getId().toString(),
-                "MESSAGE",
-                t.getMember().getFullName(),
-                subtitle,
-                link,
-                t.getLastMessageAt().toString()
-        );
+    private String preview(String body) {
+        if (body == null) return "";
+        return body.length() > PREVIEW_LENGTH ? body.substring(0, PREVIEW_LENGTH) + "…" : body;
     }
 
     private User currentUser() {

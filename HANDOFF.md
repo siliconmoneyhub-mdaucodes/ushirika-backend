@@ -407,6 +407,54 @@ reuse-vs-new-system, V1 scope — all answered, see below), built and shipped Ph
   page actually render and update correctly with real data (a real SUBMITTED application or unread
   message would be the cleanest test).
 
+### 🔴 Incident, same day: production admin panel was down for ~12 hours
+
+**What happened**: the sidebar reorg commit (`1c7f8f5`, 2026-08-15 23:25) introduced a real
+`ReferenceError: dev is not defined` in `SidebarContent` (`src/routes/admin.tsx`) —
+`{ primary, content, system, dev }` was destructured from `getNav(user)` *inside* an IIFE used
+only to render the primary/content/system nav sections, but `dev` was then referenced *outside*
+that IIFE (the "Developer Tools" section). Since `SidebarContent` renders in the layout shared by
+every `/admin/*` route, this crashed **the entire admin panel** for any admin/superadmin who
+visited, from that commit until the fix. `npm run build`/`vite build` did not catch it (a
+scoping bug like this isn't a type error), and the automated `npx tsc --noEmit` check I ran that
+session also didn't (same reason). Caught only because the user hit it live and screenshotted the
+console error.
+
+**Fixed** (`82d4280`): hoisted `const { dev } = getNav(user);` to the component's top-level scope
+where it's actually used, instead of trapped inside the inner IIFE. Verified via `npm run build`
++ `npx tsc --noEmit` filtered to the touched files, then pushed immediately as a hotfix. **Lesson
+for future sessions**: a clean `npm run build` proves the code compiles, not that it runs
+correctly — for anything touching a shared layout component (rendered on every page, like
+`admin.tsx`), a real click-through (even just loading `/admin` once) matters more than usual,
+since a bug there takes down everything at once rather than one page.
+
+Also confirmed during this incident: the Payment Links tab removal from `1c7f8f5` was real and
+correct — the user just couldn't see the sidebar at all to verify it, because of this crash.
+
+### 2026-08-16, later: proactive toast notifications for action items
+
+User feedback on the Phase 1 build: the bell/badge system only updates *passively* — nothing
+alerted an admin who wasn't already looking at the bell when a new application or message came
+in. Confirmed the underlying badge/dropdown mechanism itself works correctly (verified live by the
+user: bell showed a real unread message from a real member, with correct preview and link).
+Requested something "more aggressive... like WhatsApp... premium... without disruptions."
+
+Built: `useActionItems()` now tracks which item IDs have already been seen (a ref-backed set) and
+exposes `newItems` — anything that appears on a poll *after* the first load, so opening the panel
+with 4 already-pending applications doesn't flood-toast all 4 at once, only genuinely new arrivals
+do. New `ActionItemToastStack` (`src/components/admin/ActionItemToast.tsx`) renders up to 4 toasts
+stacked bottom-right, icon + title + preview, slide-in animation, 8s auto-dismiss, click-through to
+the item or manual dismiss, `pointer-events-none` on the container so nothing blocks interaction
+with the rest of the page except the toast cards themselves. Pushed (`82fcd0c`).
+
+**Not yet click-tested live** — same limitation as the rest of Phase 1 (no admin credentials on
+my end); the user verified the badge/dropdown live but hasn't yet seen a live toast fire.
+
+**Still open, raised by the user but not yet scoped/built**: whether the member-facing portal
+should get an equivalent proactive-toast treatment (e.g., a member sees a toast when admin replies
+to their message) — Phase 1 was deliberately admin-only per the original scoping pass; this would
+be new scope, not an extension of what exists. Ask before building.
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
