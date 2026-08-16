@@ -455,6 +455,44 @@ should get an equivalent proactive-toast treatment (e.g., a member sees a toast 
 to their message) — Phase 1 was deliberately admin-only per the original scoping pass; this would
 be new scope, not an extension of what exists. Ask before building.
 
+### Same day, continued: 3 bugs from live user testing, then Phase 2
+
+User live-tested the bell/toast/badges by sending several real messages from a member portal
+account while watching the admin side. Found real bugs, all fixed and pushed:
+
+1. **Badge stayed stale after reading a thread.** `admin/messages.tsx` correctly calls
+   `adminMarkMessageThreadRead()` on open (verified by reading the code), but the shared
+   `useActionItems()` poll only re-fetches every 45s, so the badge/dropdown didn't reflect the
+   read state until the next tick. Fixed: `AdminLayout` now also re-fetches ~1.5s after every
+   route change (`useLocation().pathname` as the trigger), giving the destination page's
+   mark-as-read call time to land first.
+2. **No toast fired for a second message in the same thread.** Root cause: message action items
+   were keyed by **thread ID**, and thread ID doesn't change when a new message arrives in an
+   already-known thread — so the "is this a new item?" check in `useActionItems` never saw it as
+   new. Fixed by redesigning messages to be **per-message, not per-thread**: new repository method
+   `findAllByThreadAndFromMemberAndCreatedAtAfterOrderByCreatedAtAsc`, one `ActionItemDto` per
+   unread member message keyed by the message's own ID, with the real message body as the preview
+   (truncated to 80 chars) instead of a generic "New message" label.
+3. **User's explicit ask**: "if it is multiple messages we must show that the number and each
+   separately" — directly satisfied by fix #2 (3 unread messages in one thread now show as 3 items
+   and 3 toasts, not 1).
+
+**Phase 2 shipped the same session**: added Benevolence (join requests + claims), MGR (join
+requests), Meetings (attendance excuses), Elections (candidacies) to the feed — see
+`ActionItemsService` for the full per-domain authorization mapping, each mirroring that domain's
+own existing access rule (e.g. Benevolence/MGR join requests require actual
+`ProgramAdminAssignment` coordinator status, not just an admin-tier role — pulled straight from
+`BenevolenceEnrollmentService`/`MgrService`'s own `requireXCoordinatorAccess()` checks so the feed
+never shows someone an item they can't actually act on).
+
+**Still not click-tested live by either of us** — the user was mid-test when this round of fixes
+went out; next step is confirming the toast now fires for a second message in the same thread, and
+that the new Benevolence/MGR/Meetings/Elections badges show real counts.
+
+**Deferred, needs a decision before building**: whether the member-facing portal should get an
+equivalent proactive toast (e.g. a member sees a popup when admin replies) — raised twice now by
+the user, still not scoped. Everything built so far is admin-only.
+
 ## In progress right now: creating a fresh test member to run the *entire* new flow
 
 The user asked to create a brand-new member from scratch via the real public onboarding flow (not
