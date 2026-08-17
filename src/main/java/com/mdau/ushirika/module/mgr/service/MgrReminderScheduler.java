@@ -9,8 +9,9 @@ import com.mdau.ushirika.module.mgr.repository.MgrCycleRepository;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.notification.service.SmsService;
-import com.mdau.ushirika.module.notification.service.WhatsAppService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +43,7 @@ public class MgrReminderScheduler {
     private final MgrContributionRepository contributionRepository;
     private final EmailService             emailService;
     private final SmsService               smsService;
-    private final WhatsAppService          whatsAppService;
+    private final NotificationDispatcher   notificationDispatcher;
     private final InAppNotificationService notificationService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
@@ -100,21 +101,16 @@ public class MgrReminderScheduler {
                         if (user.getPhone() != null) {
                             try { smsService.send(user.getPhone(), user.getFullName(), subject + "\n" + body); }
                             catch (Exception e) { log.warn("MGR SMS failed for {}: {}", user.getPhone(), e.getMessage()); }
+                        }
 
-                            // First live WhatsApp call-site (bolt-on, additive) -- kept alongside the
-                            // existing email/SMS sends rather than replacing them, since this channel
-                            // is unproven in production. Once confirmed reliable, the split-by-type
-                            // policy can retire the SMS/email duplication for this category.
-                            try {
-                                whatsAppService.sendTemplate(user.getPhone(), user.getFullName(), "payment_reminder", List.of(
+                        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PAYMENT_REMINDER,
+                                user.getPhone(), user.getFullName(), List.of(
                                         user.getFullName(),
                                         "MGR contribution (Month " + currentMonth + " of " + cycle.getName() + ")",
                                         cycle.getMonthlyContribution().toPlainString(),
                                         formattedCutoff,
                                         siteUrl + "/portal/mgr"
                                 ));
-                            } catch (Exception e) { log.warn("MGR WhatsApp failed for {}: {}", user.getPhone(), e.getMessage()); }
-                        }
 
                         notificationService.createForUser(
                                 user.getId(),
@@ -156,6 +152,15 @@ public class MgrReminderScheduler {
                             try { smsService.send(user.getPhone(), user.getFullName(), subject + "\n" + body); }
                             catch (Exception e) { log.warn("MGR past-due SMS failed for {}: {}", user.getPhone(), e.getMessage()); }
                         }
+
+                        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PAYMENT_REMINDER,
+                                user.getPhone(), user.getFullName(), List.of(
+                                        user.getFullName(),
+                                        "overdue MGR contribution (Month " + pm + " of " + cycle.getName() + ")",
+                                        cycle.getMonthlyContribution().toPlainString(),
+                                        "as soon as possible",
+                                        siteUrl + "/portal/mgr"
+                                ));
 
                         notificationService.createForUser(
                                 user.getId(),

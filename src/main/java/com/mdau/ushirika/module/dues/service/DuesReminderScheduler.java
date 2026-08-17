@@ -6,9 +6,12 @@ import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.notification.service.SmsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +36,11 @@ public class DuesReminderScheduler {
     private final MembershipDueRepository dueRepository;
     private final EmailService            emailService;
     private final SmsService              smsService;
+    private final NotificationDispatcher  notificationDispatcher;
     private final InAppNotificationService notificationService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     @Scheduled(cron = "0 0 7 * * *")
     public void sendDuesReminders() {
@@ -60,6 +67,15 @@ public class DuesReminderScheduler {
                     try { smsService.send(user.getPhone(), user.getFullName(), subject + "\n" + message); }
                     catch (Exception e) { log.warn("Dues SMS failed for {}: {}", user.getPhone(), e.getMessage()); }
                 }
+
+                notificationDispatcher.dispatchWhatsApp(NotificationCategory.PAYMENT_REMINDER,
+                        user.getPhone(), user.getFullName(), List.of(
+                                user.getFullName(),
+                                "annual membership dues",
+                                "100.00",
+                                formattedDate,
+                                siteUrl + "/portal/payments"
+                        ));
 
                 notificationService.createForUser(
                         user.getId(),

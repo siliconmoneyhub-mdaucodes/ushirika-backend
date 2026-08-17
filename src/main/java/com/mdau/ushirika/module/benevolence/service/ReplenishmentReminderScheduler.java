@@ -9,9 +9,12 @@ import com.mdau.ushirika.module.benevolence.repository.ReplenishmentPaymentRepos
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.notification.service.SmsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -40,7 +43,11 @@ public class ReplenishmentReminderScheduler {
     private final ReplenishmentPaymentRepository     paymentRepository;
     private final EmailService                       emailService;
     private final SmsService                         smsService;
+    private final NotificationDispatcher             notificationDispatcher;
     private final InAppNotificationService           notificationService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     @Scheduled(cron = "0 30 8 * * *")
     public void sendReplenishmentReminders() {
@@ -75,6 +82,15 @@ public class ReplenishmentReminderScheduler {
                     try { smsService.send(user.getPhone(), user.getFullName(), subject + "\n" + body); }
                     catch (Exception e) { log.warn("Replenishment SMS failed for {}: {}", user.getPhone(), e.getMessage()); }
                 }
+
+                notificationDispatcher.dispatchWhatsApp(NotificationCategory.PAYMENT_REMINDER,
+                        user.getPhone(), user.getFullName(), List.of(
+                                user.getFullName(),
+                                "benevolence replenishment",
+                                payment.getAmountDue().toPlainString(),
+                                formattedDue,
+                                siteUrl + "/portal/benevolence"
+                        ));
 
                 try {
                     notificationService.createForUser(
