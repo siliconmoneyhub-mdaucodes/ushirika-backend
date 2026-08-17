@@ -13,7 +13,14 @@ import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
+import com.mdau.ushirika.module.notification.service.EmailService;
+import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BenevolenceClaimService {
@@ -41,6 +49,12 @@ public class BenevolenceClaimService {
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
     private final AuditLogService auditLogService;
+    private final EmailService emailService;
+    private final NotificationDispatcher notificationDispatcher;
+    private final InAppNotificationService notificationService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     // ── Member: Submit Claim ──────────────────────────────────────────────────
 
@@ -101,6 +115,8 @@ public class BenevolenceClaimService {
         auditLogService.log(user, "CLAIM_SUBMITTED", "BenevolenceClaim", claim.getId(),
                 "Benevolence claim " + claim.getReferenceNumber() + " submitted by " + user.getFullName()
                         + " for " + req.deceasedName());
+        notifyClaimUpdate(claim, "has been received and is now under review",
+                "Your Benevolence Claim Was Received — " + claim.getReferenceNumber());
         return BenevolenceClaimDto.from(claim, memberId(user));
     }
 
@@ -169,6 +185,16 @@ public class BenevolenceClaimService {
                 "Benevolence claim " + claim.getReferenceNumber() + " for "
                         + claim.getEnrollment().getUser().getFullName() + " marked " + claim.getStatus()
                         + " by " + admin.getFullName());
+
+        switch (decision) {
+            case "APPROVE" -> notifyClaimUpdate(claim, "has been approved for $" + claim.getAmountApproved(),
+                    "Your Benevolence Claim Was Approved — " + claim.getReferenceNumber());
+            case "REJECT" -> notifyClaimUpdate(claim,
+                    "was not approved" + (req.rejectionReason() != null ? " (" + req.rejectionReason() + ")" : ""),
+                    "Update on Your Benevolence Claim — " + claim.getReferenceNumber());
+            default -> { /* UNDER_REVIEW is a transitional internal state -- no member notification. */ }
+        }
+
         return BenevolenceClaimDto.from(claim, memberId(claim.getEnrollment().getUser()));
     }
 
@@ -209,7 +235,58 @@ public class BenevolenceClaimService {
                 "Claim " + claim.getReferenceNumber() + " ($" + claim.getAmountApproved()
                         + ") marked disbursed by " + admin.getFullName(),
                 claim.getAmountApproved(), LedgerDirection.OUT);
+        notifyClaimUpdate(claim, "of $" + claim.getAmountApproved() + " has been disbursed",
+                "Your Benevolence Claim Payment Has Been Sent — " + claim.getReferenceNumber());
         return BenevolenceClaimDto.from(claim, memberId(claim.getEnrollment().getUser()));
+    }
+
+    /** Notifies the member of a status change on their claim via email + WhatsApp + in-app --
+     * previously this service sent no notification of any kind, so this is new infrastructure,
+     * not a channel bolted onto an existing send. statusPhrase completes "Your claim {ref} ...",
+     * e.g. "has been approved for $500" or "was not approved (reason)". */
+    private void notifyClaimUpdate(BenevolenceClaim claim, String statusPhrase, String subject) {
+        User user = claim.getEnrollment().getUser();
+        String portalUrl = siteUrl + "/portal/benevolence";
+        String html = """
+                <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px">
+                  <h2 style="color:#007834">Benevolence Claim Update</h2>
+                  <p>Hi %s,</p>
+                  <p>Your claim <strong>%s</strong> %s.</p>
+                  <p>
+                    <a href="%s" style="display:inline-block;background:#007834;color:#fff;
+                       padding:10px 22px;border-radius:999px;text-decoration:none;font-weight:600">
+                      View My Claim &rarr;
+                    </a>
+                  </p>
+                  <p>— Ushirika Welfare Organization Team</p>
+                </div>
+                """.formatted(user.getFirstName(), claim.getReferenceNumber(), statusPhrase, portalUrl);
+
+        try {
+            emailService.sendPlain(user.getEmail(), user.getFullName(), subject, html);
+        } catch (Exception e) {
+            log.warn("Benevolence claim update email failed for {}: {}", user.getEmail(), e.getMessage());
+        }
+
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.WELFARE_CLAIM_UPDATE,
+                user.getPhone(), user.getFullName(), List.of(
+                        user.getFullName(),
+                        claim.getReferenceNumber(),
+                        statusPhrase,
+                        portalUrl
+                ));
+
+        try {
+            notificationService.createForUser(
+                    user.getId(),
+                    InAppNotificationCategory.WELFARE_CLAIM,
+                    subject,
+                    "Your claim " + claim.getReferenceNumber() + " " + statusPhrase + ".",
+                    "/portal/benevolence"
+            );
+        } catch (Exception e) {
+            log.warn("Benevolence claim update in-app notification failed for {}: {}", user.getEmail(), e.getMessage());
+        }
     }
 
     // ── Admin: Replenishments ─────────────────────────────────────────────────
