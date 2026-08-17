@@ -787,6 +787,14 @@ public class MgrService {
 
         for (MgrSlot slot : allSlots) {
             emailService.sendPlain(slot.getUser().getEmail(), slot.getUser().getFullName(), subject, html);
+            notificationDispatcher.dispatchWhatsApp(NotificationCategory.MGR_DRAW_RESULT,
+                    slot.getUser().getPhone(), slot.getUser().getFullName(), List.of(
+                            slot.getUser().getFullName(),
+                            cycle.getName(),
+                            names,
+                            amount,
+                            portalUrl
+                    ));
         }
     }
 
@@ -812,6 +820,16 @@ public class MgrService {
                 slot.getPaymentReference() != null ? slot.getPaymentReference() : "N/A",
                 portal);
         emailService.sendPlain(email, name, "Your MGR Payout Has Been Disbursed — Ushirika Welfare Organization", html);
+
+        // Reuses the PROGRAM_ACTION_REQUIRED template (generic "here's what to do" shape) rather
+        // than a dedicated one -- "please confirm receipt" fits that shape exactly, no need for a
+        // separate MGR_DRAW_RESULT template just for this single-recipient payout confirmation.
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+                slot.getUser().getPhone(), name, List.of(
+                        name,
+                        "Your MGR payout of " + amount + " has been sent — please confirm receipt in your portal.",
+                        portal
+                ));
     }
 
     /** Sent when the coordinator sends the applicant the info form (PENDING -> FORM_SENT).
