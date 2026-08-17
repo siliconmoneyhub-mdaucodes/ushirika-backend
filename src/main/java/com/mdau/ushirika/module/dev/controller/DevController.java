@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.dev.controller;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.notification.service.EmailService;
+import com.mdau.ushirika.module.notification.service.WhatsAppService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -26,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 public class DevController {
 
     private final EmailService emailService;
+    private final WhatsAppService whatsAppService;
 
     public record TestEmailRequest(
             @Email @NotBlank String to,
@@ -75,5 +78,37 @@ public class DevController {
             log.error("[dev/test-email] Failed to send test email to {}: {}", req.to(), e.getMessage());
             throw new BadRequestException("Email dispatch failed: " + e.getMessage());
         }
+    }
+
+    public record TestWhatsAppRequest(
+            @NotBlank String to,
+            String templateName,
+            List<String> params
+    ) {}
+
+    public record TestWhatsAppResult(boolean sent, String message, String sentAt) {}
+
+    /** Defaults to Meta's built-in "hello_world" sample template (no params, always approved) so
+     * this works even before any custom template has cleared review -- pass a real templateName
+     * + matching params once one has been approved. */
+    @PostMapping("/test-whatsapp")
+    @Operation(summary = "Send a test WhatsApp template message to verify Cloud API delivery is working")
+    public ResponseEntity<ApiResponse<TestWhatsAppResult>> testWhatsApp(
+            @Valid @RequestBody TestWhatsAppRequest req
+    ) {
+        String templateName = (req.templateName() != null && !req.templateName().isBlank())
+                ? req.templateName() : "hello_world";
+        List<String> params = req.params() != null ? req.params() : List.of();
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        whatsAppService.sendTemplate(req.to(), req.to(), templateName, params);
+        log.info("[dev/test-whatsapp] Test WhatsApp queued to {} using template '{}'", req.to(), templateName);
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                "Test WhatsApp message queued to " + req.to(),
+                new TestWhatsAppResult(true,
+                        "Message queued (sends async). Check WhatsApp on that phone and the notification_logs table for delivery status.",
+                        now)
+        ));
     }
 }
