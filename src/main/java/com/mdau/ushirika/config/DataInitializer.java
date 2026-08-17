@@ -346,6 +346,11 @@ public class DataInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS cycle_opt_in BOOLEAN");
         jdbcTemplate.execute("ALTER TABLE mgr_join_requests ADD COLUMN IF NOT EXISTS cycle_responded_at TIMESTAMP");
 
+        // WHATSAPP added to NotificationChannel -- same stale-check-constraint trap as every other
+        // @Enumerated(STRING) column in this schema. Defensive: harmless no-op if no constraint
+        // was ever auto-generated for this column, but cheap insurance if one was.
+        jdbcTemplate.execute("ALTER TABLE notification_logs DROP CONSTRAINT IF EXISTS notification_logs_channel_check");
+
         // enrollment_open is retired -- MGR applications are now always accepted (queued via
         // WAITLISTED/ADMITTED status instead of a per-cycle open/closed gate).
         jdbcTemplate.execute("ALTER TABLE mgr_cycles DROP COLUMN IF EXISTS enrollment_open");

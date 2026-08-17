@@ -119,6 +119,11 @@ app:
     username: ${AT_USERNAME:NOT_SET}
     sender-id: ${AT_SENDER_ID:USHIRIKA}
 
+  # WhatsApp (Meta Cloud API)
+  whatsapp:
+    access-token: ${WHATSAPP_ACCESS_TOKEN:NOT_SET}
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:NOT_SET}
+
   # Cloudinary (media)
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:NOT_SET}
