@@ -14,6 +14,8 @@ import com.mdau.ushirika.module.mgr.entity.*;
 import com.mdau.ushirika.module.mgr.enums.*;
 import com.mdau.ushirika.module.mgr.repository.*;
 import com.mdau.ushirika.module.notification.service.EmailService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.program.entity.Program;
 import com.mdau.ushirika.module.program.enums.ProgramType;
 import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
@@ -43,6 +45,7 @@ public class MgrService {
     private final MemberProfileRepository profileRepo;
     private final UserRepository userRepo;
     private final EmailService emailService;
+    private final NotificationDispatcher notificationDispatcher;
     private final ProgramRepository programRepo;
     private final ProgramAdminAssignmentRepository programAdminAssignmentRepo;
 
@@ -848,6 +851,13 @@ public class MgrService {
         } catch (Exception e) {
             log.warn("MGR form-sent email failed for {}: {}", r.getUser().getEmail(), e.getMessage());
         }
+
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+                r.getUser().getPhone(), name, List.of(
+                        name,
+                        "Your MGR application is ready — confirm in your portal to join the waitlist. No payment needed.",
+                        portal
+                ));
     }
 
     /** Sent when the member confirms and lands on the waitlist (FORM_SENT -> WAITLISTED). */
@@ -902,6 +912,13 @@ public class MgrService {
         } catch (Exception e) {
             log.warn("MGR cycle-invite email failed for {}: {}", r.getUser().getEmail(), e.getMessage());
         }
+
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+                r.getUser().getPhone(), name, List.of(
+                        name,
+                        cycle.getName() + " is opening — respond in your portal to join this cycle or keep waiting.",
+                        portal
+                ));
     }
 
     /** Sent when a waitlisted member is actually swept into a real cycle at that cycle's activation. */

@@ -21,3 +21,4 @@ public enum NotificationCategory {
     /** Welfare claim status updates. */
     WELFARE_CLAIM_UPDATE
 }
+

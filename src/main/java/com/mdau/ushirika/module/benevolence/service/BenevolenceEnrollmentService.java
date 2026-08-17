@@ -17,6 +17,8 @@ import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.notification.service.EmailService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.payment.service.PlatformSettingsService;
 import com.mdau.ushirika.module.program.entity.Program;
 import com.mdau.ushirika.module.program.enums.ProgramType;
@@ -57,6 +59,7 @@ public class BenevolenceEnrollmentService {
     private final UserRepository userRepo;
     private final AuditLogService auditLogService;
     private final EmailService emailService;
+    private final NotificationDispatcher notificationDispatcher;
     private final ProgramRepository programRepo;
     private final ProgramAdminAssignmentRepository programAdminAssignmentRepo;
     private final PlatformSettingsService platformSettingsService;
@@ -408,6 +411,13 @@ public class BenevolenceEnrollmentService {
         } catch (Exception e) {
             log.warn("Benevolence form-sent email failed for {}: {}", user.getEmail(), e.getMessage());
         }
+
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+                user.getPhone(), user.getFullName(), List.of(
+                        user.getFullName(),
+                        "Your Benevolence application is ready to complete — list your beneficiaries and pay at least $100 to submit.",
+                        siteUrl + "/portal/benevolence"
+                ));
     }
 
     private void sendEnrolledEmail(User user) {

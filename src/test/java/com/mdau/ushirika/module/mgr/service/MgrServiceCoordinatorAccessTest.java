@@ -46,6 +46,7 @@ class MgrServiceCoordinatorAccessTest {
     @Mock private MemberProfileRepository profileRepo;
     @Mock private UserRepository userRepo;
     @Mock private EmailService emailService;
+    @Mock private com.mdau.ushirika.module.notification.service.NotificationDispatcher notificationDispatcher;
     @Mock private ProgramRepository programRepo;
     @Mock private ProgramAdminAssignmentRepository programAdminAssignmentRepo;
 
@@ -55,7 +56,7 @@ class MgrServiceCoordinatorAccessTest {
     @BeforeEach
     void setUp() {
         service = new MgrService(cycleRepo, slotRepo, contributionRepo, joinRequestRepo,
-                profileRepo, userRepo, emailService, programRepo, programAdminAssignmentRepo);
+                profileRepo, userRepo, emailService, notificationDispatcher, programRepo, programAdminAssignmentRepo);
 
         Program mgrProgram = Program.builder().name("MGR").type(ProgramType.MGR).build();
         mgrProgramId = UUID.randomUUID();

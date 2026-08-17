@@ -9,9 +9,12 @@ import com.mdau.ushirika.module.event.repository.EventRepository;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
+import com.mdau.ushirika.module.notification.service.NotificationCategory;
+import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.notification.service.SmsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +40,11 @@ public class EventUpcomingReminderScheduler {
     private final EventRegistrationRepository registrationRepository;
     private final EmailService                emailService;
     private final SmsService                  smsService;
+    private final NotificationDispatcher      notificationDispatcher;
     private final InAppNotificationService    notificationService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     @Scheduled(cron = "0 */15 * * * *")
     public void sendUpcomingReminders() {
@@ -95,6 +102,14 @@ public class EventUpcomingReminderScheduler {
                 try { smsService.send(phone, name, subject + "\n" + body); }
                 catch (Exception e) { log.warn("Event upcoming-reminder SMS failed for {}: {}", phone, e.getMessage()); }
             }
+
+            notificationDispatcher.dispatchWhatsApp(NotificationCategory.MEETING_EVENT_REMINDER,
+                    phone, name, List.of(
+                            name,
+                            event.getTitle(),
+                            formattedDate,
+                            siteUrl + "/portal/events"
+                    ));
 
             if (registration.isMemberRegistration()) {
                 notificationService.createForUser(
