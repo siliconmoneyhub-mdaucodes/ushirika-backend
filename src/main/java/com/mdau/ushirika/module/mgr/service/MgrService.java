@@ -821,13 +821,10 @@ public class MgrService {
                 portal);
         emailService.sendPlain(email, name, "Your MGR Payout Has Been Disbursed — Ushirika Welfare Organization", html);
 
-        // Reuses the PROGRAM_ACTION_REQUIRED template (generic "here's what to do" shape) rather
-        // than a dedicated one -- "please confirm receipt" fits that shape exactly, no need for a
-        // separate MGR_DRAW_RESULT template just for this single-recipient payout confirmation.
-        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PAYOUT_CONFIRMATION,
                 slot.getUser().getPhone(), name, List.of(
                         name,
-                        "Your MGR payout of " + amount + " has been sent — please confirm receipt in your portal.",
+                        slot.getPayoutAmount().toPlainString(),
                         portal
                 ));
     }
@@ -870,10 +867,10 @@ public class MgrService {
             log.warn("MGR form-sent email failed for {}: {}", r.getUser().getEmail(), e.getMessage());
         }
 
-        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.APPLICATION_READY,
                 r.getUser().getPhone(), name, List.of(
                         name,
-                        "Your MGR application is ready — confirm in your portal to join the waitlist. No payment needed.",
+                        "MGR",
                         portal
                 ));
     }
@@ -931,10 +928,10 @@ public class MgrService {
             log.warn("MGR cycle-invite email failed for {}: {}", r.getUser().getEmail(), e.getMessage());
         }
 
-        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.CYCLE_INVITE,
                 r.getUser().getPhone(), name, List.of(
                         name,
-                        cycle.getName() + " is opening — respond in your portal to join this cycle or keep waiting.",
+                        cycle.getName(),
                         portal
                 ));
     }

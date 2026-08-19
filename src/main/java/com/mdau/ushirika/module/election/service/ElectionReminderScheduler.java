@@ -100,8 +100,8 @@ public class ElectionReminderScheduler {
         notificationDispatcher.dispatchWhatsApp(NotificationCategory.ELECTION_REMINDER,
                 member.getPhone(), member.getFullName(), List.of(
                         member.getFullName(),
-                        "Voting for " + election.getTitle() + " closes " + when.toLowerCase()
-                                + " and you haven't finished casting your vote for every seat.",
+                        election.getTitle(),
+                        when.toLowerCase() + " (" + formattedClose + ")",
                         portalUrl
                 ));
 

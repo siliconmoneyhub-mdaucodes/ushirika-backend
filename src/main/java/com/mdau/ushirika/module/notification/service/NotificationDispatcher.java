@@ -33,8 +33,12 @@ public class NotificationDispatcher {
      * review; no call-site changes needed. */
     private static final Map<NotificationCategory, String> TEMPLATES = Map.of(
             NotificationCategory.PAYMENT_REMINDER, "payment_reminder"
-            // MEETING_EVENT_REMINDER, PROGRAM_ACTION_REQUIRED, MGR_DRAW_RESULT, ELECTION_REMINDER,
-            // WELFARE_CLAIM_UPDATE: no approved template yet -- add here once one clears review.
+            // MEETING_EVENT_REMINDER -> event_reminder, APPLICATION_READY -> application_ready,
+            // CYCLE_INVITE -> cycle_invite, PAYOUT_CONFIRMATION -> payout_confirmation,
+            // MGR_DRAW_RESULT -> mgr_draw_result, ELECTION_REMINDER -> election_reminder,
+            // WELFARE_CLAIM_UPDATE -> claim_update: none approved yet -- add here once each
+            // clears review (Map.of() above needs switching to Map.ofEntries(...) once more than
+            // one entry is active).
     );
 
     /**

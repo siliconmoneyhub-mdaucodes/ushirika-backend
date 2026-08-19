@@ -412,10 +412,10 @@ public class BenevolenceEnrollmentService {
             log.warn("Benevolence form-sent email failed for {}: {}", user.getEmail(), e.getMessage());
         }
 
-        notificationDispatcher.dispatchWhatsApp(NotificationCategory.PROGRAM_ACTION_REQUIRED,
+        notificationDispatcher.dispatchWhatsApp(NotificationCategory.APPLICATION_READY,
                 user.getPhone(), user.getFullName(), List.of(
                         user.getFullName(),
-                        "Your Benevolence application is ready to complete — list your beneficiaries and pay at least $100 to submit.",
+                        "Benevolence",
                         siteUrl + "/portal/benevolence"
                 ));
     }
