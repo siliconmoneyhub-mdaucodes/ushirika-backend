@@ -131,11 +131,6 @@ app:
     access-token: ${WHATSAPP_ACCESS_TOKEN:NOT_SET}
     phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:NOT_SET}
 
-  # Cloudflare Turnstile (CAPTCHA on public forms) -- verification no-ops entirely while
-  # TURNSTILE_SECRET_KEY is unset, see TurnstileVerificationService.
-  turnstile:
-    secret-key: ${TURNSTILE_SECRET_KEY:NOT_SET}
-
   # Cloudinary (media)
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:NOT_SET}

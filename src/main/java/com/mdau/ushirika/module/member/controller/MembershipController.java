@@ -1,7 +1,7 @@
 package com.mdau.ushirika.module.member.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
-import com.mdau.ushirika.common.service.TurnstileVerificationService;
+import com.mdau.ushirika.common.service.SimpleCaptchaService;
 import com.mdau.ushirika.module.member.dto.ApplicationTrackDto;
 import com.mdau.ushirika.module.member.dto.MembershipApplicationRequest;
 import com.mdau.ushirika.module.member.dto.PublicMembershipApplicationRequest;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class MembershipController {
 
     private final MembershipService membershipService;
-    private final TurnstileVerificationService turnstileVerificationService;
+    private final SimpleCaptchaService captchaService;
 
     // ------------------------------------------------------------------ Public
 
@@ -36,7 +36,7 @@ public class MembershipController {
     @Operation(summary = "Submit a public membership enquiry (no auth required)")
     public ResponseEntity<ApiResponse<ApplicationTrackDto>> submitPublic(
             @Valid @RequestBody PublicMembershipApplicationRequest req) {
-        turnstileVerificationService.verify(req.captchaToken());
+        captchaService.verify(req.captchaToken(), req.captchaAnswer(), req.honeypot());
         ApplicationTrackDto result = membershipService.submitPublicApplication(req);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Application submitted. Track with reference: " + result.referenceNumber(), result));

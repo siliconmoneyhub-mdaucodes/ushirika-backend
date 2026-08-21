@@ -26,5 +26,7 @@ public record ContactMessageRequest(
         @Size(max = 5000)
         String body,
 
-        String captchaToken
+        String captchaToken,
+        Integer captchaAnswer,
+        String honeypot
 ) {}

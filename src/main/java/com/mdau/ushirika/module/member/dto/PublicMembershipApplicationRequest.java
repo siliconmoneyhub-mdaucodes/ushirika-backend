@@ -15,5 +15,7 @@ public record PublicMembershipApplicationRequest(
         @NotBlank(message = "Kenya county is required") String kenyaCounty,
         @NotBlank(message = "Sub-tribe is required") String subtribe,
         @NotBlank(message = "Eligibility is required") String eligibility,
-        String captchaToken
+        String captchaToken,
+        Integer captchaAnswer,
+        String honeypot
 ) {}
