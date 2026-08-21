@@ -14,7 +14,10 @@ import com.mdau.ushirika.module.attendance.repository.MeetingRepository;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.member.enums.MemberStatus;
+import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.member.service.MemberStatusChangeService;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
@@ -47,6 +50,7 @@ public class MeetingService {
     private final InAppNotificationService inAppNotificationService;
     private final EmailService emailService;
     private final FineService fineService;
+    private final MemberStatusChangeService statusChangeService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -374,9 +378,12 @@ public class MeetingService {
 
         int consecutive = countConsecutiveAbsences(user);
         if (consecutive >= 2) {
+            MemberStatus previousStatus = MemberStatusChangeService.statusOf(user.isActive(), user.isMembershipCeased());
             user.setMembershipCeased(true);
             user.setActive(false);
             userRepository.save(user);
+            statusChangeService.record(user, previousStatus, MemberStatus.CEASED,
+                    MemberStatusReason.ATTENDANCE_CEASED, null, "Missed 2 consecutive quarterly meetings");
             sendCessationNotifications(user);
         } else if (consecutive == 1) {
             sendAtRiskWarning(user);

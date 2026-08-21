@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.entity.BaseEntity;
 import com.mdau.ushirika.module.auth.enums.Capability;
 import com.mdau.ushirika.module.auth.enums.OfficialTitle;
 import com.mdau.ushirika.module.auth.enums.UserRole;
+import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -117,6 +118,16 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "membership_ceased", nullable = false)
     @Builder.Default
     private boolean membershipCeased = false;
+
+    /** Denormalized snapshot of the most recent active/membershipCeased transition -- fast reads
+     * (member portal notice, reports) without joining member_status_changes every time. The full
+     * history lives there; see MemberStatusChangeService. Null until the first tracked change. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "current_status_reason", length = 30)
+    private MemberStatusReason currentStatusReason;
+
+    @Column(name = "current_status_changed_at")
+    private LocalDateTime currentStatusChangedAt;
 
     /**
      * Granular admin permissions attached to this user independent of {@link #role} — see

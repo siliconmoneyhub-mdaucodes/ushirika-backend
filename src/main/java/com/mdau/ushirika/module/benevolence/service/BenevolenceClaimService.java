@@ -1,9 +1,11 @@
 package com.mdau.ushirika.module.benevolence.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
+import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.benevolence.dto.*;
 import com.mdau.ushirika.module.benevolence.entity.*;
@@ -18,6 +20,10 @@ import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
 import com.mdau.ushirika.module.notification.service.NotificationCategory;
 import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
+import com.mdau.ushirika.module.program.entity.Program;
+import com.mdau.ushirika.module.program.enums.ProgramType;
+import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
+import com.mdau.ushirika.module.program.repository.ProgramRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +58,8 @@ public class BenevolenceClaimService {
     private final EmailService emailService;
     private final NotificationDispatcher notificationDispatcher;
     private final InAppNotificationService notificationService;
+    private final ProgramRepository programRepo;
+    private final ProgramAdminAssignmentRepository programAdminAssignmentRepo;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -152,6 +160,8 @@ public class BenevolenceClaimService {
 
     @Transactional
     public BenevolenceClaimDto reviewClaim(UUID id, ReviewClaimRequest req) {
+        User admin = currentUser();
+        requireBenevolenceCoordinatorAccess(admin);
         BenevolenceClaim claim = findClaimById(id);
         if (claim.getStatus() != ClaimStatus.SUBMITTED && claim.getStatus() != ClaimStatus.UNDER_REVIEW) {
             throw new BadRequestException("Claim is already " + claim.getStatus() + " — cannot review.");
@@ -180,7 +190,6 @@ public class BenevolenceClaimService {
         claim.setAdminNotes(req.adminNotes());
         claim.setReviewedAt(LocalDateTime.now());
         claimRepo.save(claim);
-        User admin = currentUser();
         auditLogService.log(admin, "CLAIM_" + claim.getStatus().name(), "BenevolenceClaim", claim.getId(),
                 "Benevolence claim " + claim.getReferenceNumber() + " for "
                         + claim.getEnrollment().getUser().getFullName() + " marked " + claim.getStatus()
@@ -200,13 +209,14 @@ public class BenevolenceClaimService {
 
     @Transactional
     public BenevolenceClaimDto authorizeDisbursement(UUID id) {
+        User admin = currentUser();
+        requireBenevolenceCoordinatorAccess(admin);
         BenevolenceClaim claim = findClaimById(id);
         if (claim.getStatus() != ClaimStatus.APPROVED) {
             throw new BadRequestException("Claim must be APPROVED before authorizing disbursement.");
         }
         claim.setStatus(ClaimStatus.PAYMENT_AUTHORIZED);
         claimRepo.save(claim);
-        User admin = currentUser();
         auditLogService.log(admin, "CLAIM_DISBURSEMENT_AUTHORIZED", "BenevolenceClaim", claim.getId(),
                 "Disbursement of $" + claim.getAmountApproved() + " authorized for claim "
                         + claim.getReferenceNumber() + " by " + admin.getFullName());
@@ -215,6 +225,8 @@ public class BenevolenceClaimService {
 
     @Transactional
     public BenevolenceClaimDto markDisbursed(UUID id) {
+        User admin = currentUser();
+        requireBenevolenceCoordinatorAccess(admin);
         BenevolenceClaim claim = findClaimById(id);
         if (claim.getStatus() != ClaimStatus.PAYMENT_AUTHORIZED) {
             throw new BadRequestException("Claim must be PAYMENT_AUTHORIZED before marking as disbursed.");
@@ -230,7 +242,6 @@ public class BenevolenceClaimService {
             beneficiaryRepo.save(b);
         }
 
-        User admin = currentUser();
         auditLogService.log(admin, "CLAIM_DISBURSED", "BENEVOLENCE_CLAIM", claim.getId(),
                 "Claim " + claim.getReferenceNumber() + " ($" + claim.getAmountApproved()
                         + ") marked disbursed by " + admin.getFullName(),
@@ -414,6 +425,25 @@ public class BenevolenceClaimService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Deciding a claim (review/authorize disbursement/mark disbursed) is a Benevolence program
+     * decision — only that program's assigned coordinator (or SUPERADMIN) can do this, mirroring
+     * BenevolenceEnrollmentService.requireBenevolenceCoordinatorAccess() exactly. The
+     * /admin/benevolence/** path is open to any ADMIN at the security-filter level, so this
+     * service-level check is what actually enforces the restriction.
+     */
+    private void requireBenevolenceCoordinatorAccess(User user) {
+        if (user.getRole() == UserRole.SUPERADMIN) {
+            return;
+        }
+        List<Program> benevolencePrograms = programRepo.findAllByType(ProgramType.BENEVOLENCE);
+        boolean isAssignedCoordinator = benevolencePrograms.stream()
+                .anyMatch(p -> programAdminAssignmentRepo.existsByProgramIdAndUserId(p.getId(), user.getId()));
+        if (!isAssignedCoordinator) {
+            throw new ForbiddenException("Only the Benevolence program's coordinator can decide claims.");
+        }
+    }
 
     private BenevolenceReplenishmentDto toReplenishmentDto(BenevolenceReplenishment r) {
         List<ReplenishmentPayment> payments = replenPaymentRepo.findByReplenishment(r);

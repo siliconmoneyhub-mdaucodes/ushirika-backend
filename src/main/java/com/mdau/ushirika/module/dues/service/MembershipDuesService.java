@@ -14,13 +14,17 @@ import com.mdau.ushirika.module.dues.enums.DuesStatus;
 import com.mdau.ushirika.module.dues.repository.DuesPaymentRepository;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.enums.MemberStatus;
+import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.member.service.MemberStatusChangeService;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +49,7 @@ public class MembershipDuesService {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final EmailService emailService;
+    private final MemberStatusChangeService statusChangeService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -162,7 +167,13 @@ public class MembershipDuesService {
     }
 
     // ── Scheduler: mark overdue ───────────────────────────────────────────────
+    // Previously only reachable via the manual POST /admin/dues/assess-overdue endpoint -- an
+    // admin had to remember to trigger it. Now also runs daily on its own; the manual endpoint
+    // stays available for an on-demand re-check. Already idempotent by construction: only
+    // still-PENDING dues get flipped (never re-processes ones already OVERDUE), and the
+    // deactivation loop skips anyone already inactive.
 
+    @Scheduled(cron = "0 0 6 * * *")
     @Transactional
     public int assessOverdue() {
         List<MembershipDue> overdue = dueRepository.findOverdue(LocalDate.now(), DuesStatus.PENDING);
@@ -173,8 +184,11 @@ public class MembershipDuesService {
                 .map(MembershipDue::getUser)
                 .filter(User::isActive)
                 .forEach(u -> {
+                    MemberStatus previousStatus = MemberStatusChangeService.statusOf(u.isActive(), u.isMembershipCeased());
                     u.setActive(false);
                     userRepository.save(u);
+                    statusChangeService.record(u, previousStatus, MemberStatus.INACTIVE,
+                            MemberStatusReason.DUES_NONPAYMENT, null, "Annual dues not paid by the October 31 deadline");
                     sendDeactivationEmail(u);
                     log.info("Deactivated member {} — overdue dues", u.getEmail());
                 });
@@ -243,8 +257,14 @@ public class MembershipDuesService {
 
     private void reactivateIfNeeded(User user, String reason) {
         if (!user.isActive()) {
+            MemberStatus previousStatus = MemberStatusChangeService.statusOf(user.isActive(), user.isMembershipCeased());
             user.setActive(true);
             userRepository.save(user);
+            statusChangeService.record(user, previousStatus, MemberStatus.ACTIVE,
+                    MemberStatusReason.REINSTATED, null, reason);
+            // Deactivation here already emails the member (sendDeactivationEmail below) -- until
+            // now, reactivation via payment/waiver was completely silent by comparison.
+            statusChangeService.notifyStatusChange(user, MemberStatus.ACTIVE, MemberStatusReason.REINSTATED, reason);
             log.info("Reactivated member {} — {}", user.getEmail(), reason);
         }
     }

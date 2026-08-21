@@ -66,17 +66,9 @@ public class SuperAdminUserController {
         return ResponseEntity.ok(ApiResponse.ok("User role updated", adminUserService.updateRole(id, req)));
     }
 
-    @PatchMapping("/{id}/activate")
-    @Operation(summary = "Activate a user account")
-    public ResponseEntity<ApiResponse<UserDto>> activate(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.ok("User activated", adminUserService.setActive(id, true)));
-    }
-
-    @PatchMapping("/{id}/deactivate")
-    @Operation(summary = "Deactivate a user account (login blocked)")
-    public ResponseEntity<ApiResponse<UserDto>> deactivate(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.ok("User deactivated", adminUserService.setActive(id, false)));
-    }
+    // Activate/deactivate moved to AdminUserStatusController (/admin/users/{id}/activate|deactivate)
+    // -- now requires a reason and is available to ADMIN as well as SUPERADMIN, which /superadmin/**
+    // (hard-gated to SUPERADMIN at the filter-chain level) could never allow.
 
     @PatchMapping("/{id}/credentials")
     @Operation(summary = "Force-reset a user's email and/or password — no current password required (SUPERADMIN only)")

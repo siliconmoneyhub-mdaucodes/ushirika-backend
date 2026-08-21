@@ -227,7 +227,8 @@ public class DataInitializer implements ApplicationRunner {
         jdbcTemplate.execute("""
                 ALTER TABLE in_app_notifications ADD CONSTRAINT in_app_notifications_category_check CHECK (category IN (
                     'ANNOUNCEMENT','MEETING_REMINDER','EVENT_REMINDER','ATTENDANCE_WARNING','FINE',
-                    'WELFARE_CLAIM','REPLENISHMENT','MGR_PAYMENT','DUES_REMINDER','ELECTION','GENERAL'
+                    'WELFARE_CLAIM','REPLENISHMENT','MGR_PAYMENT','DUES_REMINDER','ELECTION',
+                    'MEMBERSHIP_STATUS','GENERAL'
                 ))
                 """);
 
@@ -406,6 +407,30 @@ public class DataInitializer implements ApplicationRunner {
                     END IF;
                 END $$;
                 """);
+
+        // Member status lifecycle (Phase 8 of the post-launch build plan) -- active/membershipCeased
+        // previously changed silently, with no reason a report or the member themselves could ever
+        // see. Denormalized snapshot fields on users for fast reads, full history in its own table.
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS current_status_reason VARCHAR(30)");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS current_status_changed_at TIMESTAMP");
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS member_status_changes (
+                    id                  UUID PRIMARY KEY,
+                    user_id             UUID NOT NULL REFERENCES users(id),
+                    previous_status     VARCHAR(20) NOT NULL,
+                    new_status          VARCHAR(20) NOT NULL,
+                    reason              VARCHAR(30) NOT NULL,
+                    changed_by_user_id  UUID,
+                    notes               VARCHAR(500),
+                    created_at          TIMESTAMP NOT NULL DEFAULT now(),
+                    updated_at          TIMESTAMP NOT NULL DEFAULT now(),
+                    created_by          VARCHAR(150),
+                    updated_by          VARCHAR(150),
+                    version             BIGINT
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_status_change_user ON member_status_changes(user_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_status_change_created_at ON member_status_changes(created_at)");
     }
 
     /**

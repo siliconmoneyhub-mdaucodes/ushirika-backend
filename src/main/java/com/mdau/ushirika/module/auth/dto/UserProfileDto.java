@@ -7,6 +7,7 @@ import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -39,7 +40,12 @@ public record UserProfileDto(
         String photoUrl,
         /** Lowercase Capability names (e.g. "meetings_attendance") — SUPERADMIN gets every
          *  value listed explicitly here too, matching what getAuthorities() grants them. */
-        List<String> capabilities
+        List<String> capabilities,
+        /** Raw MemberStatusReason enum name (e.g. "DUES_NONPAYMENT") for the most recent
+         *  active/membershipCeased change, null if none has ever been tracked. See
+         *  MemberStatusChangeService. */
+        String currentStatusReason,
+        LocalDateTime currentStatusChangedAt
 ) {
     /**
      * Backward-compatible overload — callers that don't have dues context
@@ -117,7 +123,9 @@ public record UserProfileDto(
                 joined,
                 city,
                 photoUrl,
-                capabilities
+                capabilities,
+                user.getCurrentStatusReason() != null ? user.getCurrentStatusReason().name() : null,
+                user.getCurrentStatusChangedAt()
         );
     }
 }

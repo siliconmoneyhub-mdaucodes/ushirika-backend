@@ -196,7 +196,8 @@ public class ActionItemsService {
 
         boolean canSeeClaims = GLOBAL_ADMIN_ROLES.contains(me.getRole())
                 || me.getRole() == UserRole.FINANCIAL_ADMIN
-                || me.getCapabilities().contains(Capability.FINANCE_ADVANCED);
+                || me.getCapabilities().contains(Capability.FINANCE_ADVANCED)
+                || isProgramCoordinator(me, ProgramType.BENEVOLENCE);
         if (canSeeClaims) {
             List<BenevolenceClaim> submitted =
                     benevolenceClaimRepository.findAllByStatusOrderBySubmittedAtDesc(ClaimStatus.SUBMITTED, Pageable.unpaged()).getContent();

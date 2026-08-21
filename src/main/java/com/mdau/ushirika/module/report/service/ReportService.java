@@ -28,6 +28,7 @@ import com.mdau.ushirika.module.election.repository.ElectionResultRepository;
 import com.mdau.ushirika.module.loan.entity.LoanApplication;
 import com.mdau.ushirika.module.loan.repository.LoanApplicationRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.mgr.entity.MgrContribution;
 import com.mdau.ushirika.module.mgr.repository.MgrContributionRepository;
@@ -83,28 +84,73 @@ public class ReportService {
     @Transactional(readOnly = true)
     public byte[] membersPdf() { var t = PdfBuilder.create("Members Report"); populateMembersTable(t); return t.toBytes(); }
 
+    // A departure is a real exit, not just a temporary lapse -- DUES_NONPAYMENT/FINE_NONPAYMENT
+    // members are still current members expected back once they pay, so they stay in the main
+    // list (sorted to the bottom by the active-first sort below), not the Former Members section.
+    private static final Set<MemberStatusReason> DEPARTURE_REASONS = Set.of(
+            MemberStatusReason.VOLUNTARY_EXIT, MemberStatusReason.TERMINATED, MemberStatusReason.ATTENDANCE_CEASED);
+
     private void populateMembersTable(TableBuilder table) {
-        List<User> members = userRepository.findAllByRole(UserRole.MEMBER);
+        List<User> all = userRepository.findAllByRole(UserRole.MEMBER);
         Map<UUID, String> memberIds = profileRepository.findAll()
                 .stream()
                 .filter(p -> p.getMemberId() != null)
                 .collect(Collectors.toMap(p -> p.getUser().getId(), MemberProfile::getMemberId));
 
-        table.header("Member ID", "First Name", "Last Name", "Email", "Phone",
-                "Role", "Active", "Membership Ceased", "Joined");
+        List<User> current = all.stream()
+                .filter(u -> u.getCurrentStatusReason() == null || !DEPARTURE_REASONS.contains(u.getCurrentStatusReason()))
+                // Active members first, matching how the roster is actually used day-to-day.
+                .sorted(Comparator.comparing(User::isActive).reversed())
+                .toList();
+        List<User> departed = all.stream()
+                .filter(u -> u.getCurrentStatusReason() != null && DEPARTURE_REASONS.contains(u.getCurrentStatusReason()))
+                .sorted(Comparator.comparing(User::getCurrentStatusChangedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .toList();
 
-        for (User u : members) {
+        table.header("Member ID", "First Name", "Last Name", "Email", "Phone",
+                "Role", "Status", "Membership Ceased", "Joined", "Departure Reason");
+
+        for (User u : current) {
             table.col(memberIds.getOrDefault(u.getId(), ""))
                  .col(u.getFirstName())
                  .col(u.getLastName())
                  .col(u.getEmail())
                  .col(u.getPhone())
                  .col(u.getRole())
-                 .col(u.isActive())
+                 .col(u.isActive() ? "Active" : "Inactive")
                  .col(u.isMembershipCeased())
                  .col(u.getCreatedAt() != null ? u.getCreatedAt().toLocalDate() : "")
+                 .col("")
                  .newRow();
         }
+
+        if (!departed.isEmpty()) {
+            table.col("— FORMER MEMBERS —").col("").col("").col("").col("")
+                 .col("").col("").col("").col("").col("").newRow();
+            for (User u : departed) {
+                table.col(memberIds.getOrDefault(u.getId(), ""))
+                     .col(u.getFirstName())
+                     .col(u.getLastName())
+                     .col(u.getEmail())
+                     .col(u.getPhone())
+                     .col(u.getRole())
+                     .col("Former Member")
+                     .col(u.isMembershipCeased())
+                     .col(u.getCreatedAt() != null ? u.getCreatedAt().toLocalDate() : "")
+                     .col(departureReasonLabel(u.getCurrentStatusReason()))
+                     .newRow();
+            }
+        }
+    }
+
+    private static String departureReasonLabel(MemberStatusReason reason) {
+        return switch (reason) {
+            case VOLUNTARY_EXIT    -> "Left voluntarily";
+            case TERMINATED        -> "Terminated";
+            case ATTENDANCE_CEASED -> "Ceased — 2 consecutive missed meetings";
+            default                -> reason.name();
+        };
     }
 
     // ── Dues ─────────────────────────────────────────────────────────────────

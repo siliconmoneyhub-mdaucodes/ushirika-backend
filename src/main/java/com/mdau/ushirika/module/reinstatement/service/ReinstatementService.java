@@ -5,6 +5,9 @@ import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.member.enums.MemberStatus;
+import com.mdau.ushirika.module.member.enums.MemberStatusReason;
+import com.mdau.ushirika.module.member.service.MemberStatusChangeService;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
@@ -37,6 +40,7 @@ public class ReinstatementService {
     private final SmsService                     smsService;
     private final InAppNotificationService       notificationService;
     private final AuditLogService                auditLogService;
+    private final MemberStatusChangeService       statusChangeService;
 
     // ── Member ────────────────────────────────────────────────────────────────
 
@@ -96,9 +100,12 @@ public class ReinstatementService {
 
         User member = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found."));
+        MemberStatus previousStatus = MemberStatusChangeService.statusOf(member.isActive(), member.isMembershipCeased());
         member.setMembershipCeased(false);
         member.setActive(true);
         userRepository.save(member);
+        statusChangeService.record(member, previousStatus, MemberStatus.ACTIVE,
+                MemberStatusReason.REINSTATED, admin, adminNotes);
 
         String subject = "Your reinstatement request has been approved";
         String body = String.format(

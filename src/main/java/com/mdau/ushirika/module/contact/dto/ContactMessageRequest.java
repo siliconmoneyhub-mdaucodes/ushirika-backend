@@ -24,5 +24,7 @@ public record ContactMessageRequest(
 
         @NotBlank(message = "Message body is required")
         @Size(max = 5000)
-        String body
+        String body,
+
+        String captchaToken
 ) {}

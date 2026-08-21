@@ -11,5 +11,6 @@ public enum InAppNotificationCategory {
     MGR_PAYMENT,
     DUES_REMINDER,
     ELECTION,
+    MEMBERSHIP_STATUS,
     GENERAL
 }

@@ -7,10 +7,6 @@ import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,12 +30,13 @@ public final class XlsxBuilder implements TableBuilder {
     /** Rows above the data table: org name, report title, generated date, one blank spacer. */
     private static final int TITLE_ROWS = 4;
 
-    private static final String LOGO_RESOURCE = "/report-assets/ushirika-logo.png";
-    // POI has no per-shape opacity control for XSSF pictures, so the fade is baked directly into
-    // the PNG's own alpha channel instead -- Excel renders real PNG transparency correctly, which
-    // gets the same letterhead effect as the PDF's low-opacity watermark. Higher than the PDF's
-    // 6% since Excel's gridlines and denser UI wash out very faint watermarks more than a PDF page.
-    private static final float WATERMARK_OPACITY = 0.10f;
+    // Pre-faded and pre-scaled offline (see scripts/GenerateWatermark.java) rather than computed
+    // at request time with java.awt.Graphics2D/BufferedImage/ImageIO -- Railway's build uses the
+    // jdk17_headless Nix package, which lacks the font/graphics libraries AWT's toolkit still
+    // touches even for pure off-screen image scaling, so any runtime AWT use here crashed every
+    // export with NoClassDefFoundError: sun.awt.X11FontManager. This resource is read as raw
+    // bytes and handed straight to POI -- no AWT involved at runtime at all.
+    private static final String WATERMARK_RESOURCE = "/report-assets/ushirika-logo-watermark.png";
     private static final int WATERMARK_TARGET_PX = 260;
     // Excel's own default cell metrics, used only to roughly center the watermark over the table.
     private static final int DEFAULT_COL_WIDTH_PX = 64;
@@ -204,38 +201,10 @@ public final class XlsxBuilder implements TableBuilder {
     }
 
     private static byte[] buildWatermarkPng() {
-        try (InputStream in = XlsxBuilder.class.getResourceAsStream(LOGO_RESOURCE)) {
-            if (in == null) return null;
-            BufferedImage src = ImageIO.read(in);
-            if (src == null) return null;
-
-            double scale = Math.min(
-                    (double) WATERMARK_TARGET_PX / src.getWidth(),
-                    (double) WATERMARK_TARGET_PX / src.getHeight());
-            int w = Math.max(1, (int) Math.round(src.getWidth() * scale));
-            int h = Math.max(1, (int) Math.round(src.getHeight() * scale));
-
-            BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = scaled.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(src, 0, 0, w, h, null);
-            g.dispose();
-
-            BufferedImage faded = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    int argb = scaled.getRGB(x, y);
-                    int alpha = argb >>> 24;
-                    int fadedAlpha = (int) Math.round(alpha * WATERMARK_OPACITY);
-                    faded.setRGB(x, y, (fadedAlpha << 24) | (argb & 0x00FFFFFF));
-                }
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            ImageIO.write(faded, "png", out);
-            return out.toByteArray();
-        } catch (Exception e) {
-            return null; // Missing/corrupt logo shouldn't fail report generation.
+        try (InputStream in = XlsxBuilder.class.getResourceAsStream(WATERMARK_RESOURCE)) {
+            return in == null ? null : in.readAllBytes();
+        } catch (IOException e) {
+            return null; // Missing/corrupt resource shouldn't fail report generation.
         }
     }
 

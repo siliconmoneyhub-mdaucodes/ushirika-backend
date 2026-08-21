@@ -14,5 +14,6 @@ public record PublicMembershipApplicationRequest(
         @NotBlank(message = "Zip code is required") String zipCode,
         @NotBlank(message = "Kenya county is required") String kenyaCounty,
         @NotBlank(message = "Sub-tribe is required") String subtribe,
-        @NotBlank(message = "Eligibility is required") String eligibility
+        @NotBlank(message = "Eligibility is required") String eligibility,
+        String captchaToken
 ) {}

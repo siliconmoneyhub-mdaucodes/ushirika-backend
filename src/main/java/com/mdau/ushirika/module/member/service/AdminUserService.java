@@ -13,9 +13,12 @@ import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.member.dto.AdminResetCredentialsRequest;
 import com.mdau.ushirika.module.member.dto.CreateMemberRequest;
+import com.mdau.ushirika.module.member.dto.SetActiveRequest;
 import com.mdau.ushirika.module.member.dto.UpdateMemberTierRequest;
 import com.mdau.ushirika.module.member.dto.UpdateRoleRequest;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.enums.MemberStatus;
+import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
 import com.mdau.ushirika.module.dues.service.MembershipDuesService;
 import com.mdau.ushirika.module.notification.service.EmailService;
@@ -45,6 +48,7 @@ public class AdminUserService {
     private final EmailService emailService;
     private final MembershipDuesService membershipDuesService;
     private final AuditLogService auditLogService;
+    private final MemberStatusChangeService statusChangeService;
 
     private static final int MAX_SUPERADMINS = 5;
 
@@ -120,12 +124,17 @@ public class AdminUserService {
         return UserDto.from(target);
     }
 
+    private static final java.util.Set<MemberStatusReason> ADMIN_SELECTABLE_DEACTIVATE_REASONS =
+            java.util.Set.of(MemberStatusReason.ADMIN_MANUAL, MemberStatusReason.VOLUNTARY_EXIT, MemberStatusReason.TERMINATED);
+
     /**
-     * Activate or deactivate a user account.
-     * Deactivated accounts cannot log in (isEnabled() = false).
+     * Activate or deactivate a user account. Deactivated accounts cannot log in
+     * (isEnabled() = false). A reason is always required and the member is notified by email +
+     * in-app with that exact reason -- previously this was a silent boolean flip with no reason
+     * captured anywhere the member could see.
      */
     @Transactional
-    public UserDto setActive(UUID userId, boolean active) {
+    public UserDto setActive(UUID userId, SetActiveRequest req) {
         User target = findById(userId);
         User actor = currentUser();
 
@@ -137,11 +146,26 @@ public class AdminUserService {
             throw new ForbiddenException("The SUPERADMIN account cannot be deactivated.");
         }
 
-        target.setActive(active);
-        userRepository.save(target);
+        MemberStatusReason reason;
+        if (req.active()) {
+            reason = MemberStatusReason.REINSTATED;
+        } else {
+            if (req.reason() == null || !ADMIN_SELECTABLE_DEACTIVATE_REASONS.contains(req.reason())) {
+                throw new BadRequestException("Reason must be one of: ADMIN_MANUAL, VOLUNTARY_EXIT, TERMINATED.");
+            }
+            reason = req.reason();
+        }
 
-        auditLogService.log(actor, active ? "ACCOUNT_ACTIVATED" : "ACCOUNT_DEACTIVATED", "User", target.getId(),
-                (active ? "Activated " : "Deactivated ") + target.getFullName() + "'s account (by " + actor.getFullName() + ")");
+        MemberStatus previousStatus = MemberStatusChangeService.statusOf(target.isActive(), target.isMembershipCeased());
+        target.setActive(req.active());
+        userRepository.save(target);
+        MemberStatus newStatus = MemberStatusChangeService.statusOf(target.isActive(), target.isMembershipCeased());
+        statusChangeService.record(target, previousStatus, newStatus, reason, actor, req.notes());
+        statusChangeService.notifyStatusChange(target, newStatus, reason, req.notes());
+
+        auditLogService.log(actor, req.active() ? "ACCOUNT_ACTIVATED" : "ACCOUNT_DEACTIVATED", "User", target.getId(),
+                (req.active() ? "Activated " : "Deactivated ") + target.getFullName() + "'s account (by "
+                        + actor.getFullName() + ") — " + req.notes());
 
         return UserDto.from(target);
     }
