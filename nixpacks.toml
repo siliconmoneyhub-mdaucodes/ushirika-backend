@@ -1,2 +1,4 @@
 [phases.setup]
-nixPkgs = ["jdk17_headless", "maven"]
+# postgresql provides the pg_dump CLI used by DatabaseBackupService for the nightly off-platform
+# backup -- not needed for anything else, jdk17_headless/maven cover the app itself.
+nixPkgs = ["jdk17_headless", "maven", "postgresql"]
