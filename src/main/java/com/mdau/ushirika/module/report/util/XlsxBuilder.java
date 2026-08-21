@@ -14,6 +14,8 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Builds a single-sheet .xlsx workbook — brand-green header row (white bold text, real
  * borders), a title block above the table (org name / report name / generated date), the
@@ -54,6 +56,13 @@ public final class XlsxBuilder implements TableBuilder {
     private int dataRowCount = 0;
     private Row currentRow;
     private boolean headerRow = false;
+    // Column widths computed from character counts instead of Sheet.autoSizeColumn() -- that POI
+    // method measures text with java.awt.Font/FontMetrics under the hood, which needs a working
+    // AWT font subsystem. Railway's jdk17_headless Nix package doesn't have one, so autoSizeColumn
+    // crashed every single XLSX export with NoClassDefFoundError: sun.awt.X11FontManager -- the
+    // watermark's own (now-removed) AWT usage was a red herring found first; this was the actual
+    // and only remaining cause.
+    private final Map<Integer, Integer> maxColTextLength = new HashMap<>();
 
     private XlsxBuilder(String sheetName, String reportTitle) {
         this.sheet = workbook.createSheet(sanitizeSheetName(sheetName));
@@ -140,6 +149,10 @@ public final class XlsxBuilder implements TableBuilder {
         Cell cell = currentRow.createCell(colIndex);
         writeValue(cell, value);
         cell.setCellStyle(headerRow ? headerStyle : (dataRowCount % 2 == 1 ? altRowStyle : dataStyle));
+
+        int len = value == null ? 0 : value.toString().length();
+        maxColTextLength.merge(colIndex, len, Math::max);
+
         colIndex++;
         maxCols = Math.max(maxCols, colIndex);
         return this;
@@ -154,9 +167,18 @@ public final class XlsxBuilder implements TableBuilder {
         return this;
     }
 
+    // POI's own rule-of-thumb approximation for "characters -> 1/256ths of a character width",
+    // the same unit Sheet.setColumnWidth() takes. Clamped so one long free-text cell (a claim
+    // description, a rejection reason) can't blow a column out to an unusable width.
+    private static final int MIN_COL_CHARS = 8;
+    private static final int MAX_COL_CHARS = 60;
+
     @Override
     public byte[] toBytes() {
-        for (int i = 0; i < maxCols; i++) sheet.autoSizeColumn(i);
+        for (int i = 0; i < maxCols; i++) {
+            int chars = Math.min(MAX_COL_CHARS, Math.max(MIN_COL_CHARS, maxColTextLength.getOrDefault(i, 0)));
+            sheet.setColumnWidth(i, (chars + 2) * 256);
+        }
 
         if (headerRowIndex >= 0 && maxCols > 0) {
             // Freeze everything above and including the header row so it stays visible on scroll.
