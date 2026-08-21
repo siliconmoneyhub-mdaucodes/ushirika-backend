@@ -8,16 +8,26 @@ import com.mdau.ushirika.module.benevolence.enums.EnrollmentStatus;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimCategoryService;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimService;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceEnrollmentService;
+import com.mdau.ushirika.module.benevolence.util.BenevolenceSeedCsvParser;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/admin/benevolence")
 @RequiredArgsConstructor
@@ -26,6 +36,58 @@ public class AdminBenevolenceController {
     private final BenevolenceEnrollmentService enrollmentService;
     private final BenevolenceClaimService claimService;
     private final BenevolenceClaimCategoryService categoryService;
+
+    // ── Seed pre-launch enrollments ──────────────────────────────────────────
+    // For the ~60 members who were already active Benevolence participants before this platform
+    // existed. See BenevolenceEnrollmentService#seedEnrollment for what this actually does.
+
+    public record BulkSeedResultRow(int rowNumber, String memberEmail, boolean success, String message) {}
+    public record BulkSeedSummary(int total, int succeeded, int failed, List<BulkSeedResultRow> rows) {}
+
+    @PostMapping("/seed-enrollment")
+    @Operation(summary = "Seed one pre-launch Benevolence enrollment with locked beneficiaries")
+    public ResponseEntity<ApiResponse<BenevolenceEnrollmentDto>> seedEnrollment(
+            @Valid @RequestBody SeedBenevolenceEnrollmentRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Enrollment seeded", enrollmentService.seedEnrollment(req)));
+    }
+
+    @PostMapping(value = "/seed-enrollment/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Bulk-seed pre-launch Benevolence enrollments from a CSV -- each row is independent, one bad row does not block the rest")
+    public ResponseEntity<ApiResponse<BulkSeedSummary>> seedEnrollmentBulk(
+            @RequestParam("file") MultipartFile file) throws java.io.IOException {
+        List<BenevolenceSeedCsvParser.ParsedRow> parsed = BenevolenceSeedCsvParser.parse(file.getBytes());
+        List<BulkSeedResultRow> results = new ArrayList<>();
+        int succeeded = 0;
+
+        for (BenevolenceSeedCsvParser.ParsedRow row : parsed) {
+            if (row.parseError() != null) {
+                results.add(new BulkSeedResultRow(row.rowNumber(), row.memberEmail(), false, row.parseError()));
+                continue;
+            }
+            try {
+                enrollmentService.seedEnrollment(row.request());
+                results.add(new BulkSeedResultRow(row.rowNumber(), row.memberEmail(), true, "Seeded"));
+                succeeded++;
+            } catch (Exception e) {
+                log.warn("Bulk Benevolence seed failed for row {} ({}): {}", row.rowNumber(), row.memberEmail(), e.getMessage());
+                results.add(new BulkSeedResultRow(row.rowNumber(), row.memberEmail(), false, e.getMessage()));
+            }
+        }
+
+        BulkSeedSummary summary = new BulkSeedSummary(parsed.size(), succeeded, parsed.size() - succeeded, results);
+        return ResponseEntity.ok(ApiResponse.ok(
+                succeeded + " of " + parsed.size() + " enrollment(s) seeded successfully", summary));
+    }
+
+    @GetMapping("/seed-enrollment/template")
+    @Operation(summary = "Download a blank CSV template for bulk-seeding Benevolence enrollments")
+    public ResponseEntity<byte[]> seedEnrollmentTemplate() {
+        byte[] csv = BenevolenceSeedCsvParser.getTemplateCsv().getBytes(StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"benevolence-seed-template.csv\"")
+                .body(csv);
+    }
 
     // ── Join Requests ─────────────────────────────────────────────────────────
 

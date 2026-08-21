@@ -94,6 +94,84 @@ public class BenevolenceEnrollmentService {
         return toFullDto(e);
     }
 
+    // ── Admin: Seed a pre-launch enrollment ──────────────────────────────────
+    // For the ~60 members who were already active Benevolence participants before this platform
+    // existed. Deliberately bypasses requestJoin()/sendForm() entirely -- those always start a
+    // member at PAYING with zero beneficiaries, but these members' real-world status (probation,
+    // eligible, partially paid) and beneficiaries are already established facts to record, not
+    // something to re-derive through the normal application flow. beneficiariesLocked is set
+    // true at creation so there is never a window where the member could self-submit or change
+    // who they listed -- the one hard requirement this phase exists for.
+
+    private static final Set<EnrollmentStatus> SEEDABLE_STATUSES =
+            Set.of(EnrollmentStatus.PAYING, EnrollmentStatus.PROBATION, EnrollmentStatus.ELIGIBLE);
+
+    @Transactional
+    public BenevolenceEnrollmentDto seedEnrollment(SeedBenevolenceEnrollmentRequest req) {
+        User admin = currentUser();
+        User member = userRepo.findByEmail(req.memberEmail().trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("No member found with email: " + req.memberEmail()));
+
+        if (enrollmentRepo.findByUser(member).isPresent()) {
+            throw new ConflictException(member.getFullName() + " is already enrolled in Benevolence.");
+        }
+        if (!SEEDABLE_STATUSES.contains(req.status())) {
+            throw new BadRequestException("Status must be PAYING, PROBATION, or ELIGIBLE.");
+        }
+        if (req.status() != EnrollmentStatus.PAYING && req.amountPaid().compareTo(ENROLLMENT_TOTAL) < 0) {
+            throw new BadRequestException("PROBATION/ELIGIBLE status requires the $600 enrollment fee to already be fully paid.");
+        }
+        if (req.status() == EnrollmentStatus.PROBATION && req.probationEndsAt() == null) {
+            throw new BadRequestException("Probation end date is required when seeding a PROBATION enrollment.");
+        }
+        if (req.beneficiaries().size() > MAX_BENEFICIARIES) {
+            throw new BadRequestException("Maximum of " + MAX_BENEFICIARIES + " beneficiaries allowed.");
+        }
+
+        BigDecimal cappedPaid = req.amountPaid().min(ENROLLMENT_TOTAL);
+        boolean fullyPaid = cappedPaid.compareTo(ENROLLMENT_TOTAL) >= 0;
+
+        BenevolenceEnrollment enrollment = BenevolenceEnrollment.builder()
+                .user(member)
+                .enrolledAt(LocalDateTime.now())
+                .totalPaid(cappedPaid)
+                .status(req.status())
+                .beneficiariesLocked(true)
+                .completedAt(fullyPaid ? LocalDateTime.now() : null)
+                .probationEndsAt(req.probationEndsAt())
+                .build();
+        enrollmentRepo.save(enrollment);
+
+        if (cappedPaid.signum() > 0) {
+            paymentRepo.save(EnrollmentPayment.builder()
+                    .enrollment(enrollment)
+                    .amount(cappedPaid)
+                    .paymentMethod("LEGACY")
+                    .paidAt(LocalDateTime.now())
+                    .notes("Pre-launch balance seeded by " + admin.getFullName())
+                    .build());
+        }
+
+        for (SubmitBeneficiariesRequest.BeneficiaryEntry entry : req.beneficiaries()) {
+            beneficiaryRepo.save(BenevolenceBeneficiary.builder()
+                    .enrollment(enrollment)
+                    .firstName(entry.firstName())
+                    .lastName(entry.lastName())
+                    .relationship(entry.relationship())
+                    .phoneNumber(entry.phoneNumber())
+                    .dateOfBirth(entry.dateOfBirth())
+                    .build());
+        }
+
+        auditLogService.log(admin, "BENEVOLENCE_ENROLLMENT_SEEDED", "BenevolenceEnrollment", enrollment.getId(),
+                "Seeded Benevolence enrollment for " + member.getFullName() + " (" + req.beneficiaries().size()
+                        + " beneficiaries, status=" + req.status() + ", $" + cappedPaid + " paid) by " + admin.getFullName());
+
+        sendEnrolledEmail(member);
+
+        return toFullDto(enrollment);
+    }
+
     // ── Admin: Beneficiary management ────────────────────────────────────────
 
     @Transactional

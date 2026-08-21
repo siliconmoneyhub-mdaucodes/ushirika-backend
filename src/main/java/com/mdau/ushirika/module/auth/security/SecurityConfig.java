@@ -126,6 +126,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/admin/reports/scholarships.csv", "/admin/reports/scholarships.xlsx", "/admin/reports/scholarships.pdf")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "CAP_CONTENT", "CAP_FINANCE_ADVANCED")
+                        // Bulk/manual pre-launch Benevolence enrollment seeding -- bypasses the normal
+                        // join-request flow entirely (locked beneficiaries from creation), so this is
+                        // deliberately narrower than the general /admin/benevolence/** access below.
+                        .requestMatchers("/admin/benevolence/seed-enrollment/**").hasRole("SUPERADMIN")
                         // Payment links/benevolence/MGR/loans/CSV reports/welfare/programs/money-flow/reconciliation:
                         // Financial Admin only (not delegated to officials) at the role level, or CAP_FINANCE_ADVANCED.
                         .requestMatchers(HttpMethod.GET,
