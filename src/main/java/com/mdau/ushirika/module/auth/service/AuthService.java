@@ -189,8 +189,8 @@ public class AuthService {
     // ── Refresh ───────────────────────────────────────────────────────────────
 
     @Transactional
-    public AuthResponse refresh(RefreshTokenRequest req) {
-        RefreshToken stored = refreshTokenRepository.findByToken(req.refreshToken())
+    public AuthResponse refresh(String rawRefreshToken) {
+        RefreshToken stored = refreshTokenRepository.findByToken(rawRefreshToken)
                 .orElseThrow(() -> new BadRequestException("Invalid refresh token"));
 
         if (!stored.isValid()) {
@@ -211,8 +211,9 @@ public class AuthService {
     // ── Logout ────────────────────────────────────────────────────────────────
 
     @Transactional
-    public void logout(RefreshTokenRequest req) {
-        refreshTokenRepository.findByToken(req.refreshToken()).ifPresent(t -> {
+    public void logout(String rawRefreshToken) {
+        if (rawRefreshToken == null) return;
+        refreshTokenRepository.findByToken(rawRefreshToken).ifPresent(t -> {
             t.setRevoked(true);
             refreshTokenRepository.save(t);
         });

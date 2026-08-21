@@ -23,6 +23,10 @@ app:
     access-token-expiry-ms: 3600000    # 1 hour in dev (easier to test)
     refresh-token-expiry-ms: 604800000
 
+  cookie:
+    secure: false     # localhost is plain http -- Secure cookies would be silently dropped
+    same-site: Lax    # localhost:5173 -> localhost:8080 is same-site, Lax works and needs no Secure
+
   superadmin:
     email: admin@ushirikawelfare.org
     password: Admin@1234

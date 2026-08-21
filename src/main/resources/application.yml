@@ -107,6 +107,13 @@ app:
     access-token-expiry-ms: ${JWT_ACCESS_EXPIRY:900000}       # 15 minutes
     refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:604800000}  # 7 days
 
+  # Session cookies (uwf_at/uwf_rt) -- SameSite=None+Secure is required for prod since the
+  # frontend and backend are on different sites; overridden in application-dev.yml because
+  # Secure cookies are dropped by browsers over plain http://localhost.
+  cookie:
+    secure: ${COOKIE_SECURE:true}
+    same-site: ${COOKIE_SAME_SITE:None}
+
   # Brevo (email)
   brevo:
     api-key: ${BREVO_API_KEY:NOT_SET}
