@@ -55,6 +55,21 @@ public class SecurityConfig {
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
                         .accessDeniedHandler(restAccessDeniedHandler)
                 )
+                // HSTS matters here specifically: this is the domain the session cookies (uwf_at/
+                // uwf_rt) belong to, so pinning it to HTTPS-only defends the cookie exchange itself
+                // against a protocol-downgrade attempt, on top of Railway already terminating TLS.
+                // CSP is defense-in-depth for the few HTML surfaces this API serves (Swagger UI,
+                // Spring's own error page) — the real CSP for the actual admin/member UI belongs on
+                // the frontend's own host (Render), which serves the SPA's HTML.
+                .headers(headers -> headers
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000)
+                        )
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; frame-ancestors 'none'")
+                        )
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ROUTES).permitAll()
                         // Superadmin-only: user role/capability management. Deliberately role-only, no
