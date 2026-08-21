@@ -1,7 +1,2 @@
 [phases.setup]
-# postgresql_18 provides the pg_dump CLI used by DatabaseBackupService for the nightly
-# off-platform backup -- not needed for anything else, jdk17_headless/maven cover the app itself.
-# Pinned to match Railway's managed Postgres server version (confirmed 18.4 in production) --
-# pg_dump refuses to dump from a server newer than itself, so the plain "postgresql" alias
-# (resolved to 15.5 on this nixpkgs channel) failed with "server version mismatch" every run.
-nixPkgs = ["jdk17_headless", "maven", "postgresql_18"]
+nixPkgs = ["jdk17_headless", "maven"]
