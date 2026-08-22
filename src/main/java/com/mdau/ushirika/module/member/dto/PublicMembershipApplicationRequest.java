@@ -16,6 +16,6 @@ public record PublicMembershipApplicationRequest(
         @NotBlank(message = "Sub-tribe is required") String subtribe,
         @NotBlank(message = "Eligibility is required") String eligibility,
         String captchaToken,
-        Integer captchaAnswer,
+        String captchaNonce,
         String honeypot
 ) {}

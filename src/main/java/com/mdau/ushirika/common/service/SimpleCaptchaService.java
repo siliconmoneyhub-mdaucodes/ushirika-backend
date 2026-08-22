@@ -9,27 +9,29 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HexFormat;
 
 /**
- * Self-hosted replacement for the earlier Cloudflare Turnstile integration — a small arithmetic
- * challenge ("What is 6 + 3?") backed by a signed, stateless token, plus a honeypot field and a
- * minimum-elapsed-time check. No third-party service, no per-request cost, nothing to configure
- * beyond the app already having a secret key.
+ * Self-hosted proof-of-work verification for public forms — no third-party service, nothing
+ * stored server-side. The browser has to burn real CPU time finding a nonce before a submission
+ * is accepted, which is what actually raises the cost of automated abuse; a plain arithmetic
+ * question (the previous version of this class) can be solved by a five-line regex with zero
+ * compute cost, so it only stopped bots too lazy to look at the form at all.
  *
- * How it stops the actual threat (bulk/scripted form spam, not a targeted human attacker):
- *   - A challenge's two operands and expiry are HMAC-signed into the token itself
- *     (base64(payload) + "." + base64(signature)) — nothing is stored server-side, and a client
- *     can't forge a token or tamper with the operands without invalidating the signature.
- *   - A blind mass-mailer bot that POSTs every &lt;form&gt; it finds without executing JS never
- *     requests a challenge at all, so captchaToken/captchaAnswer are absent -> rejected outright.
- *   - A bot that does fetch the challenge but answers instantly gets caught by the minimum-age
- *     check (real humans take at least ~1.5s to read a question and type a one-digit answer).
- *   - The honeypot field (verify(..., honeypot)) is never visible to a real user but is commonly
- *     auto-filled by generic form-filling bots -- any non-blank value fails verification.
- * None of this stops a targeted, hand-written attack against this one form specifically -- that
- * was never the threat model IP rate limiting + this class are defending against.
+ * How it works: generate() hands out a random challenge string, a difficulty (number of leading
+ * hex-zero characters required), and an expiry, all HMAC-signed into a stateless token. The
+ * client searches for a nonce such that sha256(challenge + nonce) starts with `difficulty` hex
+ * zeros, which takes real, difficulty-scaled work and no shortcuts other than doing the hashing.
+ * verify() just recomputes the hash once and checks the prefix — cheap for us, expensive for them
+ * at scale. The honeypot field is unrelated and still catches bots that fill in every input
+ * blindly without executing JS at all.
+ *
+ * This does not stop a determined, hand-written bot targeting this one form specifically — no
+ * client-side puzzle can. It's combined with per-endpoint rate limiting (see
+ * ContactController/MembershipController) as the actual hard cap on abuse volume.
  */
 @Slf4j
 @Service
@@ -37,51 +39,71 @@ public class SimpleCaptchaService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final long CHALLENGE_TTL_MS = 5 * 60 * 1000;   // 5 minutes to answer
-    private static final long MIN_ANSWER_AGE_MS = 1500;           // faster than this is not a human
+    private static final long CHALLENGE_TTL_MS = 5 * 60 * 1000; // 5 minutes to solve and submit
+    private static final int MAX_NONCE_LENGTH = 64;
 
     private final SecretKeySpec key;
+    private final int difficulty;
 
-    public SimpleCaptchaService(@Value("${app.jwt.secret}") String secret) {
+    public SimpleCaptchaService(
+            @Value("${app.jwt.secret}") String secret,
+            @Value("${app.captcha.difficulty:4}") int difficulty) {
         this.key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        this.difficulty = difficulty;
     }
 
-    public record Challenge(String token, String question) {}
+    public record Challenge(String token, String challenge, int difficulty) {}
 
-    private record Payload(int a, int b, long exp) {}
+    private record Payload(String challenge, int difficulty, long exp) {}
 
     public Challenge generate() {
-        int a = 2 + RANDOM.nextInt(8);   // 2..9
-        int b = 2 + RANDOM.nextInt(8);   // 2..9
+        byte[] raw = new byte[16];
+        RANDOM.nextBytes(raw);
+        String challenge = HexFormat.of().formatHex(raw);
         long exp = System.currentTimeMillis() + CHALLENGE_TTL_MS;
-        String token = sign(new Payload(a, b, exp));
-        return new Challenge(token, "What is " + a + " + " + b + "?");
+        String token = sign(new Payload(challenge, difficulty, exp));
+        return new Challenge(token, challenge, difficulty);
     }
 
-    /** Throws BadRequestException on any failure — invalid/expired/tampered token, wrong answer,
-     *  answered too fast, or a filled-in honeypot. Callers don't need their own checks first. */
-    public void verify(String token, Integer answer, String honeypot) {
+    /** Throws BadRequestException on any failure — invalid/expired/tampered token, unsolved
+     *  proof-of-work, or a filled-in honeypot. Callers don't need their own checks first. */
+    public void verify(String token, String nonce, String honeypot) {
         if (honeypot != null && !honeypot.isBlank()) {
             log.warn("CAPTCHA honeypot triggered — treating as a bot submission");
             throw new BadRequestException("Verification failed — please try again.");
         }
-        if (token == null || token.isBlank() || answer == null) {
-            throw new BadRequestException("Please complete the verification challenge before submitting.");
+        if (token == null || token.isBlank() || nonce == null || nonce.isBlank()) {
+            throw new BadRequestException("Please wait for verification to finish before submitting.");
+        }
+        if (nonce.length() > MAX_NONCE_LENGTH) {
+            throw new BadRequestException("Invalid verification response.");
         }
 
         Payload payload = unsign(token);
-        long now = System.currentTimeMillis();
-        long issuedAt = payload.exp() - CHALLENGE_TTL_MS;
 
-        if (now > payload.exp()) {
+        if (System.currentTimeMillis() > payload.exp()) {
             throw new BadRequestException("Verification expired — please try again.");
         }
-        if (now - issuedAt < MIN_ANSWER_AGE_MS) {
-            log.warn("CAPTCHA answered implausibly fast ({} ms) — treating as a bot submission", now - issuedAt);
+        if (!hasLeadingZeros(sha256Hex(payload.challenge() + nonce), payload.difficulty())) {
             throw new BadRequestException("Verification failed — please try again.");
         }
-        if (answer != payload.a() + payload.b()) {
-            throw new BadRequestException("That answer isn't quite right — please try again.");
+    }
+
+    private boolean hasLeadingZeros(String hex, int count) {
+        if (hex.length() < count) return false;
+        for (int i = 0; i < count; i++) {
+            if (hex.charAt(i) != '0') return false;
+        }
+        return true;
+    }
+
+    private String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
         }
     }
 
@@ -104,7 +126,7 @@ public class SimpleCaptchaService {
             byte[] json = Base64.getUrlDecoder().decode(parts[0]);
             byte[] expectedSig = newMac().doFinal(json);
             byte[] givenSig = Base64.getUrlDecoder().decode(parts[1]);
-            if (!java.security.MessageDigest.isEqual(expectedSig, givenSig)) {
+            if (!MessageDigest.isEqual(expectedSig, givenSig)) {
                 throw new BadRequestException("Invalid verification token.");
             }
             return MAPPER.readValue(json, Payload.class);

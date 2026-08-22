@@ -168,15 +168,28 @@ app:
     scholarship-threshold: all
     membership-threshold: all
 
-  # Rate limiting (requests per minute per IP)
+  # Rate limiting (requests per minute per IP, general /public/** throttle)
   rate-limit:
     auth-rpm: ${RATE_LIMIT_AUTH_RPM:10}
     public-rpm: ${RATE_LIMIT_PUBLIC_RPM:60}
     api-rpm: ${RATE_LIMIT_API_RPM:120}
+    # Tighter, purpose-specific caps on top of the general public-rpm throttle above — these are
+    # the actual hard limit on bot-driven contact/application spam volume, independent of how
+    # fast the proof-of-work CAPTCHA below can be solved.
+    contact-per-hour: ${RATE_LIMIT_CONTACT_PER_HOUR:5}
+    application-per-day: ${RATE_LIMIT_APPLICATION_PER_DAY:3}
 
   # Cap on password-reset OTP requests per email address (not per IP)
   password-reset:
     max-per-hour: ${PASSWORD_RESET_MAX_PER_HOUR:3}
+
+  # Self-hosted proof-of-work CAPTCHA (SimpleCaptchaService) — number of leading hex-zero
+  # characters the browser must find in sha256(challenge + nonce) before a public form submits.
+  # Each +1 multiplies the average solve time (and bot cost) by ~16x. 4 solves in well under a
+  # second on typical hardware; raise it (e.g. CAPTCHA_DIFFICULTY=5) if spam volume increases
+  # without needing a frontend redeploy.
+  captcha:
+    difficulty: ${CAPTCHA_DIFFICULTY:4}
 
 springdoc:
   swagger-ui:

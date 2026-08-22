@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/public/captcha")
 @RequiredArgsConstructor
-@Tag(name = "Captcha", description = "Self-hosted arithmetic verification challenge for public forms")
+@Tag(name = "Captcha", description = "Self-hosted proof-of-work verification challenge for public forms")
 public class CaptchaController {
 
     private final SimpleCaptchaService captchaService;

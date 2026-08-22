@@ -1,14 +1,18 @@
 package com.mdau.ushirika.module.member.controller;
 
+import com.mdau.ushirika.common.exception.TooManyRequestsException;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.service.SimpleCaptchaService;
+import com.mdau.ushirika.common.util.ClientIpResolver;
 import com.mdau.ushirika.module.member.dto.ApplicationTrackDto;
 import com.mdau.ushirika.module.member.dto.MembershipApplicationRequest;
 import com.mdau.ushirika.module.member.dto.PublicMembershipApplicationRequest;
+import com.mdau.ushirika.module.member.service.MembershipApplicationRateLimiter;
 import com.mdau.ushirika.module.member.service.MembershipService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +27,7 @@ public class MembershipController {
 
     private final MembershipService membershipService;
     private final SimpleCaptchaService captchaService;
+    private final MembershipApplicationRateLimiter rateLimiter;
 
     // ------------------------------------------------------------------ Public
 
@@ -35,8 +40,11 @@ public class MembershipController {
     @PostMapping("/public/membership/applications")
     @Operation(summary = "Submit a public membership enquiry (no auth required)")
     public ResponseEntity<ApiResponse<ApplicationTrackDto>> submitPublic(
-            @Valid @RequestBody PublicMembershipApplicationRequest req) {
-        captchaService.verify(req.captchaToken(), req.captchaAnswer(), req.honeypot());
+            @Valid @RequestBody PublicMembershipApplicationRequest req, HttpServletRequest httpReq) {
+        if (!rateLimiter.tryConsume(ClientIpResolver.resolve(httpReq))) {
+            throw new TooManyRequestsException("Too many applications submitted recently — please try again later.");
+        }
+        captchaService.verify(req.captchaToken(), req.captchaNonce(), req.honeypot());
         ApplicationTrackDto result = membershipService.submitPublicApplication(req);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Application submitted. Track with reference: " + result.referenceNumber(), result));

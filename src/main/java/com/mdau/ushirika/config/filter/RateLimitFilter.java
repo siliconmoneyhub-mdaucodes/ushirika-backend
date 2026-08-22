@@ -1,5 +1,6 @@
 package com.mdau.ushirika.config.filter;
 
+import com.mdau.ushirika.common.util.ClientIpResolver;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.*;
@@ -56,7 +57,7 @@ public class RateLimitFilter implements Filter {
             return;
         }
 
-        String ip   = resolveClientIp(httpReq);
+        String ip   = ClientIpResolver.resolve(httpReq);
         String path = httpReq.getRequestURI();
 
         // Stripe webhooks are excluded — throttling them would cause missed events.
@@ -94,14 +95,5 @@ public class RateLimitFilter implements Filter {
                         .refillGreedy(requestsPerMinute, Duration.ofMinutes(1))
                         .build())
                 .build();
-    }
-
-    private String resolveClientIp(HttpServletRequest req) {
-        String forwarded = req.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            // X-Forwarded-For may contain a chain of IPs; leftmost is the original client
-            return forwarded.split(",")[0].trim();
-        }
-        return req.getRemoteAddr();
     }
 }

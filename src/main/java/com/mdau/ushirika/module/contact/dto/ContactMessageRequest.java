@@ -27,6 +27,6 @@ public record ContactMessageRequest(
         String body,
 
         String captchaToken,
-        Integer captchaAnswer,
+        String captchaNonce,
         String honeypot
 ) {}
