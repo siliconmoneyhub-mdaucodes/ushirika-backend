@@ -20,7 +20,8 @@ public record OnboardingStatusDto(
         boolean constitutionAccepted,
         boolean bylawsAccepted,
         boolean registrationSubmitted,
-        LocalDateTime formSentAt
+        LocalDateTime formSentAt,
+        boolean registrationFeeWaived
 ) {
     public static OnboardingStatusDto from(MembershipApplication app) {
         return new OnboardingStatusDto(
@@ -36,7 +37,8 @@ public record OnboardingStatusDto(
                 app.getConstitutionAcceptedAt() != null,
                 app.getBylawsAcceptedAt() != null,
                 app.getRegistrationSubmittedAt() != null,
-                app.getFormSentAt()
+                app.getFormSentAt(),
+                app.isRegistrationFeeWaived()
         );
     }
 }

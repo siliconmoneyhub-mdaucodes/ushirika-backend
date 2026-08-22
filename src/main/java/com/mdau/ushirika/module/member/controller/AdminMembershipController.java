@@ -76,10 +76,15 @@ public class AdminMembershipController {
 
     @PostMapping("/applications/{id}/send-form")
     @Operation(summary = "Accept an application in principle and send the applicant their onboarding form")
-    public ResponseEntity<ApiResponse<AdminApplicationDto>> sendForm(@PathVariable UUID id, Authentication auth) {
+    public ResponseEntity<ApiResponse<AdminApplicationDto>> sendForm(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "false") boolean waiveRegistrationFee,
+            Authentication auth
+    ) {
         boolean isSuperAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_SUPERADMIN"));
-        return ResponseEntity.ok(ApiResponse.ok("Form sent to applicant", membershipService.sendForm(id, isSuperAdmin)));
+        return ResponseEntity.ok(ApiResponse.ok("Form sent to applicant",
+                membershipService.sendForm(id, isSuperAdmin, waiveRegistrationFee)));
     }
 
     @PostMapping("/applications/{id}/resend-form")
@@ -107,6 +112,9 @@ public class AdminMembershipController {
      * Mass-onboarding tool: the first batch of applicants after launch are typically real-world
      * members who joined before the platform existed, not fresh signups — this sends onboarding
      * credentials to every SUBMITTED application in one action instead of one-by-one.
+     * {@code waiveRegistrationFee} applies to the whole batch, same as {@link #bulkApprove} —
+     * marks every application fee-exempt right now so their onboarding wizard skips the payment
+     * step entirely, rather than waiting until final approval to waive it after the fact.
      * Each item runs through {@link MembershipService#sendForm} via this bean's proxy, so one
      * application's failure (e.g. a duplicate email) does not roll back or block the others.
      */
@@ -120,7 +128,7 @@ public class AdminMembershipController {
         List<BulkActionResultDto.ItemResult> results = new ArrayList<>();
         for (UUID id : req.applicationIds()) {
             try {
-                membershipService.sendForm(id, isSuperAdmin);
+                membershipService.sendForm(id, isSuperAdmin, req.waiveRegistrationFee());
                 results.add(BulkActionResultDto.ItemResult.success(id));
             } catch (Exception e) {
                 log.warn("Bulk send-form failed for application {}: {}", id, e.getMessage());

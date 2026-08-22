@@ -243,9 +243,15 @@ public class MembershipService {
      * Admin accepts the application in principle: creates (or demotes) the applicant's
      * account to APPLICANT role and emails them onboarding login credentials. This does
      * NOT grant membership — see {@link #approveMembership}.
+     *
+     * waiveRegistrationFee marks the application as fee-exempt right now, at send-form time —
+     * for a real-world member who was already part of the organization before the platform
+     * existed. The onboarding wizard reads this flag and skips the Registration Fee step
+     * entirely for them, so they never see a Stripe checkout prompt they shouldn't have to deal
+     * with. A brand-new applicant leaves this false and goes through the normal paid flow.
      */
     @Transactional
-    public AdminApplicationDto sendForm(UUID applicationId, boolean isSuperAdmin) {
+    public AdminApplicationDto sendForm(UUID applicationId, boolean isSuperAdmin, boolean waiveRegistrationFee) {
         MembershipApplication application = findApplicationById(applicationId);
 
         if (application.getStatus() != ApplicationStatus.SUBMITTED) {
@@ -315,15 +321,26 @@ public class MembershipService {
         application.setStatus(ApplicationStatus.FORM_SENT);
         application.setFormSentAt(LocalDateTime.now());
         application.setReviewedAt(LocalDateTime.now());
+
+        User admin = currentUser();
+        if (waiveRegistrationFee) {
+            application.setRegistrationFeeWaived(true);
+            application.setRegistrationFeeWaivedAt(LocalDateTime.now());
+            application.setRegistrationFeeWaivedBy(admin.getFullName());
+        }
         applicationRepository.save(application);
 
         String continueUrl = siteUrl + "/login?token=" + loginToken;
         emailService.sendFormSentCredentials(applicantEmail, applicantFirstName, tempPassword, continueUrl);
-        log.info("Form sent for application {} — applicant={}", application.getReferenceNumber(), applicantEmail);
+        log.info("Form sent for application {} — applicant={}{}", application.getReferenceNumber(), applicantEmail,
+                waiveRegistrationFee ? " (registration fee pre-waived)" : "");
 
-        User admin = currentUser();
         auditLogService.log(admin, "FORM_SENT", "MembershipApplication", application.getId(),
                 "Onboarding form sent for application " + application.getReferenceNumber() + " by " + admin.getFullName());
+        if (waiveRegistrationFee) {
+            auditLogService.log(admin, "REGISTRATION_FEE_WAIVED", "MembershipApplication", application.getId(),
+                    "Registration fee pre-waived at send-form for " + application.getReferenceNumber() + " by " + admin.getFullName());
+        }
 
         return AdminApplicationDto.from(application, isSuperAdmin);
     }
@@ -388,7 +405,9 @@ public class MembershipService {
 
         boolean feePaid = paymentBasketRepository.existsByMemberIdAndStatusAndLines_Ledger(
                 user.getId(), PaymentStatus.SUCCESS, PaymentBasketLedger.REGISTRATION_FEE);
-        boolean waiving = waiveRegistrationFee && !feePaid;
+        // Either an ad-hoc choice made right now, or already pre-waived back at send-form time
+        // (see MembershipService#sendForm) — either way, a real payment on file always wins.
+        boolean waiving = (waiveRegistrationFee || application.isRegistrationFeeWaived()) && !feePaid;
 
         if (waiving) {
             if (application.getStatus() != ApplicationStatus.ONBOARDING_IN_PROGRESS
@@ -422,9 +441,13 @@ public class MembershipService {
         membershipDuesService.createInitialDues(user);
         programApplicationService.makeApplicationsVisibleToCoordinators(user);
 
+        // Captured before mutation — distinguishes "already waived at send-form" (skip the
+        // duplicate stamp/audit-log entry below) from "waiving ad-hoc right now."
+        boolean newlyWaived = waiving && !application.isRegistrationFeeWaived();
+
         application.setStatus(ApplicationStatus.APPROVED);
         application.setApprovedAt(LocalDateTime.now());
-        if (waiving) {
+        if (newlyWaived) {
             application.setRegistrationFeeWaived(true);
             application.setRegistrationFeeWaivedAt(LocalDateTime.now());
             application.setRegistrationFeeWaivedBy(admin.getFullName());
@@ -438,7 +461,7 @@ public class MembershipService {
         auditLogService.log(admin, "MEMBERSHIP_APPROVED", "MembershipApplication", application.getId(),
                 "Membership approved for " + user.getFullName() + " (ref " + application.getReferenceNumber()
                         + ", memberId " + profile.getMemberId() + ") by " + admin.getFullName());
-        if (waiving) {
+        if (newlyWaived) {
             auditLogService.log(admin, "REGISTRATION_FEE_WAIVED", "MembershipApplication", application.getId(),
                     "Registration fee waived for " + user.getFullName() + " (ref " + application.getReferenceNumber()
                             + ") by " + admin.getFullName());
