@@ -127,6 +127,8 @@ public class TestDataCleanupService {
                 Stream.concat(TEST_EMAILS.stream(), KEEP_EMAILS.stream()).toList());
         MapSqlParameterSource electionIds = new MapSqlParameterSource("ids", TEST_ELECTION_IDS);
         MapSqlParameterSource cycleIds = new MapSqlParameterSource("ids", TEST_MGR_CYCLE_IDS);
+        MapSqlParameterSource cycleIdsAndEmails = new MapSqlParameterSource("ids", TEST_MGR_CYCLE_IDS)
+                .addValue("emails", TEST_EMAILS);
         MapSqlParameterSource meetingIds = new MapSqlParameterSource("ids", TEST_MEETING_IDS);
         MapSqlParameterSource eventIds = new MapSqlParameterSource("ids", TEST_EVENT_IDS);
         MapSqlParameterSource contactPattern = new MapSqlParameterSource("pattern", "mdau910+captcha%");
@@ -164,8 +166,12 @@ public class TestDataCleanupService {
         // ── Test MGR cycles (exact IDs) ──
         steps.add(new Step("mgr_contributions", "contributions for test MGR cycles", "cycle_id IN (:ids)", cycleIds));
         steps.add(new Step("mgr_slots", "slots for test MGR cycles", "cycle_id IN (:ids)", cycleIds));
-        steps.add(new Step("mgr_join_requests", "join requests for test MGR cycles",
-                "cycle_id IN (:ids) OR invited_cycle_id IN (:ids)", cycleIds));
+        // OR'd against user_id directly too, not just the two cycle-id columns -- a join request
+        // still sitting at PENDING/WAITLISTED (never yet invited to a specific cycle) has NULL in
+        // both cycle_id and invited_cycle_id, so the cycle-only match misses it even though it
+        // still holds a live FK to the test user, which blocked the users DELETE step below.
+        steps.add(new Step("mgr_join_requests", "join requests for test MGR cycles or by test accounts",
+                "cycle_id IN (:ids) OR invited_cycle_id IN (:ids) OR user_id IN " + userSub, cycleIdsAndEmails));
         steps.add(new Step("mgr_cycles", "test MGR cycles", "id IN (:ids)", cycleIds));
 
         // ── Test Member Stories submission (forum_posts) ──
