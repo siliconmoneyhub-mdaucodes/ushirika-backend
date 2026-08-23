@@ -61,19 +61,12 @@ public class DataInitializer implements ApplicationRunner {
     @Value("${app.superadmin.phone:+254000000000}")
     private String superAdminPhone;
 
-    @Value("${app.test-member.email:member@ushirikawelfare.org}")
-    private String testMemberEmail;
-
-    @Value("${app.test-member.password:Member@2025!}")
-    private String testMemberPassword;
-
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         ensureSchemaExtensions();
         fixLegacyGenderValues();
         seedSuperAdmin();
-        seedTestMember();
         seedContributionPlans();
         seedPrograms();
         seedGoverningDocuments();
@@ -495,65 +488,6 @@ public class DataInitializer implements ApplicationRunner {
         } else {
             log.info("SUPERADMIN credentials synced from env vars -> {}", superAdminEmail);
         }
-    }
-
-    private void seedTestMember() {
-        if (userRepository.existsByEmail(testMemberEmail)) return;
-
-        User member = User.builder()
-                .firstName("Wekesa")
-                .lastName("Wanjala")
-                .email(testMemberEmail)
-                .phone("+14695550142")
-                .password(passwordEncoder.encode(testMemberPassword))
-                .role(UserRole.MEMBER)
-                .emailVerified(true)
-                .active(true)
-                .build();
-
-        member = userRepository.save(member);
-
-        MemberProfile profile = MemberProfile.builder()
-                .user(member)
-                .idNumber("TEST00000001")
-                .dateOfBirth(LocalDate.of(1988, 4, 15))
-                .gender(Gender.MALE)
-                .street("6702 Ambercrest Dr")
-                .city("Arlington")
-                .zipCode("76002")
-                .country(Country.KENYA)
-                .kenyaCounty("Vihiga")
-                .kenyaSubCounty("Sabatia")
-                .kenyaVillage("Chavakali")
-                .maritalStatus(MaritalStatus.MARRIED)
-                .spouseName("Aisha Wanjala")
-                .occupation("Registered Nurse")
-                .employer("Texas Health Resources")
-                .heardAboutUs("Friend or member")
-                .memberId("UW-2025-0001")
-                .memberSince(LocalDate.of(2022, 3, 14))
-                .membershipTier("Family")
-                .build();
-
-        profile.getNextOfKin().add(NextOfKin.builder()
-                .memberProfile(profile).position((short) 1)
-                .fullName("Peter Wanjala").phone("+14695550143").relationship("Sibling")
-                .build());
-        profile.getNextOfKin().add(NextOfKin.builder()
-                .memberProfile(profile).position((short) 2)
-                .fullName("Aisha Wanjala").phone("+14695550144").relationship("Spouse")
-                .build());
-        profile.getEmergencyContacts().add(EmergencyContact.builder()
-                .memberProfile(profile).position((short) 1)
-                .fullName("Aisha Wanjala").phone("+14695550144").relationship("Spouse")
-                .build());
-        profile.getEmergencyContacts().add(EmergencyContact.builder()
-                .memberProfile(profile).position((short) 2)
-                .fullName("Peter Wanjala").phone("+14695550143").relationship("Sibling")
-                .build());
-
-        memberProfileRepository.save(profile);
-        log.info("Test member seeded: {} / password configured via app.test-member.password", testMemberEmail);
     }
 
     private void seedContributionPlans() {
