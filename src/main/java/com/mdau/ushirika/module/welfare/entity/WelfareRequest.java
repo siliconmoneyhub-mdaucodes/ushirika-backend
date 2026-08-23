@@ -55,9 +55,11 @@ public class WelfareRequest extends BaseEntity {
     @Column(name = "amount_requested", nullable = false, precision = 12, scale = 2)
     private BigDecimal amountRequested;
 
+    /** Welfare Fund is USD-only -- see WelfareService, which has no path that lets this be
+     * set to anything else. */
     @Column(name = "currency", nullable = false, length = 3)
     @Builder.Default
-    private String currency = "KES";
+    private String currency = "USD";
 
     /** Description of the welfare need — visible to admins. */
     @Column(name = "description", nullable = false, columnDefinition = "TEXT")

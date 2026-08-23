@@ -37,9 +37,11 @@ public class WelfareDisbursement extends BaseEntity {
     @Column(name = "amount_disbursed", nullable = false, precision = 12, scale = 2)
     private BigDecimal amountDisbursed;
 
+    /** Welfare Fund is USD-only -- see WelfareService, which has no path that lets this be
+     * set to anything else. */
     @Column(name = "currency", nullable = false, length = 3)
     @Builder.Default
-    private String currency = "KES";
+    private String currency = "USD";
 
     @Enumerated(EnumType.STRING)
     @Column(name = "method", nullable = false, length = 20)

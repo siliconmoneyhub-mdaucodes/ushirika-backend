@@ -6,6 +6,8 @@ import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.common.service.QuorumApprovalService;
 import com.mdau.ushirika.common.service.QuorumApprovalService.QuorumResult;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -44,6 +46,7 @@ public class WelfareService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final QuorumApprovalService quorumApprovalService;
+    private final AuditLogService auditLogService;
 
     // ─────────────────────────────────────── Categories (admin-managed)
 
@@ -238,12 +241,17 @@ public class WelfareService {
         request.setStatus(WelfareRequestStatus.DISBURSED);
         requestRepository.save(request);
 
+        auditLogService.log(admin, "WELFARE_DISBURSED", "WELFARE_REQUEST", request.getId(),
+                "Welfare disbursement of $" + req.amountDisbursed() + " to " + request.getMember().getFullName()
+                        + " (ref: " + request.getReferenceNumber() + ") via " + req.method(),
+                req.amountDisbursed(), LedgerDirection.OUT);
+
         emailService.sendPlain(
                 request.getMember().getEmail(),
                 request.getMember().getFullName(),
                 "Welfare Disbursement — Ushirika Welfare Organization",
                 "Dear " + request.getMember().getFirstName() + ",\n\n" +
-                "Your welfare support of KES " + req.amountDisbursed() + " (ref: " +
+                "Your welfare support of $" + req.amountDisbursed() + " (ref: " +
                 request.getReferenceNumber() + ") has been disbursed via " +
                 req.method().name().replace("_", " ") + ".\n\n" +
                 (req.transactionReference() != null
@@ -253,7 +261,7 @@ public class WelfareService {
                 "Regards,\nUshirika Welfare Organization"
         );
 
-        log.info("Welfare request {} disbursed: KES {} via {}",
+        log.info("Welfare request {} disbursed: ${} via {}",
                 request.getReferenceNumber(), req.amountDisbursed(), req.method());
         return AdminWelfareRequestDto.from(request, true);
     }
@@ -289,7 +297,7 @@ public class WelfareService {
                 "Welfare Request Approved — Ushirika Welfare Organization",
                 "Dear " + request.getMember().getFirstName() + ",\n\n" +
                 "Great news! Your welfare request (ref: " + request.getReferenceNumber() +
-                ") for KES " + request.getAmountRequested() + " has been approved.\n\n" +
+                ") for $" + request.getAmountRequested() + " has been approved.\n\n" +
                 "Disbursement will be processed shortly. You will receive a confirmation once done.\n\n" +
                 "Warmly,\nUshirika Welfare Organization"
         );
@@ -305,7 +313,7 @@ public class WelfareService {
                         "A welfare request requires your review.\n\n" +
                         "Member: " + member.getFullName() + "\n" +
                         "Category: " + request.getCategory().getName() + "\n" +
-                        "Amount: KES " + request.getAmountRequested() + "\n" +
+                        "Amount: $" + request.getAmountRequested() + "\n" +
                         "Reference: " + request.getReferenceNumber() + "\n\n" +
                         "Log in to the admin portal to cast your vote.\n\n" +
                         "Ushirika Welfare Organization"
