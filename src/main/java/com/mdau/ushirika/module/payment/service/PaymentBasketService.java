@@ -6,6 +6,7 @@ import com.mdau.ushirika.module.attendance.service.FineService;
 import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.benevolence.dto.BenevolenceApplicationCheckoutRequest;
 import com.mdau.ushirika.module.benevolence.service.BenevolenceClaimService;
@@ -17,6 +18,7 @@ import com.mdau.ushirika.module.mgr.service.MgrService;
 import com.mdau.ushirika.module.attendance.dto.FineDto;
 import com.mdau.ushirika.module.notification.dto.BroadcastRequest;
 import com.mdau.ushirika.module.notification.enums.InAppNotificationCategory;
+import com.mdau.ushirika.module.notification.service.EmailService;
 import com.mdau.ushirika.module.notification.service.InAppNotificationService;
 import com.mdau.ushirika.module.payment.dto.AdminCashPaymentRequest;
 import com.mdau.ushirika.module.payment.dto.BasketLineDto;
@@ -35,6 +37,7 @@ import com.mdau.ushirika.module.program.service.ProgramApplicationService;
 import com.stripe.model.checkout.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,6 +77,10 @@ public class PaymentBasketService {
     private final PaymentAllocationService paymentAllocationService;
     private final AuditLogService auditLogService;
     private final InAppNotificationService notificationService;
+    private final EmailService emailService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     @Transactional(readOnly = true)
     public OutstandingBalancesDto myOutstandingBalances() {
@@ -485,8 +492,41 @@ public class PaymentBasketService {
                 .findFirst()
                 .ifPresent(cashLine -> notifyCashPaymentProcessed(basket.getMember(), cashLine));
 
+        notifyFinanceOfPayment(basket);
+
         log.info("Payment basket confirmed [{}]: id={} sessionId={} member={} lines={}",
                 source, basket.getId(), basket.getSessionId(), basket.getMember().getEmail(), basket.getLines().size());
+    }
+
+    /** Nothing on the finance side was ever told when a payment actually succeeded -- dues,
+     *  registration fees, MGR, everything -- it just silently updated balances. Financial Admin
+     *  and Financial Official are the roles that actually work with this money day to day. */
+    private void notifyFinanceOfPayment(PaymentBasket basket) {
+        try {
+            String breakdown = basket.getLines().stream()
+                    .map(l -> "  - " + l.getLedger() + ": " + l.getAmount())
+                    .reduce((a, b) -> a + "\n" + b)
+                    .orElse("  (no line items)");
+            BigDecimal total = basket.getLines().stream()
+                    .map(PaymentBasketLine::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            userRepository.findAllByRoleIn(List.of(UserRole.FINANCIAL_ADMIN, UserRole.FINANCIAL_OFFICIAL))
+                    .forEach(official -> emailService.sendPlain(
+                            official.getEmail(), official.getFullName(),
+                            "Payment Received — " + basket.getMember().getFullName() + " (USD " + total + ")",
+                            "Hello " + official.getFirstName() + ",\n\n" +
+                            "A payment has just cleared.\n\n" +
+                            "Member: " + basket.getMember().getFullName() + "\n" +
+                            "Total: USD " + total + "\n" +
+                            "Breakdown:\n" + breakdown + "\n\n" +
+                            "View: " + siteUrl + "/admin/money-flow\n\n" +
+                            "Ushirika Welfare Organization"
+                    ));
+        } catch (Exception e) {
+            // A notification failure must never unwind a payment that already succeeded.
+            log.error("Failed to notify finance officials of completed payment basket={}", basket.getId(), e);
+        }
     }
 
     /** One ledger entry per basket line for the non-pooled ledgers only (registration fee,

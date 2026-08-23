@@ -455,6 +455,7 @@ public class MembershipService {
         applicationRepository.save(application);
 
         emailService.sendMembershipApproved(user.getEmail(), user.getFullName(), profile.getMemberId());
+        notifyAdminsOfApproval(application, user, profile.getMemberId(), admin, waiving);
         log.info("Membership approved for application {} — memberId={}{}",
                 application.getReferenceNumber(), profile.getMemberId(), waiving ? " (registration fee waived)" : "");
 
@@ -578,6 +579,27 @@ public class MembershipService {
                         "Applicant: " + applicant.getFullName() + "\n" +
                         "Reference: " + application.getReferenceNumber() + "\n\n" +
                         "Review it here: " + siteUrl + "/admin/applications\n\n" +
+                        "Ushirika Welfare Organization"
+                )
+        );
+    }
+
+    /** The enquiry stage already notifies admins/superadmin (see above) — final approval never
+     *  did, so nobody but the new member themselves heard that a membership actually went through. */
+    private void notifyAdminsOfApproval(MembershipApplication application, User newMember, String memberId,
+                                         User approvedBy, boolean feeWaived) {
+        userRepository.findAllByRoleIn(List.of(UserRole.ADMIN, UserRole.SUPERADMIN)).forEach(admin ->
+                emailService.sendPlain(
+                        admin.getEmail(), admin.getFullName(),
+                        "Membership Approved — " + application.getReferenceNumber(),
+                        "Hello " + admin.getFirstName() + ",\n\n" +
+                        "A membership application was just approved.\n\n" +
+                        "Member: " + newMember.getFullName() + "\n" +
+                        "Member ID: " + memberId + "\n" +
+                        "Reference: " + application.getReferenceNumber() + "\n" +
+                        "Approved by: " + approvedBy.getFullName() + "\n" +
+                        (feeWaived ? "Registration fee: waived\n" : "") + "\n" +
+                        "View: " + siteUrl + "/admin/members\n\n" +
                         "Ushirika Welfare Organization"
                 )
         );

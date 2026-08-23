@@ -21,6 +21,7 @@ import com.mdau.ushirika.module.notification.service.NotificationCategory;
 import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.payment.service.PlatformSettingsService;
 import com.mdau.ushirika.module.program.entity.Program;
+import com.mdau.ushirika.module.program.entity.ProgramAdminAssignment;
 import com.mdau.ushirika.module.program.enums.ProgramType;
 import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
 import com.mdau.ushirika.module.program.repository.ProgramRepository;
@@ -315,9 +316,30 @@ public class BenevolenceEnrollmentService {
                 .memberNotes(memberNotes)
                 .build();
         joinRequestRepo.save(request);
+        notifyCoordinatorsOfJoinRequest(member);
 
         log.info("Benevolence join request submitted: member={}", member.getEmail());
         return BenevolenceJoinRequestDto.from(request, memberId(member));
+    }
+
+    /** No admin/coordinator was ever emailed when a join request came in -- it only ever showed
+     *  up passively in the Needs Your Attention feed for whoever happened to be assigned and
+     *  happened to check. Scoped to the actually-assigned Benevolence coordinator(s), not a
+     *  broadcast to every admin, matching who's allowed to act on it (requireBenevolenceCoordinatorAccess). */
+    private void notifyCoordinatorsOfJoinRequest(User member) {
+        programRepo.findAllByType(ProgramType.BENEVOLENCE).stream()
+                .flatMap(p -> programAdminAssignmentRepo.findAllByProgramId(p.getId()).stream())
+                .map(ProgramAdminAssignment::getUser)
+                .distinct()
+                .forEach(coordinator -> emailService.sendPlain(
+                        coordinator.getEmail(), coordinator.getFullName(),
+                        "New Benevolence Join Request — Action Required",
+                        "Hello " + coordinator.getFirstName() + ",\n\n" +
+                        "A member has requested to join the Benevolence program.\n\n" +
+                        "Member: " + member.getFullName() + "\n\n" +
+                        "Review it here: " + siteUrl + "/admin/benevolence\n\n" +
+                        "Ushirika Welfare Organization"
+                ));
     }
 
     @Transactional(readOnly = true)

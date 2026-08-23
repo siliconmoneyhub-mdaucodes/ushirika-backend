@@ -21,6 +21,7 @@ import com.mdau.ushirika.module.notification.service.InAppNotificationService;
 import com.mdau.ushirika.module.notification.service.NotificationCategory;
 import com.mdau.ushirika.module.notification.service.NotificationDispatcher;
 import com.mdau.ushirika.module.program.entity.Program;
+import com.mdau.ushirika.module.program.entity.ProgramAdminAssignment;
 import com.mdau.ushirika.module.program.enums.ProgramType;
 import com.mdau.ushirika.module.program.repository.ProgramAdminAssignmentRepository;
 import com.mdau.ushirika.module.program.repository.ProgramRepository;
@@ -125,6 +126,7 @@ public class BenevolenceClaimService {
                         + " for " + req.deceasedName());
         notifyClaimUpdate(claim, "has been received and is now under review",
                 "Your Benevolence Claim Was Received — " + claim.getReferenceNumber());
+        notifyCoordinatorsOfClaim(claim, user);
         return BenevolenceClaimDto.from(claim, memberId(user));
     }
 
@@ -443,6 +445,27 @@ public class BenevolenceClaimService {
         if (!isAssignedCoordinator) {
             throw new ForbiddenException("Only the Benevolence program's coordinator can decide claims.");
         }
+    }
+
+    /** No admin/coordinator was ever emailed when a claim came in -- it only ever showed up
+     *  passively in the Needs Your Attention feed. Scoped to the actually-assigned coordinator(s),
+     *  same set that requireBenevolenceCoordinatorAccess above would let act on this claim. */
+    private void notifyCoordinatorsOfClaim(BenevolenceClaim claim, User submittedBy) {
+        programRepo.findAllByType(ProgramType.BENEVOLENCE).stream()
+                .flatMap(p -> programAdminAssignmentRepo.findAllByProgramId(p.getId()).stream())
+                .map(ProgramAdminAssignment::getUser)
+                .distinct()
+                .forEach(coordinator -> emailService.sendPlain(
+                        coordinator.getEmail(), coordinator.getFullName(),
+                        "New Benevolence Claim — " + claim.getReferenceNumber(),
+                        "Hello " + coordinator.getFirstName() + ",\n\n" +
+                        "A Benevolence claim was just submitted and needs review.\n\n" +
+                        "Submitted by: " + submittedBy.getFullName() + "\n" +
+                        "Reference: " + claim.getReferenceNumber() + "\n" +
+                        "For: " + claim.getDeceasedName() + "\n\n" +
+                        "Review it here: " + siteUrl + "/admin/benevolence\n\n" +
+                        "Ushirika Welfare Organization"
+                ));
     }
 
     private BenevolenceReplenishmentDto toReplenishmentDto(BenevolenceReplenishment r) {
