@@ -504,9 +504,9 @@ public class PaymentBasketService {
     private void notifyFinanceOfPayment(PaymentBasket basket) {
         try {
             String breakdown = basket.getLines().stream()
-                    .map(l -> "  - " + l.getLedger() + ": " + l.getAmount())
-                    .reduce((a, b) -> a + "\n" + b)
-                    .orElse("  (no line items)");
+                    .map(l -> "<li>" + l.getLedger() + ": " + l.getAmount() + "</li>")
+                    .reduce((a, b) -> a + b)
+                    .orElse("<li>(no line items)</li>");
             BigDecimal total = basket.getLines().stream()
                     .map(PaymentBasketLine::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -515,13 +515,15 @@ public class PaymentBasketService {
                     .forEach(official -> emailService.sendPlain(
                             official.getEmail(), official.getFullName(),
                             "Payment Received — " + basket.getMember().getFullName() + " (USD " + total + ")",
-                            "Hello " + official.getFirstName() + ",\n\n" +
-                            "A payment has just cleared.\n\n" +
-                            "Member: " + basket.getMember().getFullName() + "\n" +
-                            "Total: USD " + total + "\n" +
-                            "Breakdown:\n" + breakdown + "\n\n" +
-                            "View: " + siteUrl + "/admin/money-flow\n\n" +
-                            "Ushirika Welfare Organization"
+                            "<p>Hello " + official.getFirstName() + ",</p>" +
+                            "<p>A payment has just cleared.</p>" +
+                            "<p><strong>Member:</strong> " + basket.getMember().getFullName() + "<br>" +
+                            "<strong>Total:</strong> USD " + total + "</p>" +
+                            "<p><strong>Breakdown:</strong></p><ul style=\"margin:0 0 16px;padding-left:20px\">" + breakdown + "</ul>" +
+                            "<p style=\"margin:24px 0\"><a href=\"" + siteUrl + "/admin/money-flow\" " +
+                            "style=\"display:inline-block;background:#007834;color:#fff;padding:10px 20px;" +
+                            "border-radius:24px;text-decoration:none;font-weight:600\">View Money Flow</a></p>" +
+                            "<p>Ushirika Welfare Organization</p>"
                     ));
         } catch (Exception e) {
             // A notification failure must never unwind a payment that already succeeded.

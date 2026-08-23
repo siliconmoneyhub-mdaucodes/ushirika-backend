@@ -334,11 +334,13 @@ public class BenevolenceEnrollmentService {
                 .forEach(coordinator -> emailService.sendPlain(
                         coordinator.getEmail(), coordinator.getFullName(),
                         "New Benevolence Join Request — Action Required",
-                        "Hello " + coordinator.getFirstName() + ",\n\n" +
-                        "A member has requested to join the Benevolence program.\n\n" +
-                        "Member: " + member.getFullName() + "\n\n" +
-                        "Review it here: " + siteUrl + "/admin/benevolence\n\n" +
-                        "Ushirika Welfare Organization"
+                        "<p>Hello " + coordinator.getFirstName() + ",</p>" +
+                        "<p>A member has requested to join the Benevolence program.</p>" +
+                        "<p><strong>Member:</strong> " + member.getFullName() + "</p>" +
+                        "<p style=\"margin:24px 0\"><a href=\"" + siteUrl + "/admin/benevolence\" " +
+                        "style=\"display:inline-block;background:#007834;color:#fff;padding:10px 20px;" +
+                        "border-radius:24px;text-decoration:none;font-weight:600\">Review Request</a></p>" +
+                        "<p>Ushirika Welfare Organization</p>"
                 ));
     }
 

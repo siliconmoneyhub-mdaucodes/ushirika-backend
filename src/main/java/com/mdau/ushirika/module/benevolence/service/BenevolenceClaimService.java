@@ -458,13 +458,15 @@ public class BenevolenceClaimService {
                 .forEach(coordinator -> emailService.sendPlain(
                         coordinator.getEmail(), coordinator.getFullName(),
                         "New Benevolence Claim — " + claim.getReferenceNumber(),
-                        "Hello " + coordinator.getFirstName() + ",\n\n" +
-                        "A Benevolence claim was just submitted and needs review.\n\n" +
-                        "Submitted by: " + submittedBy.getFullName() + "\n" +
-                        "Reference: " + claim.getReferenceNumber() + "\n" +
-                        "For: " + claim.getDeceasedName() + "\n\n" +
-                        "Review it here: " + siteUrl + "/admin/benevolence\n\n" +
-                        "Ushirika Welfare Organization"
+                        "<p>Hello " + coordinator.getFirstName() + ",</p>" +
+                        "<p>A Benevolence claim was just submitted and needs review.</p>" +
+                        "<p><strong>Submitted by:</strong> " + submittedBy.getFullName() + "<br>" +
+                        "<strong>Reference:</strong> " + claim.getReferenceNumber() + "<br>" +
+                        "<strong>For:</strong> " + claim.getDeceasedName() + "</p>" +
+                        "<p style=\"margin:24px 0\"><a href=\"" + siteUrl + "/admin/benevolence\" " +
+                        "style=\"display:inline-block;background:#007834;color:#fff;padding:10px 20px;" +
+                        "border-radius:24px;text-decoration:none;font-weight:600\">Review Claim</a></p>" +
+                        "<p>Ushirika Welfare Organization</p>"
                 ));
     }
 

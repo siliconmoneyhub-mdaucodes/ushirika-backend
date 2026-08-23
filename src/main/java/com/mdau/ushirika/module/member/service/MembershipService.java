@@ -558,13 +558,13 @@ public class MembershipService {
                 emailService.sendPlain(
                         admin.getEmail(), admin.getFullName(),
                         "New Public Membership Enquiry — Action Required",
-                        "Hello " + admin.getFirstName() + ",\n\n" +
-                        "A new public membership enquiry requires your review.\n\n" +
-                        "Applicant: " + application.getApplicantName() + "\n" +
-                        "Email: " + application.getApplicantEmail() + "\n" +
-                        "Reference: " + application.getReferenceNumber() + "\n\n" +
-                        "Review it here: " + siteUrl + "/admin/applications\n\n" +
-                        "Ushirika Welfare Organization"
+                        "<p>Hello " + admin.getFirstName() + ",</p>" +
+                        "<p>A new public membership enquiry requires your review.</p>" +
+                        "<p><strong>Applicant:</strong> " + application.getApplicantName() + "<br>" +
+                        "<strong>Email:</strong> " + application.getApplicantEmail() + "<br>" +
+                        "<strong>Reference:</strong> " + application.getReferenceNumber() + "</p>" +
+                        ctaButton(siteUrl + "/admin/applications", "Review Application") +
+                        "<p>Ushirika Welfare Organization</p>"
                 )
         );
     }
@@ -574,14 +574,22 @@ public class MembershipService {
                 emailService.sendPlain(
                         admin.getEmail(), admin.getFullName(),
                         "New Membership Application — Action Required",
-                        "Hello " + admin.getFirstName() + ",\n\n" +
-                        "A new membership application requires your review.\n\n" +
-                        "Applicant: " + applicant.getFullName() + "\n" +
-                        "Reference: " + application.getReferenceNumber() + "\n\n" +
-                        "Review it here: " + siteUrl + "/admin/applications\n\n" +
-                        "Ushirika Welfare Organization"
+                        "<p>Hello " + admin.getFirstName() + ",</p>" +
+                        "<p>A new membership application requires your review.</p>" +
+                        "<p><strong>Applicant:</strong> " + applicant.getFullName() + "<br>" +
+                        "<strong>Reference:</strong> " + application.getReferenceNumber() + "</p>" +
+                        ctaButton(siteUrl + "/admin/applications", "Review Application") +
+                        "<p>Ushirika Welfare Organization</p>"
                 )
         );
+    }
+
+    /** Shared CTA button styling for admin/coordinator notification emails — matches the button
+     *  already used in sendFormSentCredentials/sendMembershipApproved instead of a bare link. */
+    private static String ctaButton(String url, String label) {
+        return "<p style=\"margin:24px 0\"><a href=\"" + url + "\" " +
+                "style=\"display:inline-block;background:#007834;color:#fff;padding:10px 20px;" +
+                "border-radius:24px;text-decoration:none;font-weight:600\">" + label + "</a></p>";
     }
 
     /** The enquiry stage already notifies admins/superadmin (see above) — final approval never
@@ -592,15 +600,15 @@ public class MembershipService {
                 emailService.sendPlain(
                         admin.getEmail(), admin.getFullName(),
                         "Membership Approved — " + application.getReferenceNumber(),
-                        "Hello " + admin.getFirstName() + ",\n\n" +
-                        "A membership application was just approved.\n\n" +
-                        "Member: " + newMember.getFullName() + "\n" +
-                        "Member ID: " + memberId + "\n" +
-                        "Reference: " + application.getReferenceNumber() + "\n" +
-                        "Approved by: " + approvedBy.getFullName() + "\n" +
-                        (feeWaived ? "Registration fee: waived\n" : "") + "\n" +
-                        "View: " + siteUrl + "/admin/members\n\n" +
-                        "Ushirika Welfare Organization"
+                        "<p>Hello " + admin.getFirstName() + ",</p>" +
+                        "<p>A membership application was just approved.</p>" +
+                        "<p><strong>Member:</strong> " + newMember.getFullName() + "<br>" +
+                        "<strong>Member ID:</strong> " + memberId + "<br>" +
+                        "<strong>Reference:</strong> " + application.getReferenceNumber() + "<br>" +
+                        "<strong>Approved by:</strong> " + approvedBy.getFullName() +
+                        (feeWaived ? "<br><strong>Registration fee:</strong> waived" : "") + "</p>" +
+                        ctaButton(siteUrl + "/admin/members", "View Member") +
+                        "<p>Ushirika Welfare Organization</p>"
                 )
         );
     }
