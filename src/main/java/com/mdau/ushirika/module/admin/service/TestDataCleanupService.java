@@ -97,8 +97,21 @@ public class TestDataCleanupService {
 
     /** Counts what execute() would delete, table by table, without changing anything. */
     public LinkedHashMap<String, Long> preview() {
+        return preview(TEST_EMAILS);
+    }
+
+    /** Actually deletes the rows preview() counted, in one transaction -- all or nothing. */
+    @Transactional
+    public LinkedHashMap<String, Long> execute() {
+        return execute(TEST_EMAILS);
+    }
+
+    /** Ad-hoc counterpart to preview() -- same machinery, but scoped to whatever specific
+     *  email(s) you pass in rather than the hardcoded 16-account batch. For cleaning up a single
+     *  one-off test account (e.g. after a live feature test) without touching the main list. */
+    public LinkedHashMap<String, Long> preview(List<String> emails) {
         LinkedHashMap<String, Long> counts = new LinkedHashMap<>();
-        for (Step step : buildSteps()) {
+        for (Step step : buildSteps(emails)) {
             Long count = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM " + step.table() + " WHERE " + step.whereSql(),
                     step.params(), Long.class);
@@ -107,11 +120,11 @@ public class TestDataCleanupService {
         return counts;
     }
 
-    /** Actually deletes the rows preview() counted, in one transaction -- all or nothing. */
+    /** Ad-hoc counterpart to execute() -- see preview(List) above. */
     @Transactional
-    public LinkedHashMap<String, Long> execute() {
+    public LinkedHashMap<String, Long> execute(List<String> emails) {
         LinkedHashMap<String, Long> deleted = new LinkedHashMap<>();
-        for (Step step : buildSteps()) {
+        for (Step step : buildSteps(emails)) {
             int count = jdbc.update("DELETE FROM " + step.table() + " WHERE " + step.whereSql(), step.params());
             deleted.put(step.table() + " -- " + step.description(), (long) count);
             log.info("Test data cleanup: deleted {} rows from {} ({})", count, step.table(), step.description());
@@ -119,16 +132,16 @@ public class TestDataCleanupService {
         return deleted;
     }
 
-    private List<Step> buildSteps() {
-        MapSqlParameterSource emails = new MapSqlParameterSource("emails", TEST_EMAILS);
+    private List<Step> buildSteps(List<String> testEmails) {
+        MapSqlParameterSource emails = new MapSqlParameterSource("emails", testEmails);
         MapSqlParameterSource appEmails = new MapSqlParameterSource("emails",
-                Stream.concat(TEST_EMAILS.stream(), ORPHAN_APPLICATION_EMAILS.stream()).toList());
+                Stream.concat(testEmails.stream(), ORPHAN_APPLICATION_EMAILS.stream()).toList());
         MapSqlParameterSource paymentEmails = new MapSqlParameterSource("emails",
-                Stream.concat(TEST_EMAILS.stream(), KEEP_EMAILS.stream()).toList());
+                Stream.concat(testEmails.stream(), KEEP_EMAILS.stream()).toList());
         MapSqlParameterSource electionIds = new MapSqlParameterSource("ids", TEST_ELECTION_IDS);
         MapSqlParameterSource cycleIds = new MapSqlParameterSource("ids", TEST_MGR_CYCLE_IDS);
         MapSqlParameterSource cycleIdsAndEmails = new MapSqlParameterSource("ids", TEST_MGR_CYCLE_IDS)
-                .addValue("emails", TEST_EMAILS);
+                .addValue("emails", testEmails);
         MapSqlParameterSource meetingIds = new MapSqlParameterSource("ids", TEST_MEETING_IDS);
         MapSqlParameterSource eventIds = new MapSqlParameterSource("ids", TEST_EVENT_IDS);
         MapSqlParameterSource contactPattern = new MapSqlParameterSource("pattern", "mdau910+captcha%");

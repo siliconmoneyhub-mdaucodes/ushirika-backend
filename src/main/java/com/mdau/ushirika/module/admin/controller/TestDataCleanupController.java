@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,6 +32,7 @@ public class TestDataCleanupController {
     private final TestDataCleanupService service;
 
     public record ExecuteRequest(String confirm) {}
+    public record AdhocRequest(List<String> emails, String confirm) {}
     public record CleanupResult(Map<String, Long> byTable, long total) {}
 
     @GetMapping("/preview")
@@ -47,6 +49,32 @@ public class TestDataCleanupController {
             throw new BadRequestException("Send {\"confirm\": \"" + CONFIRM_PHRASE + "\"} to run this.");
         }
         LinkedHashMap<String, Long> deleted = service.execute();
+        return ResponseEntity.ok(ApiResponse.ok("Test data deleted", toResult(deleted)));
+    }
+
+    /** Same machinery, scoped to a specific email or two instead of the hardcoded 16-account
+     *  batch -- for cleaning up a one-off test account right after a live feature test, without
+     *  touching or re-running the main list. */
+    @PostMapping("/preview-adhoc")
+    @Operation(summary = "Count what would be deleted for a specific ad-hoc list of test emails")
+    public ResponseEntity<ApiResponse<CleanupResult>> previewAdhoc(@RequestBody AdhocRequest req) {
+        if (req.emails() == null || req.emails().isEmpty()) {
+            throw new BadRequestException("Provide at least one email to preview.");
+        }
+        LinkedHashMap<String, Long> counts = service.preview(req.emails());
+        return ResponseEntity.ok(ApiResponse.ok("Preview complete", toResult(counts)));
+    }
+
+    @PostMapping("/execute-adhoc")
+    @Operation(summary = "Delete data for a specific ad-hoc list of test emails (requires confirm: \"DELETE_TEST_DATA\")")
+    public ResponseEntity<ApiResponse<CleanupResult>> executeAdhoc(@RequestBody AdhocRequest req) {
+        if (req.emails() == null || req.emails().isEmpty()) {
+            throw new BadRequestException("Provide at least one email to delete.");
+        }
+        if (req.confirm() == null || !req.confirm().equals(CONFIRM_PHRASE)) {
+            throw new BadRequestException("Send confirm: \"" + CONFIRM_PHRASE + "\" to run this.");
+        }
+        LinkedHashMap<String, Long> deleted = service.execute(req.emails());
         return ResponseEntity.ok(ApiResponse.ok("Test data deleted", toResult(deleted)));
     }
 
