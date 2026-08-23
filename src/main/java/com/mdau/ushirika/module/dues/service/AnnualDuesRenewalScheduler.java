@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.dues.service;
 
 import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.dues.entity.MembershipDue;
 import com.mdau.ushirika.module.dues.enums.DuesStatus;
@@ -38,6 +39,12 @@ public class AnnualDuesRenewalScheduler {
 
         int created = 0;
         for (User user : activeMembers) {
+            // SUPERADMIN is a system-administration role, not a membership tier -- an institutional
+            // account (e.g. a shared org inbox promoted for break-glass access) or a developer's own
+            // admin account should not silently accrue personal membership dues just for existing.
+            // A superadmin who is also a genuine dues-paying community member should be tracked as
+            // such deliberately (e.g. via the admin dues tools), not by this blanket yearly sweep.
+            if (user.getRole() == UserRole.SUPERADMIN) continue;
             if (dueRepository.findByUserAndYear(user, year).isPresent()) continue;
 
             dueRepository.save(MembershipDue.builder()
