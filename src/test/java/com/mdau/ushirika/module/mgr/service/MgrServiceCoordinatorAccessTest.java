@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.mgr.service;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.module.attendance.repository.FineRepository;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -49,6 +50,7 @@ class MgrServiceCoordinatorAccessTest {
     @Mock private com.mdau.ushirika.module.notification.service.NotificationDispatcher notificationDispatcher;
     @Mock private ProgramRepository programRepo;
     @Mock private ProgramAdminAssignmentRepository programAdminAssignmentRepo;
+    @Mock private AuditLogService auditLogService;
 
     private MgrService service;
     private UUID mgrProgramId;
@@ -56,7 +58,8 @@ class MgrServiceCoordinatorAccessTest {
     @BeforeEach
     void setUp() {
         service = new MgrService(cycleRepo, slotRepo, contributionRepo, joinRequestRepo,
-                profileRepo, userRepo, emailService, notificationDispatcher, programRepo, programAdminAssignmentRepo);
+                profileRepo, userRepo, emailService, notificationDispatcher, programRepo, programAdminAssignmentRepo,
+                auditLogService);
 
         Program mgrProgram = Program.builder().name("MGR").type(ProgramType.MGR).build();
         mgrProgramId = UUID.randomUUID();

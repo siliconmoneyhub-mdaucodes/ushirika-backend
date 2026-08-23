@@ -4,6 +4,8 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.module.audit.enums.LedgerDirection;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -48,6 +50,7 @@ public class MgrService {
     private final NotificationDispatcher notificationDispatcher;
     private final ProgramRepository programRepo;
     private final ProgramAdminAssignmentRepository programAdminAssignmentRepo;
+    private final AuditLogService auditLogService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -565,6 +568,11 @@ public class MgrService {
         slot.setPaymentReference(req.paymentReference());
         slot.setAdminNotes(req.adminNotes());
         slotRepo.save(slot);
+
+        auditLogService.log(currentUser(), "MGR_PAYOUT_RECORDED", "MGR_SLOT", slot.getId(),
+                "MGR payout of $" + slot.getPayoutAmount() + " recorded for " + slot.getUser().getFullName()
+                        + " (cycle: " + slot.getCycle().getName() + ")",
+                slot.getPayoutAmount(), LedgerDirection.OUT);
 
         log.info("MGR payout recorded: slotId={} member={}", slotId, slot.getUser().getEmail());
         sendPayoutNotification(slot);
