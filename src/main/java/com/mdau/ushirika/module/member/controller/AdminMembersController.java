@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.member.controller;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.auth.dto.UserProfileDto;
+import com.mdau.ushirika.module.member.dto.MemberFinancialSummaryDto;
 import com.mdau.ushirika.module.member.service.AdminUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -13,9 +14,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/admin/members")
@@ -35,5 +39,12 @@ public class AdminMembersController {
     ) {
         return ResponseEntity.ok(ApiResponse.ok("Members retrieved",
                 adminUserService.listMembersWithProfile(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
+    }
+
+    @GetMapping("/{id}/financial-summary")
+    @Operation(summary = "Dues balance, Benevolence status/balance, and outstanding fines for one member")
+    public ResponseEntity<ApiResponse<MemberFinancialSummaryDto>> financialSummary(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok("Financial summary retrieved",
+                adminUserService.getFinancialSummary(id)));
     }
 }

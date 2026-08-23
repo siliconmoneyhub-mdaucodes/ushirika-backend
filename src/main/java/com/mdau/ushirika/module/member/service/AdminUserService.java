@@ -20,7 +20,12 @@ import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.enums.MemberStatus;
 import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.attendance.dto.FineDto;
+import com.mdau.ushirika.module.attendance.enums.FineStatus;
+import com.mdau.ushirika.module.attendance.service.FineService;
+import com.mdau.ushirika.module.benevolence.service.BenevolenceEnrollmentService;
 import com.mdau.ushirika.module.dues.service.MembershipDuesService;
+import com.mdau.ushirika.module.member.dto.MemberFinancialSummaryDto;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +36,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -47,6 +53,8 @@ public class AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final MembershipDuesService membershipDuesService;
+    private final BenevolenceEnrollmentService benevolenceEnrollmentService;
+    private final FineService fineService;
     private final AuditLogService auditLogService;
     private final MemberStatusChangeService statusChangeService;
 
@@ -85,6 +93,30 @@ public class AdminUserService {
     @Transactional(readOnly = true)
     public UserDto getUser(UUID userId) {
         return UserDto.from(findById(userId));
+    }
+
+    /** Dues balance, Benevolence status/balance, and outstanding fines for one member --
+     * backs the Members admin detail panel so an admin can see financial standing without
+     * leaving the page to cross-reference Dues/Benevolence/Fines separately. */
+    @Transactional(readOnly = true)
+    public MemberFinancialSummaryDto getFinancialSummary(UUID userId) {
+        User user = findById(userId);
+
+        BigDecimal duesBalance = membershipDuesService.outstandingBalance(user);
+
+        BenevolenceEnrollmentService.EnrollmentBalance benBalance = benevolenceEnrollmentService.outstandingBalance(user);
+        String benevolenceStatus = benBalance != null ? benBalance.status() : "NOT_ENROLLED";
+        BigDecimal benevolenceBalance = benBalance != null ? benBalance.balance() : null;
+
+        List<FineDto> outstandingFines = fineService.getFinesForMember(userId).stream()
+                .filter(f -> FineStatus.PENDING.name().equals(f.status()))
+                .toList();
+        BigDecimal finesTotal = outstandingFines.stream()
+                .map(FineDto::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new MemberFinancialSummaryDto(duesBalance, benevolenceStatus, benevolenceBalance,
+                outstandingFines, finesTotal);
     }
 
     /**
