@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -80,13 +81,17 @@ public class TestDataCleanupService {
      *  backup, for the handful of tables that are wholesale test data but aren't keyed to a
      *  specific test user (admin-only tables where "created_by" is often the kept superadmin
      *  account, so it can't be used to distinguish test rows from real future ones). */
-    private static final List<String> TEST_ELECTION_IDS = List.of(
-            "002609b3-1c8c-4196-9494-9d773493d361", "691c4e32-cb67-49fe-8d48-0680c2a64542");
-    private static final List<String> TEST_MGR_CYCLE_IDS = List.of(
-            "e103fd61-c630-41d9-93d9-b0dfe149d598", "ed5641fd-75a9-491e-92b6-f685bea0f57c",
-            "e0b9f31e-2cd4-44e0-b213-2faaa66cf8b1");
-    private static final List<String> TEST_MEETING_IDS = List.of("23bf8d2c-65d8-4f58-bd23-2dde3c97e002");
-    private static final List<String> TEST_EVENT_IDS = List.of("edf84977-a825-4d87-a59d-0b10704fc0f3");
+    // UUID, not String -- these bind against native `uuid` columns (elections.id, mgr_cycles.id,
+    // etc.), and the Postgres JDBC driver won't implicitly cast a VARCHAR-bound parameter to uuid
+    // the way it would a plain SQL string literal ("operator does not exist: uuid = character
+    // varying"). Binding actual UUID objects sidesteps the cast entirely.
+    private static final List<UUID> TEST_ELECTION_IDS = List.of(
+            UUID.fromString("002609b3-1c8c-4196-9494-9d773493d361"), UUID.fromString("691c4e32-cb67-49fe-8d48-0680c2a64542"));
+    private static final List<UUID> TEST_MGR_CYCLE_IDS = List.of(
+            UUID.fromString("e103fd61-c630-41d9-93d9-b0dfe149d598"), UUID.fromString("ed5641fd-75a9-491e-92b6-f685bea0f57c"),
+            UUID.fromString("e0b9f31e-2cd4-44e0-b213-2faaa66cf8b1"));
+    private static final List<UUID> TEST_MEETING_IDS = List.of(UUID.fromString("23bf8d2c-65d8-4f58-bd23-2dde3c97e002"));
+    private static final List<UUID> TEST_EVENT_IDS = List.of(UUID.fromString("edf84977-a825-4d87-a59d-0b10704fc0f3"));
 
     private record Step(String table, String description, String whereSql, MapSqlParameterSource params) {}
 
