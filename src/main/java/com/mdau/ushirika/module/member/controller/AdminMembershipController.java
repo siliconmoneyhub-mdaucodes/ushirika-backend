@@ -75,10 +75,11 @@ public class AdminMembershipController {
     }
 
     @PostMapping("/applications/{id}/send-form")
-    @Operation(summary = "Accept an application in principle and send the applicant their onboarding form")
+    @Operation(summary = "Accept an application in principle and send the applicant their onboarding form. " +
+            "Defaults to waiving the registration fee -- pass waiveRegistrationFee=false to charge a genuinely new member.")
     public ResponseEntity<ApiResponse<AdminApplicationDto>> sendForm(
             @PathVariable UUID id,
-            @RequestParam(defaultValue = "false") boolean waiveRegistrationFee,
+            @RequestParam(defaultValue = "true") boolean waiveRegistrationFee,
             Authentication auth
     ) {
         boolean isSuperAdmin = auth.getAuthorities().stream()
@@ -112,9 +113,11 @@ public class AdminMembershipController {
      * Mass-onboarding tool: the first batch of applicants after launch are typically real-world
      * members who joined before the platform existed, not fresh signups — this sends onboarding
      * credentials to every SUBMITTED application in one action instead of one-by-one.
-     * {@code waiveRegistrationFee} applies to the whole batch, same as {@link #bulkApprove} —
+     * {@code waiveRegistrationFee} applies to the whole batch -- true (the frontend's default)
      * marks every application fee-exempt right now so their onboarding wizard skips the payment
-     * step entirely, rather than waiting until final approval to waive it after the fact.
+     * step entirely; the frontend only sends false when the admin has actively opted in to
+     * charging a genuinely new member. Independent of {@link #bulkApprove}'s own waiver choice,
+     * which is a separate override for applications already mid-onboarding without payment.
      * Each item runs through {@link MembershipService#sendForm} via this bean's proxy, so one
      * application's failure (e.g. a duplicate email) does not roll back or block the others.
      */
