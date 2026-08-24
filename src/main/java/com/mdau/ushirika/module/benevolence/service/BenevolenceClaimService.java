@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -108,13 +109,13 @@ public class BenevolenceClaimService {
                 .beneficiary(beneficiary)
                 .category(category)
                 .referenceNumber(generateRef())
-                .deceasedName(req.deceasedName())
+                .deceasedName(TextNormalizer.titleCase(req.deceasedName()))
                 .relationship(req.relationship())
                 .dateOfDeath(req.dateOfDeath())
                 .locationOfDeath(req.locationOfDeath())
                 .funeralDate(req.funeralDate())
                 .funeralLocation(req.funeralLocation())
-                .contactName(req.contactName())
+                .contactName(TextNormalizer.titleCase(req.contactName()))
                 .contactPhone(req.contactPhone())
                 .description(req.description())
                 .documentUrls(req.documentUrls() != null ? req.documentUrls() : List.of())

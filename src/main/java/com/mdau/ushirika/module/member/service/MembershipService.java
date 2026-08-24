@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
@@ -170,11 +171,14 @@ public class MembershipService {
 
     @Transactional
     public ApplicationTrackDto submitPublicApplication(PublicMembershipApplicationRequest req) {
-        String address = req.street() + ", " + req.city() + ", " + req.state() + " " + req.zipCode();
+        String firstName = TextNormalizer.titleCase(req.firstName());
+        String lastName = TextNormalizer.titleCase(req.lastName());
+        String city = TextNormalizer.titleCase(req.city());
+        String address = req.street() + ", " + city + ", " + req.state().label() + " " + req.zipCode();
         MembershipApplication application = MembershipApplication.builder()
                 .referenceNumber(generateReferenceNumber())
-                .applicantName(req.firstName() + " " + req.lastName())
-                .applicantEmail(req.email())
+                .applicantName(firstName + " " + lastName)
+                .applicantEmail(TextNormalizer.normalizeEmail(req.email()))
                 .applicantPhone(req.phone())
                 .applicantCounty(req.kenyaCounty())
                 .applicantSubtribe(req.subtribe())

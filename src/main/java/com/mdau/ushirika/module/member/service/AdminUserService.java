@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.dto.UserDto;
 import com.mdau.ushirika.module.auth.dto.UserProfileDto;
@@ -238,7 +239,8 @@ public class AdminUserService {
             throw new BadRequestException(
                     "You must acknowledge that no registration fee will be collected for this member.");
         }
-        if (userRepository.existsByEmail(req.email().toLowerCase())) {
+        String email = TextNormalizer.normalizeEmail(req.email());
+        if (userRepository.existsByEmail(email)) {
             throw new ConflictException("An account with this email already exists.");
         }
         if (userRepository.existsByPhone(req.phone())) {
@@ -249,9 +251,9 @@ public class AdminUserService {
         log.info("[createMember] building User");
 
         User user = User.builder()
-                .firstName(req.firstName())
-                .lastName(req.lastName())
-                .email(req.email().toLowerCase())
+                .firstName(TextNormalizer.titleCase(req.firstName()))
+                .lastName(TextNormalizer.titleCase(req.lastName()))
+                .email(email)
                 .phone(req.phone())
                 .password(passwordEncoder.encode(tempPassword))
                 .emailVerified(true)

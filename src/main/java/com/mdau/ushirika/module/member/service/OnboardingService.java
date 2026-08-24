@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.member.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.constitution.enums.DocumentStatus;
@@ -133,7 +134,7 @@ public class OnboardingService {
         profile.setDateOfBirth(req.dateOfBirth());
         profile.setGender(req.gender());
         profile.setMaritalStatus(req.maritalStatus());
-        profile.setSpouseName(req.spouseName());
+        profile.setSpouseName(TextNormalizer.titleCase(req.spouseName()));
         profile.setChildrenJson(serializeChildren(req.children()));
         profile.setOccupation(req.occupation());
         profile.setEmployer(req.employer());
@@ -153,7 +154,7 @@ public class OnboardingService {
         MemberProfile profile = findOrCreateProfile(user);
 
         profile.setStreet(req.street());
-        profile.setCity(req.city());
+        profile.setCity(TextNormalizer.titleCase(req.city()));
         profile.setZipCode(req.zipCode());
         profile.setCountry(req.country());
         profile.setKenyaCounty(req.kenyaCounty());
@@ -183,7 +184,7 @@ public class OnboardingService {
             profile.getNextOfKin().add(NextOfKin.builder()
                     .memberProfile(profile)
                     .position((short) (i + 1))
-                    .fullName(dto.fullName())
+                    .fullName(TextNormalizer.titleCase(dto.fullName()))
                     .phone(dto.phone())
                     .relationship(dto.relationship())
                     .build());
@@ -208,7 +209,7 @@ public class OnboardingService {
             profile.getEmergencyContacts().add(EmergencyContact.builder()
                     .memberProfile(profile)
                     .position((short) (i + 1))
-                    .fullName(dto.fullName())
+                    .fullName(TextNormalizer.titleCase(dto.fullName()))
                     .phone(dto.phone())
                     .relationship(dto.relationship())
                     .build());
@@ -241,7 +242,8 @@ public class OnboardingService {
         for (int i = 0; i < children.size(); i++) {
             var c = children.get(i);
             if (i > 0) sb.append(",");
-            sb.append("{\"name\":\"").append(c.name() == null ? "" : c.name().replace("\"", "\\\""))
+            String childName = TextNormalizer.titleCase(c.name());
+            sb.append("{\"name\":\"").append(childName == null ? "" : childName.replace("\"", "\\\""))
               .append("\",\"dateOfBirth\":\"").append(c.dateOfBirth() == null ? "" : c.dateOfBirth())
               .append("\"}");
         }

@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.exception.TooManyRequestsException;
+import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.auth.dto.*;
 import com.mdau.ushirika.module.auth.entity.RefreshToken;
 import com.mdau.ushirika.module.auth.entity.User;
@@ -50,7 +51,8 @@ public class AuthService {
 
     @Transactional
     public void register(RegisterRequest req) {
-        if (userRepository.existsByEmail(req.email())) {
+        String email = TextNormalizer.normalizeEmail(req.email());
+        if (userRepository.existsByEmail(email)) {
             throw new ConflictException("An account with this email already exists");
         }
         if (userRepository.existsByPhone(req.phone())) {
@@ -59,9 +61,9 @@ public class AuthService {
 
         String otp = generateOtp();
         User user = User.builder()
-                .firstName(req.firstName())
-                .lastName(req.lastName())
-                .email(req.email().toLowerCase())
+                .firstName(TextNormalizer.titleCase(req.firstName()))
+                .lastName(TextNormalizer.titleCase(req.lastName()))
+                .email(email)
                 .phone(req.phone())
                 .password(passwordEncoder.encode(req.password()))
                 .emailVerified(false)

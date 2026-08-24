@@ -10,6 +10,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -96,6 +97,15 @@ public class GlobalExceptionHandler {
                 ex.getName(), ex.getValue(), expected);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail("'" + ex.getName() + "' must be a valid " + expected + "."));
+    }
+
+    /** A request body that fails to deserialize -- most commonly a value that doesn't match a
+     *  DTO's enum field (e.g. an invalid US state) -- is bad client input, not a server fault. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMalformedBody(HttpMessageNotReadableException ex) {
+        log.warn("Rejected request — malformed body: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("The request contained an invalid or unrecognized value."));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

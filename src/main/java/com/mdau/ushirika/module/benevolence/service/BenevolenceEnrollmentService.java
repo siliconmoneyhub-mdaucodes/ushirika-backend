@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -156,8 +157,8 @@ public class BenevolenceEnrollmentService {
         for (SubmitBeneficiariesRequest.BeneficiaryEntry entry : req.beneficiaries()) {
             beneficiaryRepo.save(BenevolenceBeneficiary.builder()
                     .enrollment(enrollment)
-                    .firstName(entry.firstName())
-                    .lastName(entry.lastName())
+                    .firstName(TextNormalizer.titleCase(entry.firstName()))
+                    .lastName(TextNormalizer.titleCase(entry.lastName()))
                     .relationship(entry.relationship())
                     .phoneNumber(entry.phoneNumber())
                     .dateOfBirth(entry.dateOfBirth())
@@ -266,8 +267,8 @@ public class BenevolenceEnrollmentService {
         for (SubmitBeneficiariesRequest.BeneficiaryEntry entry : req.beneficiaries()) {
             BenevolenceBeneficiary b = BenevolenceBeneficiary.builder()
                     .enrollment(enrollment)
-                    .firstName(entry.firstName())
-                    .lastName(entry.lastName())
+                    .firstName(TextNormalizer.titleCase(entry.firstName()))
+                    .lastName(TextNormalizer.titleCase(entry.lastName()))
                     .relationship(entry.relationship())
                     .phoneNumber(entry.phoneNumber())
                     .dateOfBirth(entry.dateOfBirth())
