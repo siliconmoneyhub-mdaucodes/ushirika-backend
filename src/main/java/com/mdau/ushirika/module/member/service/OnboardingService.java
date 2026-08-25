@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.member.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.exception.TooManyRequestsException;
 import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -61,6 +62,7 @@ public class OnboardingService {
     private final PaymentBasketRepository paymentBasketRepository;
     private final PaymentBasketService paymentBasketService;
     private final EmailService emailService;
+    private final OnboardingOtpRateLimiter otpRateLimiter;
 
     @Transactional(readOnly = true)
     public OnboardingStatusDto getStatus() {
@@ -71,6 +73,12 @@ public class OnboardingService {
     public void requestEmailOtp() {
         User user = currentUser();
         MembershipApplication application = findApplication(user);
+
+        if (!otpRateLimiter.tryConsume(user.getId())) {
+            throw new TooManyRequestsException(
+                    "Too many code requests — max " + otpRateLimiter.getMaxPerHour() +
+                            " per hour. Please wait and try again, or check your inbox/spam folder for a code already sent.");
+        }
 
         String otp = generateOtp();
         application.setOnboardingEmailOtp(otp);

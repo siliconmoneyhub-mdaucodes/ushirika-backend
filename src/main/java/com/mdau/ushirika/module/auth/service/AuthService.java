@@ -41,6 +41,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final PasswordResetRateLimiter passwordResetRateLimiter;
+    private final EmailVerificationOtpRateLimiter emailVerificationOtpRateLimiter;
 
     @Value("${app.jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
@@ -105,17 +106,28 @@ public class AuthService {
 
     // ── Resend OTP ────────────────────────────────────────────────────────────
 
+    /** Always returns success regardless of whether the email is registered, already verified,
+     *  or genuinely gets a fresh code -- same anti-enumeration guarantee as forgotPassword().
+     *  Previously threw a 404 for an unregistered email and a distinct 400 for an
+     *  already-verified one, letting anyone probe which emails have platform accounts. */
     @Transactional
     public void resendVerificationOtp(String email) {
-        User user = findByEmail(email);
-        if (user.isEmailVerified()) {
-            throw new BadRequestException("Email is already verified");
+        String normalized = TextNormalizer.normalizeEmail(email);
+
+        if (!emailVerificationOtpRateLimiter.tryConsume(normalized)) {
+            throw new TooManyRequestsException(
+                    "Too many code requests for this email — max " + emailVerificationOtpRateLimiter.getMaxPerHour() +
+                            " per hour. Please wait and try again.");
         }
-        String otp = generateOtp();
-        user.setEmailVerificationOtp(otp);
-        user.setEmailVerificationOtpExpiry(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));
-        userRepository.save(user);
-        emailService.sendEmailVerificationOtp(user.getEmail(), user.getFirstName(), otp);
+
+        userRepository.findByEmail(normalized).ifPresent(user -> {
+            if (user.isEmailVerified()) return;
+            String otp = generateOtp();
+            user.setEmailVerificationOtp(otp);
+            user.setEmailVerificationOtpExpiry(LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES));
+            userRepository.save(user);
+            emailService.sendEmailVerificationOtp(user.getEmail(), user.getFirstName(), otp);
+        });
     }
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -366,8 +378,10 @@ public class AuthService {
         emailService.sendAdminEntryOtp(user.getEmail(), user.getFirstName(), otp);
     }
 
-    /** Verifies the code from requestAdminEntryOtp(). Throws on mismatch/expiry; clears the
-     *  OTP either way so it can't be reused. */
+    /** Verifies the code from requestAdminEntryOtp(). Only clears the stored OTP on success or
+     *  genuine expiry -- previously cleared it unconditionally on every call, so a single
+     *  mistyped digit permanently burned an otherwise-valid code and the error message gave
+     *  no indication a fresh Resend was now required instead of just retyping it. */
     @Transactional
     public void verifyAdminEntryOtp(String otp) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -375,16 +389,23 @@ public class AuthService {
 
         String storedOtp = user.getAdminEntryOtp();
         LocalDateTime expiry = user.getAdminEntryOtpExpiry();
+
+        if (storedOtp == null) {
+            throw new BadRequestException("No confirmation code was requested, or it was already used. Request a new one.");
+        }
+        if (expiry == null || LocalDateTime.now().isAfter(expiry)) {
+            user.setAdminEntryOtp(null);
+            user.setAdminEntryOtpExpiry(null);
+            userRepository.save(user);
+            throw new BadRequestException("Confirmation code has expired. Request a new one.");
+        }
+        if (!storedOtp.equals(otp)) {
+            throw new BadRequestException("Incorrect code. Please try again.");
+        }
+
         user.setAdminEntryOtp(null);
         user.setAdminEntryOtpExpiry(null);
         userRepository.save(user);
-
-        if (storedOtp == null || !storedOtp.equals(otp)) {
-            throw new BadRequestException("Invalid or expired confirmation code");
-        }
-        if (expiry == null || LocalDateTime.now().isAfter(expiry)) {
-            throw new BadRequestException("Confirmation code has expired. Request a new one");
-        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
