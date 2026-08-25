@@ -47,6 +47,10 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
+    /** Optional — unlike firstName/lastName, not every member has one. */
+    @Column(name = "middle_name", length = 100)
+    private String middleName;
+
     @Column(name = "phone", unique = true, nullable = false, length = 20)
     private String phone;
 
@@ -183,7 +187,9 @@ public class User extends BaseEntity implements UserDetails {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     public String getFullName() {
-        return firstName + " " + lastName;
+        return Stream.of(firstName, middleName, lastName)
+                .filter(s -> s != null && !s.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     public boolean isSuperAdmin() {

@@ -261,6 +261,7 @@ public class AdminUserService {
 
         User user = User.builder()
                 .firstName(TextNormalizer.titleCase(req.firstName()))
+                .middleName(TextNormalizer.titleCase(req.middleName()))
                 .lastName(TextNormalizer.titleCase(req.lastName()))
                 .email(email)
                 .phone(req.phone())

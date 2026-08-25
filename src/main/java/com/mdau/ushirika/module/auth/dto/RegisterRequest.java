@@ -10,6 +10,9 @@ public record RegisterRequest(
         @NotBlank(message = "First name is required")
         String firstName,
 
+        @Size(max = 100)
+        String middleName,
+
         @NotBlank(message = "Last name is required")
         String lastName,
 

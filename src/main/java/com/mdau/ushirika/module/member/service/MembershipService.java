@@ -172,12 +172,14 @@ public class MembershipService {
     @Transactional
     public ApplicationTrackDto submitPublicApplication(PublicMembershipApplicationRequest req) {
         String firstName = TextNormalizer.titleCase(req.firstName());
+        String middleName = TextNormalizer.titleCase(req.middleName());
         String lastName = TextNormalizer.titleCase(req.lastName());
         String city = TextNormalizer.titleCase(req.city());
         String address = req.street() + ", " + city + ", " + req.state().label() + " " + req.zipCode();
         MembershipApplication application = MembershipApplication.builder()
                 .referenceNumber(generateReferenceNumber())
                 .applicantName(firstName + " " + lastName)
+                .applicantMiddleName(middleName)
                 .applicantEmail(TextNormalizer.normalizeEmail(req.email()))
                 .applicantPhone(req.phone())
                 .applicantCounty(req.kenyaCounty())
@@ -286,6 +288,7 @@ public class MembershipService {
 
             User newUser = User.builder()
                     .firstName(firstName)
+                    .middleName(application.getApplicantMiddleName())
                     .lastName(lastName)
                     .email(email)
                     .phone(application.getApplicantPhone())

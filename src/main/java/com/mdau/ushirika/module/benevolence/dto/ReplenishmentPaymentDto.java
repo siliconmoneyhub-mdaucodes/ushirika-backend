@@ -21,8 +21,7 @@ public record ReplenishmentPaymentDto(
         ReplenishmentPaymentStatus status
 ) {
     public static ReplenishmentPaymentDto from(ReplenishmentPayment p, String memberId) {
-        String fullName = p.getEnrollment().getUser().getFirstName()
-                + " " + p.getEnrollment().getUser().getLastName();
+        String fullName = p.getEnrollment().getUser().getFullName();
 
         return new ReplenishmentPaymentDto(
                 p.getId(), p.getReplenishment().getId(), p.getEnrollment().getId(),

@@ -40,9 +40,15 @@ public class MembershipApplication extends BaseEntity {
                 foreignKey = @ForeignKey(name = "fk_ma_user"))
     private User user;
 
-    /** Populated for public (unauthenticated) submissions — no User account yet. */
+    /** Populated for public (unauthenticated) submissions — no User account yet.
+     *  Deliberately first+last only (no middle name folded in) — sendForm() splits this
+     *  string back into firstName/lastName by first space, so keeping it two tokens keeps
+     *  that split reliable. The middle name rides separately in applicantMiddleName. */
     @Column(name = "applicant_name", length = 200)
     private String applicantName;
+
+    @Column(name = "applicant_middle_name", length = 100)
+    private String applicantMiddleName;
 
     @Column(name = "applicant_email", length = 200)
     private String applicantEmail;

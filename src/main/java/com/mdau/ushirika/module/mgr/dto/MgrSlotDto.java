@@ -35,7 +35,7 @@ public record MgrSlotDto(
 ) {
     public static MgrSlotDto from(MgrSlot s, String memberId, String photoUrl,
                                    List<MgrContributionDto> contributions) {
-        String fullName = s.getUser().getFirstName() + " " + s.getUser().getLastName();
+        String fullName = s.getUser().getFullName();
         return new MgrSlotDto(
                 s.getId(), s.getCycle().getId(), s.getUser().getId(),
                 fullName, s.getUser().getEmail(), memberId, photoUrl,
@@ -48,7 +48,7 @@ public record MgrSlotDto(
     }
 
     public static MgrSlotDto summary(MgrSlot s, String memberId, String photoUrl) {
-        String fullName = s.getUser().getFirstName() + " " + s.getUser().getLastName();
+        String fullName = s.getUser().getFullName();
         return new MgrSlotDto(
                 s.getId(), s.getCycle().getId(), s.getUser().getId(),
                 fullName, s.getUser().getEmail(), memberId, photoUrl,
@@ -62,7 +62,7 @@ public record MgrSlotDto(
 
     /** Public-safe view — excludes email. Used for the beneficiary reveal in member portal. */
     public static MgrSlotDto publicView(MgrSlot s, String memberId, String photoUrl) {
-        String fullName = s.getUser().getFirstName() + " " + s.getUser().getLastName();
+        String fullName = s.getUser().getFullName();
         return new MgrSlotDto(
                 s.getId(), s.getCycle().getId(), s.getUser().getId(),
                 fullName, null, memberId, photoUrl,

@@ -94,6 +94,7 @@ public class UserController {
         }
 
         user.setFirstName(req.firstName().trim());
+        user.setMiddleName(trimOrNull(req.middleName()));
         user.setLastName(req.lastName().trim());
         user.setPhone(req.phone().trim());
         userRepository.save(user);

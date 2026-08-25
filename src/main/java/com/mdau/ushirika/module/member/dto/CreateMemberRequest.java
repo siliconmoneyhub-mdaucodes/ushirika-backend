@@ -3,9 +3,11 @@ package com.mdau.ushirika.module.member.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public record CreateMemberRequest(
         @NotBlank(message = "First name is required") String firstName,
+        @Size(max = 100) String middleName,
         @NotBlank(message = "Last name is required") String lastName,
         @Email(message = "A valid email address is required") @NotBlank String email,
         @NotBlank(message = "Phone number is required")

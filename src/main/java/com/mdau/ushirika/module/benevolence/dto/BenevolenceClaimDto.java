@@ -38,8 +38,7 @@ public record BenevolenceClaimDto(
         LocalDateTime disbursedAt
 ) {
     public static BenevolenceClaimDto from(BenevolenceClaim c, String memberId) {
-        String fullName = c.getEnrollment().getUser().getFirstName()
-                + " " + c.getEnrollment().getUser().getLastName();
+        String fullName = c.getEnrollment().getUser().getFullName();
         UUID beneficiaryId = c.getBeneficiary() != null ? c.getBeneficiary().getId() : null;
         String beneficiaryName = c.getBeneficiary() != null
                 ? c.getBeneficiary().getFirstName() + " " + c.getBeneficiary().getLastName() : null;

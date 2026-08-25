@@ -63,6 +63,7 @@ public class AuthService {
         String otp = generateOtp();
         User user = User.builder()
                 .firstName(TextNormalizer.titleCase(req.firstName()))
+                .middleName(TextNormalizer.titleCase(req.middleName()))
                 .lastName(TextNormalizer.titleCase(req.lastName()))
                 .email(email)
                 .phone(req.phone())

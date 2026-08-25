@@ -33,7 +33,7 @@ public record BenevolenceEnrollmentDto(
                                                  List<EnrollmentPaymentDto> payments,
                                                  List<BenevolenceBeneficiaryDto> beneficiaries) {
         BigDecimal remaining = ENROLLMENT_FEE.subtract(e.getTotalPaid()).max(BigDecimal.ZERO);
-        String fullName = e.getUser().getFirstName() + " " + e.getUser().getLastName();
+        String fullName = e.getUser().getFullName();
 
         return new BenevolenceEnrollmentDto(
                 e.getId(), e.getUser().getId(), fullName, e.getUser().getEmail(), memberId,
@@ -47,7 +47,7 @@ public record BenevolenceEnrollmentDto(
                                                     String memberId,
                                                     int beneficiaryCount) {
         BigDecimal remaining = ENROLLMENT_FEE.subtract(e.getTotalPaid()).max(BigDecimal.ZERO);
-        String fullName = e.getUser().getFirstName() + " " + e.getUser().getLastName();
+        String fullName = e.getUser().getFullName();
 
         return new BenevolenceEnrollmentDto(
                 e.getId(), e.getUser().getId(), fullName, e.getUser().getEmail(), memberId,

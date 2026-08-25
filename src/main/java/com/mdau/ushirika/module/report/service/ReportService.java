@@ -108,13 +108,12 @@ public class ReportService {
                         Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .toList();
 
-        table.header("Member ID", "First Name", "Last Name", "Email", "Phone",
+        table.header("Member ID", "Full Name", "Email", "Phone",
                 "Role", "Status", "Membership Ceased", "Joined", "Departure Reason");
 
         for (User u : current) {
             table.col(memberIds.getOrDefault(u.getId(), ""))
-                 .col(u.getFirstName())
-                 .col(u.getLastName())
+                 .col(u.getFullName())
                  .col(u.getEmail())
                  .col(u.getPhone())
                  .col(u.getRole())
@@ -126,12 +125,11 @@ public class ReportService {
         }
 
         if (!departed.isEmpty()) {
-            table.col("— FORMER MEMBERS —").col("").col("").col("").col("")
+            table.col("— FORMER MEMBERS —").col("").col("").col("")
                  .col("").col("").col("").col("").col("").newRow();
             for (User u : departed) {
                 table.col(memberIds.getOrDefault(u.getId(), ""))
-                     .col(u.getFirstName())
-                     .col(u.getLastName())
+                     .col(u.getFullName())
                      .col(u.getEmail())
                      .col(u.getPhone())
                      .col(u.getRole())

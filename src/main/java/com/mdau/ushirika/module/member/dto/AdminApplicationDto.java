@@ -40,7 +40,7 @@ public record AdminApplicationDto(
         public static ApplicantInfo fromUser(User user, String memberId) {
             return new ApplicantInfo(
                     user.getId().toString(),
-                    user.getFirstName() + " " + user.getLastName(),
+                    user.getFullName(),
                     user.getEmail(),
                     user.getPhone(),
                     memberId

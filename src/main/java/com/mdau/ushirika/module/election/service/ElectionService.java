@@ -111,7 +111,7 @@ public class ElectionService {
                 .election(election)
                 .seat(seat)
                 .candidate(candidate)
-                .memberName(candidate.getFirstName() + " " + candidate.getLastName())
+                .memberName(candidate.getFullName())
                 .memberId(null)
                 .statement(req.statement())
                 .photoUrl(req.photoUrl())
