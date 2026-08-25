@@ -17,6 +17,7 @@ import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.enums.MemberStatus;
 import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.member.service.MemberStatusChangeService;
 import com.mdau.ushirika.module.notification.service.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class MembershipDuesService {
     private final MembershipDueRepository dueRepository;
     private final DuesPaymentRepository duesPaymentRepository;
     private final MemberProfileRepository profileRepository;
+    private final MembershipApplicationRepository applicationRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final EmailService emailService;
@@ -151,6 +153,8 @@ public class MembershipDuesService {
 
     // ── Admin: waive dues ─────────────────────────────────────────────────────
 
+    /** Permanent waive — SUPERADMIN only (gated in AdminDuesController). Reactivates the
+     *  member if they were deactivated for this. */
     @Transactional
     public MembershipDueDto waiveDues(UUID dueId, WaiveDuesRequest req) {
         MembershipDue due = findById(dueId);
@@ -163,7 +167,45 @@ public class MembershipDuesService {
         reactivateIfNeeded(due.getUser(), "dues waived by admin");
         auditLogService.log(currentUser(), "DUES_WAIVED", "MembershipDue", due.getId(),
                 "Waived dues for " + due.getUser().getFullName() + " — year " + due.getYear());
-        return MembershipDueDto.from(due, memberId(due.getUser()));
+        return MembershipDueDto.from(due, memberId(due.getUser()), wasRegistrationFeeWaived(due.getUser()));
+    }
+
+    /** Temporary relief — available to any dues-capable role (not just SUPERADMIN). Resets the
+     *  due back to PENDING with a fresh deadline instead of forgiving it outright, and
+     *  reactivates the member so they can actually use their portal during the grace window.
+     *  The nightly assessOverdue() run will pick it back up as OVERDUE if it's still unpaid
+     *  once the new date passes -- the debt isn't gone, just deferred. */
+    @Transactional
+    public MembershipDueDto grantGracePeriod(UUID dueId, int days) {
+        MembershipDue due = findById(dueId);
+        if (due.getStatus() == DuesStatus.PAID || due.getStatus() == DuesStatus.WAIVED) {
+            throw new BadRequestException("This due is already " + due.getStatus().name().toLowerCase() + ".");
+        }
+        due.setStatus(DuesStatus.PENDING);
+        due.setDueDate(LocalDate.now().plusDays(days));
+        dueRepository.save(due);
+        reactivateIfNeeded(due.getUser(), "granted a " + days + "-day dues grace period by admin");
+        auditLogService.log(currentUser(), "DUES_GRACE_PERIOD_GRANTED", "MembershipDue", due.getId(),
+                "Granted " + days + "-day dues grace period for " + due.getUser().getFullName() + " — year " + due.getYear());
+        return MembershipDueDto.from(due, memberId(due.getUser()), wasRegistrationFeeWaived(due.getUser()));
+    }
+
+    /** Called from AdminUserService.setActive() whenever a member is reactivated -- resets any
+     *  OVERDUE dues rows back to a fresh grace window so the very next nightly assessOverdue()
+     *  run doesn't immediately undo the reactivation for the same unresolved debt. A no-op if
+     *  the member has no overdue dues (e.g. they were suspended for an unrelated reason). */
+    @Transactional
+    public void resetOverdueDuesToGracePeriod(User user, int days) {
+        LocalDate newDueDate = LocalDate.now().plusDays(days);
+        List<MembershipDue> overdue = dueRepository.findByUserOrderByYearDesc(user).stream()
+                .filter(d -> d.getStatus() == DuesStatus.OVERDUE)
+                .toList();
+        if (overdue.isEmpty()) return;
+        overdue.forEach(d -> { d.setStatus(DuesStatus.PENDING); d.setDueDate(newDueDate); });
+        dueRepository.saveAll(overdue);
+        auditLogService.log(currentUser(), "DUES_GRACE_PERIOD_GRANTED", "User", user.getId(),
+                "Granted " + days + "-day dues grace period for " + user.getFullName()
+                        + " (" + overdue.size() + " overdue due(s)) on reactivation");
     }
 
     // ── Scheduler: mark overdue ───────────────────────────────────────────────
@@ -211,7 +253,7 @@ public class MembershipDuesService {
         } else {
             page = dueRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
-        return PagedResponse.of(page.map(d -> MembershipDueDto.from(d, memberId(d.getUser()))));
+        return PagedResponse.of(page.map(d -> MembershipDueDto.from(d, memberId(d.getUser()), wasRegistrationFeeWaived(d.getUser()))));
     }
 
     @Transactional(readOnly = true)
@@ -219,8 +261,9 @@ public class MembershipDuesService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         String mid = memberId(user);
+        boolean feeWaived = wasRegistrationFeeWaived(user);
         return dueRepository.findByUserOrderByYearDesc(user).stream()
-                .map(d -> MembershipDueDto.from(d, mid))
+                .map(d -> MembershipDueDto.from(d, mid, feeWaived))
                 .toList();
     }
 
@@ -310,6 +353,12 @@ public class MembershipDuesService {
         return profileRepository.findByUser(user)
                 .map(MemberProfile::getMemberId)
                 .orElse(null);
+    }
+
+    private boolean wasRegistrationFeeWaived(User user) {
+        return applicationRepository.findByUser(user)
+                .map(a -> a.isRegistrationFeeWaived())
+                .orElse(false);
     }
 
     private User currentUser() {

@@ -22,9 +22,18 @@ public record MembershipDueDto(
         String notes,
         String createdAt,
         int remainingMonths,
-        BigDecimal recommendedMonthlyAmount
+        BigDecimal recommendedMonthlyAmount,
+        boolean registrationFeeWaived
 ) {
     public static MembershipDueDto from(MembershipDue d, String memberId) {
+        return from(d, memberId, false);
+    }
+
+    /** registrationFeeWaived surfaces whether this member was onboarded as an existing/legacy
+     *  member (fee waived at approval) -- the dues admin UI uses it to suggest a permanent
+     *  waive as the default for a SUPERADMIN acting on this due, since that member never went
+     *  through a payment checkout on this platform in the first place. */
+    public static MembershipDueDto from(MembershipDue d, String memberId, boolean registrationFeeWaived) {
         BigDecimal paid = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal remaining = d.getAmount().subtract(paid).max(BigDecimal.ZERO);
 
@@ -46,7 +55,8 @@ public record MembershipDueDto(
                 d.getNotes(),
                 d.getCreatedAt() != null ? d.getCreatedAt().toString() : null,
                 d.remainingMonths(),
-                d.recommendedMonthlyAmount()
+                d.recommendedMonthlyAmount(),
+                registrationFeeWaived
         );
     }
 }

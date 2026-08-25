@@ -200,6 +200,15 @@ public class AdminUserService {
                 (req.active() ? "Activated " : "Deactivated ") + target.getFullName() + "'s account (by "
                         + actor.getFullName() + ") — " + req.notes());
 
+        // Reactivating alone used to leave an OVERDUE dues row untouched -- the very next
+        // nightly assessOverdue() run would see the member active again with the same unpaid
+        // due and immediately deactivate them a second time, silently undoing what the admin
+        // just did. A 7-day grace window gives them a real chance to actually pay before that
+        // can happen again; a no-op if they weren't inactive for dues in the first place.
+        if (req.active()) {
+            membershipDuesService.resetOverdueDuesToGracePeriod(target, 7);
+        }
+
         return UserDto.from(target);
     }
 

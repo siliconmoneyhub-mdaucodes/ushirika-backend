@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,11 +44,22 @@ public class AdminDuesController {
                 duesService.getMemberDuesHistory(userId)));
     }
 
+    /** Permanent waive -- SUPERADMIN only. The client's stated policy: a full write-off of
+     *  owed dues is a superadmin-level financial decision, not a routine admin action. Admins
+     *  (and financial roles) still have /grace-period below for temporary relief. */
     @PatchMapping("/{id}/waive")
+    @PreAuthorize("hasRole('SUPERADMIN')")
     public ResponseEntity<ApiResponse<MembershipDueDto>> waive(
             @PathVariable UUID id,
             @RequestBody(required = false) WaiveDuesRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Dues waived", duesService.waiveDues(id, req)));
+    }
+
+    /** Temporary relief, open to any dues-capable role -- resets the due to PENDING with a
+     *  fresh 7-day deadline and reactivates the member, without forgiving the debt outright. */
+    @PatchMapping("/{id}/grace-period")
+    public ResponseEntity<ApiResponse<MembershipDueDto>> grantGracePeriod(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok("7-day grace period granted", duesService.grantGracePeriod(id, 7)));
     }
 
     @PostMapping("/assess-overdue")
