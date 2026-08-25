@@ -110,7 +110,7 @@ public class BenevolenceClaimService {
                 .category(category)
                 .referenceNumber(generateRef())
                 .deceasedName(TextNormalizer.titleCase(req.deceasedName()))
-                .relationship(req.relationship())
+                .relationship(TextNormalizer.titleCase(req.relationship()))
                 .dateOfDeath(req.dateOfDeath())
                 .locationOfDeath(req.locationOfDeath())
                 .funeralDate(req.funeralDate())

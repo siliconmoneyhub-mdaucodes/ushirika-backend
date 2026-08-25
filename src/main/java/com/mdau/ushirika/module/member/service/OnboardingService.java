@@ -157,12 +157,12 @@ public class OnboardingService {
         profile.setCity(TextNormalizer.titleCase(req.city()));
         profile.setZipCode(req.zipCode());
         profile.setCountry(req.country());
-        profile.setKenyaCounty(req.kenyaCounty());
-        profile.setKenyaSubCounty(req.kenyaSubCounty());
-        profile.setKenyaVillage(req.kenyaVillage());
-        profile.setUgandaProvince(req.ugandaProvince());
-        profile.setUgandaCounty(req.ugandaCounty());
-        profile.setUgandaVillage(req.ugandaVillage());
+        profile.setKenyaCounty(TextNormalizer.titleCase(req.kenyaCounty()));
+        profile.setKenyaSubCounty(TextNormalizer.titleCase(req.kenyaSubCounty()));
+        profile.setKenyaVillage(TextNormalizer.titleCase(req.kenyaVillage()));
+        profile.setUgandaProvince(TextNormalizer.titleCase(req.ugandaProvince()));
+        profile.setUgandaCounty(TextNormalizer.titleCase(req.ugandaCounty()));
+        profile.setUgandaVillage(TextNormalizer.titleCase(req.ugandaVillage()));
         profileRepository.save(profile);
 
         application.setAddressInfoSubmittedAt(LocalDateTime.now());
@@ -186,7 +186,7 @@ public class OnboardingService {
                     .position((short) (i + 1))
                     .fullName(TextNormalizer.titleCase(dto.fullName()))
                     .phone(dto.phone())
-                    .relationship(dto.relationship())
+                    .relationship(TextNormalizer.titleCase(dto.relationship()))
                     .build());
         }
         profileRepository.save(profile);
@@ -211,7 +211,7 @@ public class OnboardingService {
                     .position((short) (i + 1))
                     .fullName(TextNormalizer.titleCase(dto.fullName()))
                     .phone(dto.phone())
-                    .relationship(dto.relationship())
+                    .relationship(TextNormalizer.titleCase(dto.relationship()))
                     .build());
         }
         profileRepository.save(profile);

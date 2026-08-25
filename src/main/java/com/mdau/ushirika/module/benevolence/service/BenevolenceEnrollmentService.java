@@ -159,7 +159,7 @@ public class BenevolenceEnrollmentService {
                     .enrollment(enrollment)
                     .firstName(TextNormalizer.titleCase(entry.firstName()))
                     .lastName(TextNormalizer.titleCase(entry.lastName()))
-                    .relationship(entry.relationship())
+                    .relationship(TextNormalizer.titleCase(entry.relationship()))
                     .phoneNumber(entry.phoneNumber())
                     .dateOfBirth(entry.dateOfBirth())
                     .build());
@@ -269,7 +269,7 @@ public class BenevolenceEnrollmentService {
                     .enrollment(enrollment)
                     .firstName(TextNormalizer.titleCase(entry.firstName()))
                     .lastName(TextNormalizer.titleCase(entry.lastName()))
-                    .relationship(entry.relationship())
+                    .relationship(TextNormalizer.titleCase(entry.relationship()))
                     .phoneNumber(entry.phoneNumber())
                     .dateOfBirth(entry.dateOfBirth())
                     .build();
