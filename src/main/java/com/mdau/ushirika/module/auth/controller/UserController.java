@@ -112,9 +112,11 @@ public class UserController {
         profile.setCountry(req.country());
         profile.setKenyaCounty(trimOrNull(req.kenyaCounty()));
         profile.setKenyaSubCounty(trimOrNull(req.kenyaSubCounty()));
+        profile.setKenyaLocation(trimOrNull(req.kenyaLocation()));
         profile.setKenyaVillage(trimOrNull(req.kenyaVillage()));
         profile.setUgandaProvince(trimOrNull(req.ugandaProvince()));
         profile.setUgandaCounty(trimOrNull(req.ugandaCounty()));
+        profile.setUgandaLocation(trimOrNull(req.ugandaLocation()));
         profile.setUgandaVillage(trimOrNull(req.ugandaVillage()));
         profile.setMaritalStatus(req.maritalStatus());
         profile.setSpouseName(req.spouseName() != null ? req.spouseName().trim() : null);

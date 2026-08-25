@@ -71,6 +71,12 @@ public class MemberProfile extends BaseEntity {
     @Column(name = "kenya_sub_county", length = 100)
     private String kenyaSubCounty;
 
+    /** Location/Village -- the administrative unit below sub-county, distinct from
+     * kenyaVillage below (which is actually "Subdivision/Apartment Complex", a more
+     * urban/estate-level concept than Kenya's Location/Village administrative terms). */
+    @Column(name = "kenya_location", length = 100)
+    private String kenyaLocation;
+
     @Column(name = "kenya_village", length = 100)
     private String kenyaVillage;
 
@@ -80,6 +86,9 @@ public class MemberProfile extends BaseEntity {
 
     @Column(name = "uganda_county", length = 100)
     private String ugandaCounty;
+
+    @Column(name = "uganda_location", length = 100)
+    private String ugandaLocation;
 
     @Column(name = "uganda_village", length = 100)
     private String ugandaVillage;

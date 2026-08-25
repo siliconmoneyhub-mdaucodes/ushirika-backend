@@ -167,9 +167,11 @@ public class OnboardingService {
         profile.setCountry(req.country());
         profile.setKenyaCounty(TextNormalizer.titleCase(req.kenyaCounty()));
         profile.setKenyaSubCounty(TextNormalizer.titleCase(req.kenyaSubCounty()));
+        profile.setKenyaLocation(TextNormalizer.titleCase(req.kenyaLocation()));
         profile.setKenyaVillage(TextNormalizer.titleCase(req.kenyaVillage()));
         profile.setUgandaProvince(TextNormalizer.titleCase(req.ugandaProvince()));
         profile.setUgandaCounty(TextNormalizer.titleCase(req.ugandaCounty()));
+        profile.setUgandaLocation(TextNormalizer.titleCase(req.ugandaLocation()));
         profile.setUgandaVillage(TextNormalizer.titleCase(req.ugandaVillage()));
         profileRepository.save(profile);
 

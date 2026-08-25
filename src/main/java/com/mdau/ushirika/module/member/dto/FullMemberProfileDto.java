@@ -33,9 +33,11 @@ public record FullMemberProfileDto(
         Country country,
         String  kenyaCounty,
         String  kenyaSubCounty,
+        String  kenyaLocation,
         String  kenyaVillage,
         String  ugandaProvince,
         String  ugandaCounty,
+        String  ugandaLocation,
         String  ugandaVillage,
 
         // family
@@ -91,9 +93,11 @@ public record FullMemberProfileDto(
                 p != null ? p.getCountry()         : null,
                 p != null ? p.getKenyaCounty()     : null,
                 p != null ? p.getKenyaSubCounty()  : null,
+                p != null ? p.getKenyaLocation()   : null,
                 p != null ? p.getKenyaVillage()    : null,
                 p != null ? p.getUgandaProvince()  : null,
                 p != null ? p.getUgandaCounty()    : null,
+                p != null ? p.getUgandaLocation()  : null,
                 p != null ? p.getUgandaVillage()   : null,
                 p != null ? p.getMaritalStatus()   : null,
                 p != null ? p.getSpouseName()      : null,
