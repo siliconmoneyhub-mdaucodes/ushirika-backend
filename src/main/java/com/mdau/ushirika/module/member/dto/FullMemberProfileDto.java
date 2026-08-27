@@ -5,6 +5,7 @@ import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
+import com.mdau.ushirika.module.member.enums.UsState;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -31,6 +32,7 @@ public record FullMemberProfileDto(
         String  street,
         String  city,
         String  zipCode,
+        UsState usState,
         Country country,
         String  kenyaCounty,
         String  kenyaSubCounty,
@@ -92,6 +94,7 @@ public record FullMemberProfileDto(
                 p != null ? p.getStreet()          : null,
                 p != null ? p.getCity()            : null,
                 p != null ? p.getZipCode()         : null,
+                p != null ? p.getUsState()         : null,
                 p != null ? p.getCountry()         : null,
                 p != null ? p.getKenyaCounty()     : null,
                 p != null ? p.getKenyaSubCounty()  : null,

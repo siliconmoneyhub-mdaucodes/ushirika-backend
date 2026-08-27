@@ -164,6 +164,7 @@ public class OnboardingService {
         profile.setStreet(req.street());
         profile.setCity(TextNormalizer.titleCase(req.city()));
         profile.setZipCode(req.zipCode());
+        profile.setUsState(req.usState());
         profile.setCountry(req.country());
         profile.setKenyaCounty(TextNormalizer.titleCase(req.kenyaCounty()));
         profile.setKenyaSubCounty(TextNormalizer.titleCase(req.kenyaSubCounty()));

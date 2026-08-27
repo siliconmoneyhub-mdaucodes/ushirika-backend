@@ -110,6 +110,7 @@ public class UserController {
         profile.setStreet(req.street().trim());
         profile.setCity(req.city().trim());
         profile.setZipCode(req.zipCode().trim());
+        profile.setUsState(req.usState());
         profile.setCountry(req.country());
         profile.setKenyaCounty(trimOrNull(req.kenyaCounty()));
         profile.setKenyaSubCounty(trimOrNull(req.kenyaSubCounty()));

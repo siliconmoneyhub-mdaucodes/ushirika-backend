@@ -5,6 +5,7 @@ import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
+import com.mdau.ushirika.module.member.enums.UsState;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -59,6 +60,12 @@ public class MemberProfile extends BaseEntity {
 
     @Column(name = "zip_code", length = 20)
     private String zipCode;
+
+    /** The US state of the member's residential address above -- independent of country,
+     * which tracks country of origin (Kenya/Uganda), not where they actually live. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "us_state", length = 30)
+    private UsState usState;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "country", length = 10)

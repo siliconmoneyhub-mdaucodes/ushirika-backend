@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.member.dto;
 import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
+import com.mdau.ushirika.module.member.enums.UsState;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -33,6 +34,7 @@ public record UpdateProfileRequest(
         @NotBlank @Size(max = 300) String street,
         @NotBlank @Size(max = 150) String city,
         @NotBlank @Size(max = 20)  String zipCode,
+        @NotNull(message = "State is required") UsState usState,
         @NotNull Country country,
         @Size(max = 100) String kenyaCounty,
         @Size(max = 100) String kenyaSubCounty,
