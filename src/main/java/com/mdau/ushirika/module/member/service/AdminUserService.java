@@ -13,6 +13,8 @@ import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.member.dto.AdminResetCredentialsRequest;
+import com.mdau.ushirika.module.member.dto.BulkSetActiveRequest;
+import com.mdau.ushirika.module.member.dto.BulkStatusResultDto;
 import com.mdau.ushirika.module.member.dto.CreateMemberRequest;
 import com.mdau.ushirika.module.member.dto.SetActiveRequest;
 import com.mdau.ushirika.module.member.dto.UpdateMemberTierRequest;
@@ -214,6 +216,39 @@ public class AdminUserService {
         }
 
         return UserDto.from(target);
+    }
+
+    /**
+     * Bulk activate/deactivate -- runs every id through the exact same setActive() path above
+     * (one at a time, each in its own guard check) so every safety rule already there applies
+     * identically per member: can't touch SUPERADMIN, can't deactivate yourself, dues grace
+     * reset on reactivate, audit log entry, and the member's own notification email. A member
+     * already in the requested state is skipped rather than reprocessed, so bulk-activating a
+     * batch that happens to include an already-active member doesn't spam them with a
+     * redundant "reinstated" email. One failure never aborts the rest of the batch.
+     */
+    @Transactional
+    public BulkStatusResultDto bulkSetActive(BulkSetActiveRequest req) {
+        int succeeded = 0;
+        List<String> failures = new java.util.ArrayList<>();
+        for (UUID id : req.userIds()) {
+            User target = userRepository.findById(id).orElse(null);
+            if (target == null) {
+                failures.add(id + ": not found");
+                continue;
+            }
+            if (target.isActive() == req.active()) {
+                failures.add(target.getEmail() + ": already " + (req.active() ? "active" : "inactive") + " -- skipped");
+                continue;
+            }
+            try {
+                setActive(id, new SetActiveRequest(req.active(), req.reason(), req.notes()));
+                succeeded++;
+            } catch (Exception e) {
+                failures.add(target.getEmail() + ": " + e.getMessage());
+            }
+        }
+        return new BulkStatusResultDto(succeeded, failures);
     }
 
     /**

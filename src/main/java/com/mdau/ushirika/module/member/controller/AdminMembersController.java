@@ -3,18 +3,23 @@ package com.mdau.ushirika.module.member.controller;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.module.auth.dto.UserProfileDto;
+import com.mdau.ushirika.module.member.dto.BulkSetActiveRequest;
+import com.mdau.ushirika.module.member.dto.BulkStatusResultDto;
 import com.mdau.ushirika.module.member.dto.MemberFinancialSummaryDto;
 import com.mdau.ushirika.module.member.service.AdminUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,5 +51,14 @@ public class AdminMembersController {
     public ResponseEntity<ApiResponse<MemberFinancialSummaryDto>> financialSummary(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok("Financial summary retrieved",
                 adminUserService.getFinancialSummary(id)));
+    }
+
+    @PatchMapping("/bulk-status")
+    @Operation(summary = "Bulk activate or deactivate several members at once")
+    public ResponseEntity<ApiResponse<BulkStatusResultDto>> bulkStatus(@Valid @RequestBody BulkSetActiveRequest req) {
+        BulkStatusResultDto result = adminUserService.bulkSetActive(req);
+        return ResponseEntity.ok(ApiResponse.ok(
+                result.succeeded() + " member(s) updated" + (result.failures().isEmpty() ? "" : ", " + result.failures().size() + " skipped"),
+                result));
     }
 }
