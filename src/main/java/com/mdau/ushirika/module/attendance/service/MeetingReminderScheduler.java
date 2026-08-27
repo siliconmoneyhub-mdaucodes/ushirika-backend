@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * Sends meeting reminders to all active members at 30 / 14 / 7 days before
  * the meeting and on the day of the meeting.
- * Runs daily at 07:00 UTC.
+ * Runs daily at 07:00 America/Chicago.
  */
 @Slf4j
 @Service

@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Sends membership dues renewal reminders at 60 / 30 / 14 / 7 days before
  * the due date and on the due date itself, via Email, SMS, and in-app.
- * Runs daily at 07:00 UTC.
+ * Runs daily at 07:00 America/Chicago.
  */
 @Slf4j
 @Service

@@ -29,7 +29,7 @@ import java.util.List;
  * Sends MGR contribution reminders at 14 / 7 / 3 days before the monthly
  * payout / contribution cutoff date, on the cutoff date, and weekly past-due
  * reminders (every Monday) for contributions from prior months.
- * Runs daily at 08:00 UTC.
+ * Runs daily at 08:00 America/Chicago.
  */
 @Slf4j
 @Service

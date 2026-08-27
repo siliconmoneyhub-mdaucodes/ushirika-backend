@@ -29,7 +29,7 @@ import java.util.Set;
  * Sends benevolence replenishment reminders at 14 / 7 days before the due date
  * and on the due date itself. The immediate notification on replenishment creation
  * is handled by BenevolenceService.
- * Runs daily at 08:30 UTC.
+ * Runs daily at 08:30 America/Chicago.
  */
 @Slf4j
 @Service

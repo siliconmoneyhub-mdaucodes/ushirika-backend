@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * Sends fine payment reminders at 7 / 3 days before the due date and on the
  * due date. The initial notification on fine creation is handled by FineService.
- * Runs daily at 07:30 UTC.
+ * Runs daily at 07:30 America/Chicago.
  */
 @Slf4j
 @Service

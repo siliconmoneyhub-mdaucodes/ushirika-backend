@@ -32,7 +32,7 @@ import java.util.UUID;
  * Reminds active members who haven't finished voting in a VOTING_OPEN election, at 1 day before
  * voting closes and again on the closing day itself. There was previously no notification
  * infrastructure at all for elections -- no email, no in-app, nothing -- so this is new, not a
- * WhatsApp channel bolted onto an existing send. Runs daily at 09:00 UTC.
+ * WhatsApp channel bolted onto an existing send. Runs daily at 09:00 America/Chicago.
  */
 @Slf4j
 @Service
