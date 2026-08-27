@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 /**
  * The org's members and every real-world event (meetings, dues deadlines, membership-year
@@ -40,5 +41,18 @@ public final class AppClock {
      */
     public static Instant toInstant(LocalDateTime orgLocal) {
         return orgLocal == null ? null : orgLocal.atZone(ORG_ZONE).toInstant();
+    }
+
+    /**
+     * Audit/creation/update stamps (e.g. {@code AuditLog.createdAt}, every {@code BaseEntity}'s
+     * {@code createdAt}/{@code updatedAt} via Spring's default JPA auditing {@code
+     * DateTimeProvider}) are written with a bare {@code LocalDateTime.now()} -- which, on this
+     * server, means the digits are already UTC wall-clock time, not {@link #ORG_ZONE}. Sent to
+     * the frontend as-is, a viewer's browser still misreads them as its OWN local time (same
+     * failure mode as {@link #toInstant}), so this needs the same wire-format fix -- just tagged
+     * with the zone the digits actually came from (UTC), not the org's.
+     */
+    public static Instant serverInstant(LocalDateTime utcStamp) {
+        return utcStamp == null ? null : utcStamp.toInstant(ZoneOffset.UTC);
     }
 }

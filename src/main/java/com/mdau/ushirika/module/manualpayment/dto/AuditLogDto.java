@@ -1,10 +1,11 @@
 package com.mdau.ushirika.module.manualpayment.dto;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.manualpayment.entity.ManualPaymentAuditLog;
 import com.mdau.ushirika.module.manualpayment.enums.AuditAction;
 import com.mdau.ushirika.module.manualpayment.enums.ManualPaymentStatus;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record AuditLogDto(
@@ -16,7 +17,7 @@ public record AuditLogDto(
     ManualPaymentStatus previousStatus,
     ManualPaymentStatus newStatus,
     String note,
-    LocalDateTime createdAt
+    Instant createdAt
 ) {
     public static AuditLogDto from(ManualPaymentAuditLog log) {
         return new AuditLogDto(
@@ -28,7 +29,7 @@ public record AuditLogDto(
             log.getPreviousStatus(),
             log.getNewStatus(),
             log.getNote(),
-            log.getCreatedAt()
+            AppClock.serverInstant(log.getCreatedAt())
         );
     }
 }

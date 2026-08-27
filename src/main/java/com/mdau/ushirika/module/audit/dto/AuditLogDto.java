@@ -1,10 +1,11 @@
 package com.mdau.ushirika.module.audit.dto;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.audit.entity.AuditLog;
 import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record AuditLogDto(
@@ -19,7 +20,7 @@ public record AuditLogDto(
         String        description,
         BigDecimal      amount,
         LedgerDirection direction,
-        LocalDateTime createdAt
+        Instant       createdAt
 ) {
     public static AuditLogDto from(AuditLog log) {
         return new AuditLogDto(
@@ -34,7 +35,7 @@ public record AuditLogDto(
                 log.getDescription(),
                 log.getAmount(),
                 log.getDirection(),
-                log.getCreatedAt()
+                AppClock.serverInstant(log.getCreatedAt())
         );
     }
 }
