@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.member.dto;
 
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /** Applicant-facing view of onboarding progress — drives the onboarding wizard's step state. */
@@ -20,7 +21,7 @@ public record OnboardingStatusDto(
         boolean constitutionAccepted,
         boolean bylawsAccepted,
         boolean registrationSubmitted,
-        LocalDateTime formSentAt,
+        Instant formSentAt,
         boolean registrationFeeWaived
 ) {
     public static OnboardingStatusDto from(MembershipApplication app) {
@@ -37,7 +38,7 @@ public record OnboardingStatusDto(
                 app.getConstitutionAcceptedAt() != null,
                 app.getBylawsAcceptedAt() != null,
                 app.getRegistrationSubmittedAt() != null,
-                app.getFormSentAt(),
+                AppClock.serverInstant(app.getFormSentAt()),
                 app.isRegistrationFeeWaived()
         );
     }

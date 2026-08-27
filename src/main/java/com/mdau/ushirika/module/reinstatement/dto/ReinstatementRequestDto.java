@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.reinstatement.dto;
 
 import com.mdau.ushirika.module.reinstatement.entity.ReinstatementRequest;
 import com.mdau.ushirika.module.reinstatement.enums.ReinstatementStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record ReinstatementRequestDto(
@@ -13,8 +14,8 @@ public record ReinstatementRequestDto(
         ReinstatementStatus status,
         String adminNotes,
         UUID reviewedBy,
-        LocalDateTime reviewedAt,
-        LocalDateTime createdAt
+        Instant reviewedAt,
+        Instant createdAt
 ) {
     public static ReinstatementRequestDto from(ReinstatementRequest r) {
         return new ReinstatementRequestDto(
@@ -24,8 +25,8 @@ public record ReinstatementRequestDto(
                 r.getStatus(),
                 r.getAdminNotes(),
                 r.getReviewedBy(),
-                r.getReviewedAt(),
-                r.getCreatedAt()
+                AppClock.serverInstant(r.getReviewedAt()),
+                AppClock.serverInstant(r.getCreatedAt())
         );
     }
 }

@@ -1,9 +1,10 @@
 package com.mdau.ushirika.module.payment.dto;
 
 import com.mdau.ushirika.module.payment.entity.MemberContribution;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /** Admin-facing view of a contribution — includes member identity. */
@@ -18,7 +19,7 @@ public record AdminMemberContributionDto(
         String currency,
         String period,
         String notes,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static AdminMemberContributionDto from(MemberContribution c) {
         return new AdminMemberContributionDto(
@@ -32,7 +33,7 @@ public record AdminMemberContributionDto(
                 c.getCurrency() != null ? c.getCurrency() : "USD",
                 c.getPeriod(),
                 c.getNotes(),
-                c.getCreatedAt()
+                AppClock.serverInstant(c.getCreatedAt())
         );
     }
 }

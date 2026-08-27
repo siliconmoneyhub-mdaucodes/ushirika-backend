@@ -2,9 +2,10 @@ package com.mdau.ushirika.module.payment.dto;
 
 import com.mdau.ushirika.module.payment.entity.PaymentBasket;
 import com.mdau.ushirika.module.payment.entity.PaymentBasketLine;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,7 +16,7 @@ public record PaymentBasketSummaryDto(
         String memberName,
         String status,
         BigDecimal total,
-        LocalDateTime createdAt,
+        Instant createdAt,
         List<String> lineDescriptions
 ) {
     public static PaymentBasketSummaryDto from(PaymentBasket b) {
@@ -25,6 +26,6 @@ public record PaymentBasketSummaryDto(
                 .toList();
         return new PaymentBasketSummaryDto(
                 b.getId(), b.getSessionId(), b.getMember().getEmail(), b.getMember().getFullName(),
-                b.getStatus().name(), total, b.getCreatedAt(), lines);
+                b.getStatus().name(), total, AppClock.serverInstant(b.getCreatedAt()), lines);
     }
 }

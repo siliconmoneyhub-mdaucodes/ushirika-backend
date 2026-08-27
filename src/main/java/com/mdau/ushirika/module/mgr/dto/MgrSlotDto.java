@@ -3,10 +3,11 @@ package com.mdau.ushirika.module.mgr.dto;
 import com.mdau.ushirika.module.mgr.entity.MgrSlot;
 import com.mdau.ushirika.module.mgr.enums.SlotStatus;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,11 +25,11 @@ public record MgrSlotDto(
         LocalDate scheduledPayoutDate,
         BigDecimal payoutAmount,
         SlotStatus status,
-        LocalDateTime drawnAt,
-        LocalDateTime paidAt,
+        Instant drawnAt,
+        Instant paidAt,
         String paymentReference,
         boolean receiptConfirmed,
-        LocalDateTime receiptConfirmedAt,
+        Instant receiptConfirmedAt,
         String receiptNotes,
         String adminNotes,
         List<MgrContributionDto> contributions
@@ -41,8 +42,8 @@ public record MgrSlotDto(
                 fullName, s.getUser().getEmail(), memberId, photoUrl,
                 s.getSlotNumber(), s.getPayoutMonth(), s.getPayoutOrder(),
                 s.getScheduledPayoutDate(), s.getPayoutAmount(), s.getStatus(),
-                s.getDrawnAt(), s.getPaidAt(), s.getPaymentReference(),
-                s.isReceiptConfirmed(), s.getReceiptConfirmedAt(), s.getReceiptNotes(),
+                AppClock.serverInstant(s.getDrawnAt()), AppClock.serverInstant(s.getPaidAt()), s.getPaymentReference(),
+                s.isReceiptConfirmed(), AppClock.serverInstant(s.getReceiptConfirmedAt()), s.getReceiptNotes(),
                 s.getAdminNotes(), contributions
         );
     }
@@ -54,8 +55,8 @@ public record MgrSlotDto(
                 fullName, s.getUser().getEmail(), memberId, photoUrl,
                 s.getSlotNumber(), s.getPayoutMonth(), s.getPayoutOrder(),
                 s.getScheduledPayoutDate(), s.getPayoutAmount(), s.getStatus(),
-                s.getDrawnAt(), s.getPaidAt(), s.getPaymentReference(),
-                s.isReceiptConfirmed(), s.getReceiptConfirmedAt(), s.getReceiptNotes(),
+                AppClock.serverInstant(s.getDrawnAt()), AppClock.serverInstant(s.getPaidAt()), s.getPaymentReference(),
+                s.isReceiptConfirmed(), AppClock.serverInstant(s.getReceiptConfirmedAt()), s.getReceiptNotes(),
                 s.getAdminNotes(), null
         );
     }
@@ -68,7 +69,7 @@ public record MgrSlotDto(
                 fullName, null, memberId, photoUrl,
                 s.getSlotNumber(), s.getPayoutMonth(), s.getPayoutOrder(),
                 s.getScheduledPayoutDate(), s.getPayoutAmount(), s.getStatus(),
-                s.getDrawnAt(), s.getPaidAt(), null,
+                AppClock.serverInstant(s.getDrawnAt()), AppClock.serverInstant(s.getPaidAt()), null,
                 false, null, null, null, null
         );
     }

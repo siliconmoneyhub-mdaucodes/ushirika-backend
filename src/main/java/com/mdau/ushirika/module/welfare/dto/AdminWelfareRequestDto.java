@@ -5,9 +5,10 @@ import com.mdau.ushirika.module.member.enums.ApprovalDecision;
 import com.mdau.ushirika.module.welfare.entity.WelfareRequest;
 import com.mdau.ushirika.module.welfare.entity.WelfareRequestApproval;
 import com.mdau.ushirika.module.welfare.enums.WelfareRequestStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,9 +25,9 @@ public record AdminWelfareRequestDto(
         List<String> documentUrls,
         String rejectionReason,
         String adminNotes,
-        LocalDateTime submittedAt,
-        LocalDateTime reviewedAt,
-        LocalDateTime approvedAt,
+        Instant submittedAt,
+        Instant reviewedAt,
+        Instant approvedAt,
         List<ApprovalSummary> approvals,
         WelfareRequestTrackDto.DisbursementSummary disbursement
 ) {
@@ -36,16 +37,16 @@ public record AdminWelfareRequestDto(
             String adminName,       // null for peer admins (anonymity)
             ApprovalDecision decision,
             String comment,         // null for peer admins
-            LocalDateTime decidedAt
+            Instant decidedAt
     ) {
         public static ApprovalSummary forSuperAdmin(WelfareRequestApproval a) {
             return new ApprovalSummary(a.getId(), a.getAdmin().getFullName(),
-                    a.getDecision(), a.getComment(), a.getDecidedAt());
+                    a.getDecision(), a.getComment(), AppClock.serverInstant(a.getDecidedAt()));
         }
 
         public static ApprovalSummary forAdmin(WelfareRequestApproval a) {
             return new ApprovalSummary(a.getId(), null,
-                    a.getDecision(), null, a.getDecidedAt());
+                    a.getDecision(), null, AppClock.serverInstant(a.getDecidedAt()));
         }
     }
 
@@ -61,7 +62,7 @@ public record AdminWelfareRequestDto(
             var d = r.getDisbursement();
             ds = new WelfareRequestTrackDto.DisbursementSummary(
                     d.getAmountDisbursed(), d.getCurrency(),
-                    d.getMethod().name(), d.getDisbursedAt()
+                    d.getMethod().name(), AppClock.serverInstant(d.getDisbursedAt())
             );
         }
 
@@ -73,7 +74,7 @@ public record AdminWelfareRequestDto(
                 r.getDescription(), r.getDocumentUrls(),
                 r.getRejectionReason(),
                 isSuperAdmin ? r.getAdminNotes() : null,
-                r.getSubmittedAt(), r.getReviewedAt(), r.getApprovedAt(),
+                AppClock.serverInstant(r.getSubmittedAt()), AppClock.serverInstant(r.getReviewedAt()), AppClock.serverInstant(r.getApprovedAt()),
                 approvalSummaries, ds
         );
     }

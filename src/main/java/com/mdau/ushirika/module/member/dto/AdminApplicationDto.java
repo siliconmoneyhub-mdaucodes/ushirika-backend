@@ -5,8 +5,9 @@ import com.mdau.ushirika.module.member.entity.ApplicationApproval;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.enums.ApprovalDecision;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,13 +20,13 @@ public record AdminApplicationDto(
         List<String> documentUrls,
         String rejectionReason,
         String adminNotes,
-        LocalDateTime submittedAt,
-        LocalDateTime reviewedAt,
-        LocalDateTime approvedAt,
+        Instant submittedAt,
+        Instant reviewedAt,
+        Instant approvedAt,
         List<ApprovalSummary> approvals,
         boolean onboardingComplete,
         boolean registrationFeeWaived,
-        LocalDateTime registrationFeeWaivedAt,
+        Instant registrationFeeWaivedAt,
         String registrationFeeWaivedBy
 ) {
 
@@ -67,7 +68,7 @@ public record AdminApplicationDto(
             String adminName,
             ApprovalDecision decision,
             String comment,
-            LocalDateTime decidedAt
+            Instant decidedAt
     ) {
         public static ApprovalSummary forSuperAdmin(ApplicationApproval a) {
             return new ApprovalSummary(
@@ -75,7 +76,7 @@ public record AdminApplicationDto(
                     a.getAdmin().getFullName(),
                     a.getDecision(),
                     a.getComment(),
-                    a.getDecidedAt()
+                    AppClock.serverInstant(a.getDecidedAt())
             );
         }
 
@@ -85,7 +86,7 @@ public record AdminApplicationDto(
                     null,
                     a.getDecision(),
                     null,
-                    a.getDecidedAt()
+                    AppClock.serverInstant(a.getDecidedAt())
             );
         }
     }
@@ -116,13 +117,13 @@ public record AdminApplicationDto(
                 app.getDocumentUrls(),
                 app.getRejectionReason(),
                 isSuperAdmin ? app.getAdminNotes() : null,
-                app.getSubmittedAt(),
-                app.getReviewedAt(),
-                app.getApprovedAt(),
+                AppClock.serverInstant(app.getSubmittedAt()),
+                AppClock.serverInstant(app.getReviewedAt()),
+                AppClock.serverInstant(app.getApprovedAt()),
                 approvalSummaries,
                 onboardingComplete,
                 app.isRegistrationFeeWaived(),
-                app.getRegistrationFeeWaivedAt(),
+                AppClock.serverInstant(app.getRegistrationFeeWaivedAt()),
                 app.getRegistrationFeeWaivedBy()
         );
     }

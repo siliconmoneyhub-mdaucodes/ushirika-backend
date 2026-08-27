@@ -2,9 +2,10 @@ package com.mdau.ushirika.module.benevolence.dto;
 
 import com.mdau.ushirika.module.benevolence.entity.ReplenishmentPayment;
 import com.mdau.ushirika.module.benevolence.enums.ReplenishmentPaymentStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record ReplenishmentPaymentDto(
@@ -15,7 +16,7 @@ public record ReplenishmentPaymentDto(
         String memberId,
         BigDecimal amountDue,
         BigDecimal amountPaid,
-        LocalDateTime paidAt,
+        Instant paidAt,
         String paymentMethod,
         String paymentReference,
         ReplenishmentPaymentStatus status
@@ -26,7 +27,7 @@ public record ReplenishmentPaymentDto(
         return new ReplenishmentPaymentDto(
                 p.getId(), p.getReplenishment().getId(), p.getEnrollment().getId(),
                 fullName, memberId, p.getAmountDue(), p.getAmountPaid(),
-                p.getPaidAt(), p.getPaymentMethod(), p.getPaymentReference(), p.getStatus()
+                AppClock.serverInstant(p.getPaidAt()), p.getPaymentMethod(), p.getPaymentReference(), p.getStatus()
         );
     }
 }

@@ -2,9 +2,10 @@ package com.mdau.ushirika.module.welfare.dto;
 
 import com.mdau.ushirika.module.welfare.entity.WelfareRequest;
 import com.mdau.ushirika.module.welfare.enums.WelfareRequestStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /** Safe member/public view — no admin names, no internal notes. */
@@ -17,9 +18,9 @@ public record WelfareRequestTrackDto(
         String currency,
         String description,
         String rejectionReason,
-        LocalDateTime submittedAt,
-        LocalDateTime reviewedAt,
-        LocalDateTime approvedAt,
+        Instant submittedAt,
+        Instant reviewedAt,
+        Instant approvedAt,
         DisbursementSummary disbursement
 ) {
 
@@ -27,7 +28,7 @@ public record WelfareRequestTrackDto(
             BigDecimal amountDisbursed,
             String currency,
             String method,
-            LocalDateTime disbursedAt
+            Instant disbursedAt
     ) {}
 
     public static WelfareRequestTrackDto from(WelfareRequest r) {
@@ -36,7 +37,7 @@ public record WelfareRequestTrackDto(
             var d = r.getDisbursement();
             ds = new DisbursementSummary(
                     d.getAmountDisbursed(), d.getCurrency(),
-                    d.getMethod().name(), d.getDisbursedAt()
+                    d.getMethod().name(), AppClock.serverInstant(d.getDisbursedAt())
             );
         }
         return new WelfareRequestTrackDto(
@@ -44,7 +45,7 @@ public record WelfareRequestTrackDto(
                 r.getCategory().getName(),
                 r.getStatus(), r.getAmountRequested(), r.getCurrency(),
                 r.getDescription(), r.getRejectionReason(),
-                r.getSubmittedAt(), r.getReviewedAt(), r.getApprovedAt(), ds
+                AppClock.serverInstant(r.getSubmittedAt()), AppClock.serverInstant(r.getReviewedAt()), AppClock.serverInstant(r.getApprovedAt()), ds
         );
     }
 }

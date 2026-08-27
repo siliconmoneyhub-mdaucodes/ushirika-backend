@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.benevolence.dto;
 
 import com.mdau.ushirika.module.benevolence.entity.BenevolenceJoinRequest;
 import com.mdau.ushirika.module.benevolence.enums.BenevolenceJoinRequestStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record BenevolenceJoinRequestDto(
@@ -15,11 +16,11 @@ public record BenevolenceJoinRequestDto(
         BenevolenceJoinRequestStatus status,
         String memberNotes,
         String adminNotes,
-        LocalDateTime formSentAt,
+        Instant formSentAt,
         String formSentByName,
-        LocalDateTime respondedAt,
+        Instant respondedAt,
         String respondedByName,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static BenevolenceJoinRequestDto from(BenevolenceJoinRequest r, String memberId) {
         return new BenevolenceJoinRequestDto(
@@ -31,11 +32,11 @@ public record BenevolenceJoinRequestDto(
                 r.getStatus(),
                 r.getMemberNotes(),
                 r.getAdminNotes(),
-                r.getFormSentAt(),
+                AppClock.serverInstant(r.getFormSentAt()),
                 r.getFormSentBy() != null ? r.getFormSentBy().getFullName() : null,
-                r.getRespondedAt(),
+                AppClock.serverInstant(r.getRespondedAt()),
                 r.getRespondedBy() != null ? r.getRespondedBy().getFullName() : null,
-                r.getCreatedAt()
+                AppClock.serverInstant(r.getCreatedAt())
         );
     }
 }

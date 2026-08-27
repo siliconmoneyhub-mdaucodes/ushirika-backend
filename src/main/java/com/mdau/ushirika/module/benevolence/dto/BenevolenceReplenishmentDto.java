@@ -2,10 +2,11 @@ package com.mdau.ushirika.module.benevolence.dto;
 
 import com.mdau.ushirika.module.benevolence.entity.BenevolenceReplenishment;
 import com.mdau.ushirika.module.benevolence.enums.ReplenishmentStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,7 +22,7 @@ public record BenevolenceReplenishmentDto(
         int totalMembers,
         long paidCount,
         List<ReplenishmentPaymentDto> memberPayments,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static BenevolenceReplenishmentDto from(BenevolenceReplenishment r,
                                                     List<ReplenishmentPaymentDto> memberPayments,
@@ -32,7 +33,7 @@ public record BenevolenceReplenishmentDto(
         return new BenevolenceReplenishmentDto(
                 r.getId(), claimId, claimRef, r.getTotalAmount(), r.getPerMemberAmount(),
                 r.getDueDate(), r.getNotes(), r.getStatus(),
-                memberPayments.size(), paidCount, memberPayments, r.getCreatedAt()
+                memberPayments.size(), paidCount, memberPayments, AppClock.serverInstant(r.getCreatedAt())
         );
     }
 
@@ -44,7 +45,7 @@ public record BenevolenceReplenishmentDto(
         return new BenevolenceReplenishmentDto(
                 r.getId(), claimId, claimRef, r.getTotalAmount(), r.getPerMemberAmount(),
                 r.getDueDate(), r.getNotes(), r.getStatus(),
-                totalMembers, paidCount, null, r.getCreatedAt()
+                totalMembers, paidCount, null, AppClock.serverInstant(r.getCreatedAt())
         );
     }
 }

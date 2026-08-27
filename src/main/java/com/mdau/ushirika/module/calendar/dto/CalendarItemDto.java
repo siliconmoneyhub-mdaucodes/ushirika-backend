@@ -2,7 +2,7 @@ package com.mdau.ushirika.module.calendar.dto;
 
 import com.mdau.ushirika.module.calendar.enums.CalendarItemType;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record CalendarItemDto(
@@ -10,8 +10,8 @@ public record CalendarItemDto(
         UUID id,
         String title,
         String description,
-        LocalDateTime start,
-        LocalDateTime end,
+        Instant start,
+        Instant end,
         String location,
         String actionUrl
 ) {}

@@ -1,13 +1,14 @@
 package com.mdau.ushirika.module.auth.dto;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.Capability;
 import com.mdau.ushirika.module.auth.enums.OfficialTitle;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -45,7 +46,7 @@ public record UserProfileDto(
          *  active/membershipCeased change, null if none has ever been tracked. See
          *  MemberStatusChangeService. */
         String currentStatusReason,
-        LocalDateTime currentStatusChangedAt
+        Instant currentStatusChangedAt
 ) {
     /**
      * Backward-compatible overload — callers that don't have dues context
@@ -128,7 +129,7 @@ public record UserProfileDto(
                 photoUrl,
                 capabilities,
                 user.getCurrentStatusReason() != null ? user.getCurrentStatusReason().name() : null,
-                user.getCurrentStatusChangedAt()
+                AppClock.serverInstant(user.getCurrentStatusChangedAt())
         );
     }
 }

@@ -1,9 +1,10 @@
 package com.mdau.ushirika.module.payment.dto;
 
 import com.mdau.ushirika.module.payment.entity.MemberContribution;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record MemberContributionDto(
@@ -14,8 +15,8 @@ public record MemberContributionDto(
         String period,
         String notes,
         String stripeSessionId,
-        LocalDateTime paidAt,
-        LocalDateTime createdAt
+        Instant paidAt,
+        Instant createdAt
 ) {
     public static MemberContributionDto from(MemberContribution c) {
         return new MemberContributionDto(
@@ -26,8 +27,8 @@ public record MemberContributionDto(
                 c.getPeriod(),
                 c.getNotes(),
                 c.getPayment() != null ? c.getPayment().getSessionId() : null,
-                c.getPayment() != null ? c.getPayment().getPaidAt() : null,
-                c.getCreatedAt()
+                c.getPayment() != null ? AppClock.serverInstant(c.getPayment().getPaidAt()) : null,
+                AppClock.serverInstant(c.getCreatedAt())
         );
     }
 }

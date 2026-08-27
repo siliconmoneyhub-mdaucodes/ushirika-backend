@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.messaging.service;
 
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -253,7 +254,7 @@ public class MessagingService {
                 t.getProgram() != null ? t.getProgram().getId() : null,
                 t.getProgram() != null ? t.getProgram().getName() : null,
                 preview,
-                t.getLastMessageAt(),
+                AppClock.serverInstant(t.getLastMessageAt()),
                 unread
         );
     }

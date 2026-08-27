@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.event.dto;
 
 import com.mdau.ushirika.module.event.entity.EventRegistration;
 import com.mdau.ushirika.module.event.enums.RegistrationStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record RegistrationDto(
@@ -15,8 +16,8 @@ public record RegistrationDto(
         String displayEmail,
         boolean memberRegistration,
         RegistrationStatus status,
-        LocalDateTime registeredAt,
-        LocalDateTime attendanceMarkedAt
+        Instant registeredAt,
+        Instant attendanceMarkedAt
 ) {
     public static RegistrationDto from(EventRegistration r) {
         return new RegistrationDto(
@@ -28,8 +29,8 @@ public record RegistrationDto(
                 r.getDisplayEmail(),
                 r.isMemberRegistration(),
                 r.getStatus(),
-                r.getRegisteredAt(),
-                r.getAttendanceMarkedAt()
+                AppClock.serverInstant(r.getRegisteredAt()),
+                AppClock.serverInstant(r.getAttendanceMarkedAt())
         );
     }
 }

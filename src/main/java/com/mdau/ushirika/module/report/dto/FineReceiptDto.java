@@ -1,8 +1,8 @@
 package com.mdau.ushirika.module.report.dto;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record FineReceiptDto(
@@ -14,6 +14,6 @@ public record FineReceiptDto(
         String reason,
         BigDecimal amount,
         LocalDate dueDate,
-        LocalDateTime paidAt,
+        Instant paidAt,
         String meetingTitle
 ) {}

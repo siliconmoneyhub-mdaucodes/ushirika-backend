@@ -279,10 +279,15 @@ public class MeetingService {
         boolean late = meeting.getSeatedByAt() != null && now.isAfter(meeting.getSeatedByAt());
         AttendanceStatus status = late ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
 
+        // now (AppClock, Central) is only for the gate/late comparisons above -- the stamp itself
+        // is a pure instant and must stay in the same UTC convention as every other createdAt-style
+        // timestamp (see the bulk-attendance path above), or checkedInAt would mean two different
+        // things depending on which code path wrote the row.
+        LocalDateTime checkedInAt = LocalDateTime.now();
         AttendanceRecord record = attendanceRecordRepository.findByMeetingAndUser(meeting, user)
                 .orElse(AttendanceRecord.builder().meeting(meeting).user(user).build());
         record.setStatus(status);
-        record.setCheckedInAt(now);
+        record.setCheckedInAt(checkedInAt);
         record.setCheckInLatitude(req.lat());
         record.setCheckInLongitude(req.lng());
         applyAutoFineIfConfigured(record, meeting, user);
@@ -291,7 +296,7 @@ public class MeetingService {
         String message = late
                 ? "Checked in — you arrived after the seating cutoff, so a late fine has been applied."
                 : "Checked in — you're on time!";
-        return new CheckInResultDto(status.name(), message, now);
+        return new CheckInResultDto(status.name(), message, AppClock.serverInstant(checkedInAt));
     }
 
     // ── Member: attendance summary ────────────────────────────────────────────

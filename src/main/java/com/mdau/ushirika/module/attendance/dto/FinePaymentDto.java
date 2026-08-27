@@ -1,9 +1,10 @@
 package com.mdau.ushirika.module.attendance.dto;
 
 import com.mdau.ushirika.module.attendance.entity.FinePayment;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record FinePaymentDto(
@@ -21,9 +22,9 @@ public record FinePaymentDto(
         String status,
         String rejectionReason,
         String verifiedByName,
-        LocalDateTime verifiedAt,
+        Instant verifiedAt,
         String notes,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static FinePaymentDto from(FinePayment p) {
         return new FinePaymentDto(
@@ -41,9 +42,9 @@ public record FinePaymentDto(
                 p.getStatus().name(),
                 p.getRejectionReason(),
                 p.getVerifiedBy() != null ? p.getVerifiedBy().getFullName() : null,
-                p.getVerifiedAt(),
+                AppClock.serverInstant(p.getVerifiedAt()),
                 p.getNotes(),
-                p.getCreatedAt()
+                AppClock.serverInstant(p.getCreatedAt())
         );
     }
 
@@ -63,9 +64,9 @@ public record FinePaymentDto(
                 p.getStatus().name(),
                 p.getRejectionReason(),
                 null,
-                p.getVerifiedAt(),
+                AppClock.serverInstant(p.getVerifiedAt()),
                 p.getNotes(),
-                p.getCreatedAt()
+                AppClock.serverInstant(p.getCreatedAt())
         );
     }
 }

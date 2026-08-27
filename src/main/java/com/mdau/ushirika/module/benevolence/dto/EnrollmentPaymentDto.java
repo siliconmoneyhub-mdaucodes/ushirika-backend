@@ -1,9 +1,10 @@
 package com.mdau.ushirika.module.benevolence.dto;
 
 import com.mdau.ushirika.module.benevolence.entity.EnrollmentPayment;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record EnrollmentPaymentDto(
@@ -11,13 +12,13 @@ public record EnrollmentPaymentDto(
         BigDecimal amount,
         String paymentMethod,
         String paymentReference,
-        LocalDateTime paidAt,
+        Instant paidAt,
         String notes
 ) {
     public static EnrollmentPaymentDto from(EnrollmentPayment p) {
         return new EnrollmentPaymentDto(
                 p.getId(), p.getAmount(), p.getPaymentMethod(),
-                p.getPaymentReference(), p.getPaidAt(), p.getNotes()
+                p.getPaymentReference(), AppClock.serverInstant(p.getPaidAt()), p.getNotes()
         );
     }
 }

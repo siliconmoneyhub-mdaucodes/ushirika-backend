@@ -1,8 +1,9 @@
 package com.mdau.ushirika.module.scholarship.dto;
 
 import com.mdau.ushirika.module.scholarship.entity.PublicScholarshipInquiry;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record PublicInquiryDto(
@@ -12,13 +13,13 @@ public record PublicInquiryDto(
         String phone,
         String message,
         String programName,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static PublicInquiryDto from(PublicScholarshipInquiry i) {
         return new PublicInquiryDto(
                 i.getId(), i.getFullName(), i.getEmail(), i.getPhone(), i.getMessage(),
                 i.getProgram() != null ? i.getProgram().getName() : null,
-                i.getCreatedAt()
+                AppClock.serverInstant(i.getCreatedAt())
         );
     }
 }

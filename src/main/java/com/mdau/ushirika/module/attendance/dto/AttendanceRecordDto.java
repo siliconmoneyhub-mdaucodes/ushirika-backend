@@ -1,8 +1,9 @@
 package com.mdau.ushirika.module.attendance.dto;
 
 import com.mdau.ushirika.module.attendance.entity.AttendanceRecord;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record AttendanceRecordDto(
@@ -12,7 +13,7 @@ public record AttendanceRecordDto(
         String email,
         String memberId,
         String status,
-        LocalDateTime checkedInAt,
+        Instant checkedInAt,
         String notes,
         UUID fineId
 ) {
@@ -24,7 +25,7 @@ public record AttendanceRecordDto(
                 ar.getUser().getEmail(),
                 memberId,
                 ar.getStatus().name(),
-                ar.getCheckedInAt(),
+                AppClock.serverInstant(ar.getCheckedInAt()),
                 ar.getNotes(),
                 ar.getFine() != null ? ar.getFine().getId() : null
         );

@@ -2,9 +2,10 @@ package com.mdau.ushirika.module.content.dto;
 
 import com.mdau.ushirika.module.content.entity.CommunityAlbum;
 import com.mdau.ushirika.module.content.enums.AlbumStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record AlbumSummaryDto(
@@ -15,16 +16,16 @@ public record AlbumSummaryDto(
         LocalDate       eventDate,
         String          location,
         AlbumStatus     status,
-        LocalDateTime   publishedAt,
+        Instant         publishedAt,
         int             mediaCount,
-        LocalDateTime   createdAt,
-        LocalDateTime   updatedAt
+        Instant         createdAt,
+        Instant         updatedAt
 ) {
     public static AlbumSummaryDto from(CommunityAlbum a) {
         return new AlbumSummaryDto(
                 a.getId(), a.getTitle(), a.getDescription(), a.getCoverImageUrl(),
-                a.getEventDate(), a.getLocation(), a.getStatus(), a.getPublishedAt(),
-                a.getMedia().size(), a.getCreatedAt(), a.getUpdatedAt()
+                a.getEventDate(), a.getLocation(), a.getStatus(), AppClock.serverInstant(a.getPublishedAt()),
+                a.getMedia().size(), AppClock.serverInstant(a.getCreatedAt()), AppClock.serverInstant(a.getUpdatedAt())
         );
     }
 }

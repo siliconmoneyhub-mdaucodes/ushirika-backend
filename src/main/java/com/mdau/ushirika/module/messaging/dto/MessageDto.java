@@ -1,8 +1,9 @@
 package com.mdau.ushirika.module.messaging.dto;
 
 import com.mdau.ushirika.module.messaging.entity.ConversationMessage;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record MessageDto(
@@ -11,7 +12,7 @@ public record MessageDto(
         String senderName,
         boolean fromMember,
         String body,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static MessageDto from(ConversationMessage m) {
         return new MessageDto(
@@ -20,7 +21,7 @@ public record MessageDto(
                 m.getSender().getFullName(),
                 m.isFromMember(),
                 m.getBody(),
-                m.getCreatedAt()
+                AppClock.serverInstant(m.getCreatedAt())
         );
     }
 }

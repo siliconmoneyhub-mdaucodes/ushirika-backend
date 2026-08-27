@@ -2,9 +2,10 @@ package com.mdau.ushirika.module.scholarship.dto;
 
 import com.mdau.ushirika.module.scholarship.entity.ScholarshipApplication;
 import com.mdau.ushirika.module.scholarship.enums.ScholarshipApplicationStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /** Safe member-facing view — no admin names, no internal notes. */
@@ -18,9 +19,9 @@ public record ScholarshipApplicationTrackDto(
         String courseOfStudy,
         String academicYear,
         String rejectionReason,
-        LocalDateTime submittedAt,
-        LocalDateTime reviewedAt,
-        LocalDateTime approvedAt,
+        Instant submittedAt,
+        Instant reviewedAt,
+        Instant approvedAt,
         AwardSummary award
 ) {
 
@@ -28,7 +29,7 @@ public record ScholarshipApplicationTrackDto(
             BigDecimal amountAwarded,
             String currency,
             String method,
-            LocalDateTime awardedAt
+            Instant awardedAt
     ) {}
 
     public static ScholarshipApplicationTrackDto from(ScholarshipApplication a) {
@@ -37,7 +38,7 @@ public record ScholarshipApplicationTrackDto(
             var aw = a.getAward();
             awardSummary = new AwardSummary(
                     aw.getAmountAwarded(), aw.getCurrency(),
-                    aw.getMethod().name(), aw.getAwardedAt()
+                    aw.getMethod().name(), AppClock.serverInstant(aw.getAwardedAt())
             );
         }
         return new ScholarshipApplicationTrackDto(
@@ -46,7 +47,7 @@ public record ScholarshipApplicationTrackDto(
                 a.getStatus(), a.getBeneficiaryName(),
                 a.getInstitutionName(), a.getCourseOfStudy(), a.getAcademicYear(),
                 a.getRejectionReason(),
-                a.getSubmittedAt(), a.getReviewedAt(), a.getApprovedAt(),
+                AppClock.serverInstant(a.getSubmittedAt()), AppClock.serverInstant(a.getReviewedAt()), AppClock.serverInstant(a.getApprovedAt()),
                 awardSummary
         );
     }

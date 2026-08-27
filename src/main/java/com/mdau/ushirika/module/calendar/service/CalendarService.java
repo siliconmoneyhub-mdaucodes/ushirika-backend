@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.calendar.service;
 
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.enums.FineStatus;
 import com.mdau.ushirika.module.attendance.enums.MeetingStatus;
 import com.mdau.ushirika.module.attendance.repository.FineRepository;
@@ -51,7 +52,7 @@ public class CalendarService {
                         m.getId(),
                         m.getTitle(),
                         m.getDescription(),
-                        m.getMeetingDate(),
+                        AppClock.toInstant(m.getMeetingDate()),
                         null,
                         m.getLocation(),
                         "/portal/meetings"
@@ -66,8 +67,8 @@ public class CalendarService {
                         e.getId(),
                         e.getTitle(),
                         e.getDescription(),
-                        e.getStartDateTime(),
-                        e.getEndDateTime(),
+                        AppClock.toInstant(e.getStartDateTime()),
+                        AppClock.toInstant(e.getEndDateTime()),
                         e.getVenue() != null ? e.getVenue() : e.getOnlineLink(),
                         "/portal/events/" + e.getId()
                 )));
@@ -83,7 +84,7 @@ public class CalendarService {
                         "MGR Payout — " + s.getCycle().getName(),
                         "Month " + s.getPayoutMonth() + " payout" +
                                 (s.getPayoutAmount() != null ? ": $" + s.getPayoutAmount() : ""),
-                        s.getScheduledPayoutDate().atStartOfDay(),
+                        AppClock.toInstant(s.getScheduledPayoutDate().atStartOfDay()),
                         null,
                         null,
                         "/portal/mgr"
@@ -99,7 +100,7 @@ public class CalendarService {
                         d.getId(),
                         "Membership Dues — " + d.getYear(),
                         "Annual dues of $" + d.getAmount() + " due",
-                        d.getDueDate().atStartOfDay(),
+                        AppClock.toInstant(d.getDueDate().atStartOfDay()),
                         null,
                         null,
                         "/portal/payments"
@@ -113,7 +114,7 @@ public class CalendarService {
                         f.getId(),
                         "Fine Due — $" + f.getAmount(),
                         f.getReason(),
-                        f.getDueDate().atStartOfDay(),
+                        AppClock.toInstant(f.getDueDate().atStartOfDay()),
                         null,
                         null,
                         "/portal/meetings"

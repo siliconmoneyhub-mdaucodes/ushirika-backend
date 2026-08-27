@@ -1,9 +1,9 @@
 package com.mdau.ushirika.module.attendance.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record CheckInResultDto(
         String status,
         String message,
-        LocalDateTime checkedInAt
+        Instant checkedInAt
 ) {}

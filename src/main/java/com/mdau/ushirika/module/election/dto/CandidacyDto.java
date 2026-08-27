@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.election.dto;
 
 import com.mdau.ushirika.module.election.entity.ElectionCandidacy;
 import com.mdau.ushirika.module.election.enums.CandidacyStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record CandidacyDto(
@@ -20,7 +21,7 @@ public record CandidacyDto(
         CandidacyStatus status,
         String rejectionReason,
         String reviewedBy,
-        LocalDateTime reviewedAt,
+        Instant reviewedAt,
         long voteCount   // 0 until results released
 ) {
     public static CandidacyDto from(ElectionCandidacy c, long voteCount) {
@@ -38,7 +39,7 @@ public record CandidacyDto(
                 c.getStatus(),
                 c.getRejectionReason(),
                 c.getReviewedBy(),
-                c.getReviewedAt(),
+                AppClock.serverInstant(c.getReviewedAt()),
                 voteCount
         );
     }

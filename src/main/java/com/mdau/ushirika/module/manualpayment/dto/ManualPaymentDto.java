@@ -3,10 +3,11 @@ package com.mdau.ushirika.module.manualpayment.dto;
 import com.mdau.ushirika.module.manualpayment.entity.ManualPayment;
 import com.mdau.ushirika.module.manualpayment.enums.ManualPaymentCategory;
 import com.mdau.ushirika.module.manualpayment.enums.ManualPaymentStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record ManualPaymentDto(
@@ -31,8 +32,8 @@ public record ManualPaymentDto(
     String rejectedByName,
     String rejectedByEmail,
     String rejectionReason,
-    LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    Instant createdAt,
+    Instant updatedAt
 ) {
     public static ManualPaymentDto from(ManualPayment p) {
         return new ManualPaymentDto(
@@ -57,8 +58,8 @@ public record ManualPaymentDto(
             p.getRejectedBy() != null ? p.getRejectedBy().getFullName() : null,
             p.getRejectedBy() != null ? p.getRejectedBy().getEmail() : null,
             p.getRejectionReason(),
-            p.getCreatedAt(),
-            p.getUpdatedAt()
+            AppClock.serverInstant(p.getCreatedAt()),
+            AppClock.serverInstant(p.getUpdatedAt())
         );
     }
 }

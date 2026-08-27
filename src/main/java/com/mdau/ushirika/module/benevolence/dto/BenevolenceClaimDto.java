@@ -2,10 +2,11 @@ package com.mdau.ushirika.module.benevolence.dto;
 
 import com.mdau.ushirika.module.benevolence.entity.BenevolenceClaim;
 import com.mdau.ushirika.module.benevolence.enums.ClaimStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,9 +34,9 @@ public record BenevolenceClaimDto(
         ClaimStatus status,
         String rejectionReason,
         String adminNotes,
-        LocalDateTime submittedAt,
-        LocalDateTime reviewedAt,
-        LocalDateTime disbursedAt
+        Instant submittedAt,
+        Instant reviewedAt,
+        Instant disbursedAt
 ) {
     public static BenevolenceClaimDto from(BenevolenceClaim c, String memberId) {
         String fullName = c.getEnrollment().getUser().getFullName();
@@ -54,7 +55,7 @@ public record BenevolenceClaimDto(
                 c.getContactName(), c.getContactPhone(), c.getDescription(),
                 c.getDocumentUrls(), c.getAmountApproved(), c.getStatus(),
                 c.getRejectionReason(), c.getAdminNotes(),
-                c.getSubmittedAt(), c.getReviewedAt(), c.getDisbursedAt()
+                AppClock.serverInstant(c.getSubmittedAt()), AppClock.serverInstant(c.getReviewedAt()), AppClock.serverInstant(c.getDisbursedAt())
         );
     }
 }

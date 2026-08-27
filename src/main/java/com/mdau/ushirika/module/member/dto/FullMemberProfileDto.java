@@ -7,9 +7,10 @@ import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 import com.mdau.ushirika.module.member.enums.UsState;
+import com.mdau.ushirika.common.util.AppClock;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -68,11 +69,11 @@ public record FullMemberProfileDto(
         String    membershipTier,
 
         // governance acceptance record (read-only — proof of consent)
-        LocalDateTime constitutionAcceptedAt,
+        Instant       constitutionAcceptedAt,
         String        constitutionSignatureName,
         String        constitutionSignatureInitials,
         LocalDate     constitutionSignatureDate,
-        LocalDateTime bylawsAcceptedAt,
+        Instant       bylawsAcceptedAt,
         String        bylawsSignatureName,
         String        bylawsSignatureInitials,
         LocalDate     bylawsSignatureDate
@@ -137,11 +138,11 @@ public record FullMemberProfileDto(
                 p != null ? p.getMemberSince()     : null,
                 p != null ? p.getMembershipTier()  : null,
 
-                a != null ? a.getConstitutionAcceptedAt()         : null,
+                a != null ? AppClock.serverInstant(a.getConstitutionAcceptedAt()) : null,
                 a != null ? a.getConstitutionSignatureName()      : null,
                 a != null ? a.getConstitutionSignatureInitials()  : null,
                 a != null ? a.getConstitutionSignatureDate()      : null,
-                a != null ? a.getBylawsAcceptedAt()               : null,
+                a != null ? AppClock.serverInstant(a.getBylawsAcceptedAt())       : null,
                 a != null ? a.getBylawsSignatureName()            : null,
                 a != null ? a.getBylawsSignatureInitials()        : null,
                 a != null ? a.getBylawsSignatureDate()            : null

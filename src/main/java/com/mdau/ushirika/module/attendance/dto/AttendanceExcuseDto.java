@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.attendance.dto;
 
 import com.mdau.ushirika.module.attendance.entity.AttendanceExcuse;
 import com.mdau.ushirika.module.attendance.entity.AttendanceRecord;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record AttendanceExcuseDto(
@@ -20,8 +21,8 @@ public record AttendanceExcuseDto(
         String status,
         String adminNotes,
         String decidedByName,
-        LocalDateTime decidedAt,
-        LocalDateTime createdAt
+        Instant decidedAt,
+        Instant createdAt
 ) {
     public static AttendanceExcuseDto from(AttendanceExcuse e, String memberId) {
         AttendanceRecord r = e.getAttendanceRecord();
@@ -39,8 +40,8 @@ public record AttendanceExcuseDto(
                 e.getStatus().name(),
                 e.getAdminNotes(),
                 e.getDecidedBy() != null ? e.getDecidedBy().getFullName() : null,
-                e.getDecidedAt(),
-                e.getCreatedAt()
+                AppClock.serverInstant(e.getDecidedAt()),
+                AppClock.serverInstant(e.getCreatedAt())
         );
     }
 }

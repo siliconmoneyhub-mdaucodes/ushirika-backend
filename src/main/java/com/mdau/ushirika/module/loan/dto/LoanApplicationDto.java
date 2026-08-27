@@ -2,10 +2,11 @@ package com.mdau.ushirika.module.loan.dto;
 
 import com.mdau.ushirika.module.loan.entity.LoanApplication;
 import com.mdau.ushirika.module.loan.enums.LoanStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,8 +32,8 @@ public record LoanApplicationDto(
         String disbursementReference,
         String adminNotes,
         String rejectionReason,
-        LocalDateTime defaultedAt,
-        LocalDateTime createdAt,
+        Instant defaultedAt,
+        Instant createdAt,
         List<LoanGuarantorDto> guarantors,
         List<LoanInstallmentDto> installments,
         int installmentCount,
@@ -73,8 +74,8 @@ public record LoanApplicationDto(
                 loan.getDisbursementReference(),
                 loan.getAdminNotes(),
                 loan.getRejectionReason(),
-                loan.getDefaultedAt(),
-                loan.getCreatedAt(),
+                AppClock.serverInstant(loan.getDefaultedAt()),
+                AppClock.serverInstant(loan.getCreatedAt()),
                 guarantors,
                 installments,
                 installments.size(),
@@ -114,8 +115,8 @@ public record LoanApplicationDto(
                 loan.getDisbursementReference(),
                 loan.getAdminNotes(),
                 loan.getRejectionReason(),
-                loan.getDefaultedAt(),
-                loan.getCreatedAt(),
+                AppClock.serverInstant(loan.getDefaultedAt()),
+                AppClock.serverInstant(loan.getCreatedAt()),
                 List.of(),
                 List.of(),
                 installmentCount,

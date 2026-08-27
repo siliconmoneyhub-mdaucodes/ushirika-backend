@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.loan.dto;
 
 import com.mdau.ushirika.module.loan.entity.LoanGuarantor;
 import com.mdau.ushirika.module.loan.enums.GuarantorStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record LoanGuarantorDto(
@@ -13,7 +14,7 @@ public record LoanGuarantorDto(
         String guarantorEmail,
         String guarantorMemberId,
         GuarantorStatus status,
-        LocalDateTime respondedAt,
+        Instant respondedAt,
         String notes
 ) {
     public static LoanGuarantorDto from(LoanGuarantor g, String memberId) {
@@ -24,7 +25,7 @@ public record LoanGuarantorDto(
                 g.getGuarantorUser().getEmail(),
                 memberId,
                 g.getStatus(),
-                g.getRespondedAt(),
+                AppClock.serverInstant(g.getRespondedAt()),
                 g.getNotes()
         );
     }

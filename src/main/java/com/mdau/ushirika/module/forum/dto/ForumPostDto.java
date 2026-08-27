@@ -3,8 +3,9 @@ package com.mdau.ushirika.module.forum.dto;
 import com.mdau.ushirika.module.forum.entity.ForumPost;
 import com.mdau.ushirika.module.forum.enums.ForumPostStatus;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,9 +22,9 @@ public record ForumPostDto(
         String adminNotes,
         boolean featured,
         String reviewedByName,
-        LocalDateTime reviewedAt,
-        LocalDateTime approvedAt,
-        LocalDateTime createdAt
+        Instant reviewedAt,
+        Instant approvedAt,
+        Instant createdAt
 ) {
     public static ForumPostDto from(ForumPost p, MemberProfile profile) {
         return new ForumPostDto(
@@ -39,9 +40,9 @@ public record ForumPostDto(
                 p.getAdminNotes(),
                 p.isFeatured(),
                 p.getReviewedBy() != null ? p.getReviewedBy().getFullName() : null,
-                p.getReviewedAt(),
-                p.getApprovedAt(),
-                p.getCreatedAt()
+                AppClock.serverInstant(p.getReviewedAt()),
+                AppClock.serverInstant(p.getApprovedAt()),
+                AppClock.serverInstant(p.getCreatedAt())
         );
     }
 }

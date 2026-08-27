@@ -1,10 +1,11 @@
 package com.mdau.ushirika.module.attendance.dto;
 
 import com.mdau.ushirika.module.attendance.entity.Fine;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record FineDto(
@@ -20,8 +21,8 @@ public record FineDto(
         LocalDate dueDate,
         String status,
         String waivedReason,
-        LocalDateTime paidAt,
-        LocalDateTime createdAt
+        Instant paidAt,
+        Instant createdAt
 ) {
     public static FineDto from(Fine f, String memberId) {
         return new FineDto(
@@ -37,8 +38,8 @@ public record FineDto(
                 f.getDueDate(),
                 f.getStatus().name(),
                 f.getWaivedReason(),
-                f.getPaidAt(),
-                f.getCreatedAt()
+                AppClock.serverInstant(f.getPaidAt()),
+                AppClock.serverInstant(f.getCreatedAt())
         );
     }
 }

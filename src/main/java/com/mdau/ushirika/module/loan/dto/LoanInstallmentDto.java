@@ -2,10 +2,11 @@ package com.mdau.ushirika.module.loan.dto;
 
 import com.mdau.ushirika.module.loan.entity.LoanInstallment;
 import com.mdau.ushirika.module.loan.enums.InstallmentStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record LoanInstallmentDto(
@@ -18,7 +19,7 @@ public record LoanInstallmentDto(
         BigDecimal amountPaid,
         BigDecimal balance,
         InstallmentStatus status,
-        LocalDateTime paidAt,
+        Instant paidAt,
         String paymentMethod,
         String paymentReference,
         String notes
@@ -34,7 +35,7 @@ public record LoanInstallmentDto(
                 i.getAmountPaid(),
                 i.getTotalDue().subtract(i.getAmountPaid()),
                 i.getStatus(),
-                i.getPaidAt(),
+                AppClock.serverInstant(i.getPaidAt()),
                 i.getPaymentMethod(),
                 i.getPaymentReference(),
                 i.getNotes()

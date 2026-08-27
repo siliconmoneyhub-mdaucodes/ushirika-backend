@@ -2,10 +2,11 @@ package com.mdau.ushirika.module.mgr.dto;
 
 import com.mdau.ushirika.module.mgr.entity.MgrCycle;
 import com.mdau.ushirika.module.mgr.enums.CycleStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,8 +24,8 @@ public record MgrCycleDto(
         int benefitPayoutDay,
         String notes,
         CycleStatus status,
-        LocalDateTime activatedAt,
-        LocalDateTime completedAt,
+        Instant activatedAt,
+        Instant completedAt,
         int assignedSlots,
         long paidPayouts,
         long pendingContributions,
@@ -37,7 +38,7 @@ public record MgrCycleDto(
                 c.getTotalSlots(), c.getMonthlyContribution(), c.getPayoutsPerMonth(),
                 c.getPayoutAmountPerSlot(), c.getReservePercentage(), c.getBenefitPayoutDay(),
                 c.getNotes(), c.getStatus(),
-                c.getActivatedAt(), c.getCompletedAt(),
+                AppClock.serverInstant(c.getActivatedAt()), AppClock.serverInstant(c.getCompletedAt()),
                 assignedSlots, paidPayouts, pendingContributions, slots
         );
     }
@@ -48,7 +49,7 @@ public record MgrCycleDto(
                 c.getTotalSlots(), c.getMonthlyContribution(), c.getPayoutsPerMonth(),
                 c.getPayoutAmountPerSlot(), c.getReservePercentage(), c.getBenefitPayoutDay(),
                 c.getNotes(), c.getStatus(),
-                c.getActivatedAt(), c.getCompletedAt(),
+                AppClock.serverInstant(c.getActivatedAt()), AppClock.serverInstant(c.getCompletedAt()),
                 assignedSlots, paidPayouts, 0, null
         );
     }

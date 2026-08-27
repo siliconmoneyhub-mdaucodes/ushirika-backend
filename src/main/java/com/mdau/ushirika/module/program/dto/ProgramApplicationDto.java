@@ -3,8 +3,9 @@ package com.mdau.ushirika.module.program.dto;
 import com.mdau.ushirika.module.member.dto.BeneficiaryInfo;
 import com.mdau.ushirika.module.program.entity.ProgramApplication;
 import com.mdau.ushirika.module.program.enums.ProgramApplicationStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,8 +17,8 @@ public record ProgramApplicationDto(
         String applicantName,
         String applicantEmail,
         ProgramApplicationStatus status,
-        LocalDateTime appliedAt,
-        LocalDateTime reviewedAt,
+        Instant appliedAt,
+        Instant reviewedAt,
         String reviewedByName,
         String rejectionReason,
         List<BeneficiaryInfo> beneficiaries,
@@ -32,8 +33,8 @@ public record ProgramApplicationDto(
                 a.getApplicant().getFullName(),
                 a.getApplicant().getEmail(),
                 a.getStatus(),
-                a.getAppliedAt(),
-                a.getReviewedAt(),
+                AppClock.serverInstant(a.getAppliedAt()),
+                AppClock.serverInstant(a.getReviewedAt()),
                 a.getReviewedBy() != null ? a.getReviewedBy().getFullName() : null,
                 a.getRejectionReason(),
                 a.getBeneficiaries(),

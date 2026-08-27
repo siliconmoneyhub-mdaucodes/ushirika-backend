@@ -5,8 +5,9 @@ import com.mdau.ushirika.module.member.enums.ApprovalDecision;
 import com.mdau.ushirika.module.scholarship.entity.ScholarshipApplication;
 import com.mdau.ushirika.module.scholarship.entity.ScholarshipApproval;
 import com.mdau.ushirika.module.scholarship.enums.ScholarshipApplicationStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,9 +26,9 @@ public record AdminScholarshipApplicationDto(
         List<String> documentUrls,
         String rejectionReason,
         String adminNotes,
-        LocalDateTime submittedAt,
-        LocalDateTime reviewedAt,
-        LocalDateTime approvedAt,
+        Instant submittedAt,
+        Instant reviewedAt,
+        Instant approvedAt,
         List<ApprovalSummary> approvals,
         ScholarshipApplicationTrackDto.AwardSummary award
 ) {
@@ -37,16 +38,16 @@ public record AdminScholarshipApplicationDto(
             String adminName,
             ApprovalDecision decision,
             String comment,
-            LocalDateTime decidedAt
+            Instant decidedAt
     ) {
         public static ApprovalSummary forSuperAdmin(ScholarshipApproval a) {
             return new ApprovalSummary(a.getId(), a.getAdmin().getFullName(),
-                    a.getDecision(), a.getComment(), a.getDecidedAt());
+                    a.getDecision(), a.getComment(), AppClock.serverInstant(a.getDecidedAt()));
         }
 
         public static ApprovalSummary forAdmin(ScholarshipApproval a) {
             return new ApprovalSummary(a.getId(), null,
-                    a.getDecision(), null, a.getDecidedAt());
+                    a.getDecision(), null, AppClock.serverInstant(a.getDecidedAt()));
         }
     }
 
@@ -62,7 +63,7 @@ public record AdminScholarshipApplicationDto(
             var aw = a.getAward();
             awardSummary = new ScholarshipApplicationTrackDto.AwardSummary(
                     aw.getAmountAwarded(), aw.getCurrency(),
-                    aw.getMethod().name(), aw.getAwardedAt()
+                    aw.getMethod().name(), AppClock.serverInstant(aw.getAwardedAt())
             );
         }
 
@@ -75,7 +76,7 @@ public record AdminScholarshipApplicationDto(
                 a.getPersonalStatement(), a.getDocumentUrls(),
                 a.getRejectionReason(),
                 isSuperAdmin ? a.getAdminNotes() : null,
-                a.getSubmittedAt(), a.getReviewedAt(), a.getApprovedAt(),
+                AppClock.serverInstant(a.getSubmittedAt()), AppClock.serverInstant(a.getReviewedAt()), AppClock.serverInstant(a.getApprovedAt()),
                 approvalSummaries, awardSummary
         );
     }

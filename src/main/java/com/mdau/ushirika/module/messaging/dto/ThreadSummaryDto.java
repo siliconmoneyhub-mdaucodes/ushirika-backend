@@ -1,6 +1,6 @@
 package com.mdau.ushirika.module.messaging.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record ThreadSummaryDto(
@@ -10,6 +10,6 @@ public record ThreadSummaryDto(
         UUID programId,
         String programName,
         String lastMessagePreview,
-        LocalDateTime lastMessageAt,
+        Instant lastMessageAt,
         boolean unread
 ) {}

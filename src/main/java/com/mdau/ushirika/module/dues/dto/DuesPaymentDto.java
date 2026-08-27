@@ -1,9 +1,10 @@
 package com.mdau.ushirika.module.dues.dto;
 
 import com.mdau.ushirika.module.dues.entity.DuesPayment;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record DuesPaymentDto(
@@ -20,9 +21,9 @@ public record DuesPaymentDto(
         String status,
         String rejectionReason,
         String verifiedByName,
-        LocalDateTime verifiedAt,
+        Instant verifiedAt,
         String notes,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
     public static DuesPaymentDto from(DuesPayment p) {
         return new DuesPaymentDto(
@@ -39,9 +40,9 @@ public record DuesPaymentDto(
                 p.getStatus().name(),
                 p.getRejectionReason(),
                 p.getVerifiedBy() != null ? p.getVerifiedBy().getFullName() : null,
-                p.getVerifiedAt(),
+                AppClock.serverInstant(p.getVerifiedAt()),
                 p.getNotes(),
-                p.getCreatedAt()
+                AppClock.serverInstant(p.getCreatedAt())
         );
     }
 
@@ -60,9 +61,9 @@ public record DuesPaymentDto(
                 p.getStatus().name(),
                 p.getRejectionReason(),
                 null,
-                p.getVerifiedAt(),
+                AppClock.serverInstant(p.getVerifiedAt()),
                 p.getNotes(),
-                p.getCreatedAt()
+                AppClock.serverInstant(p.getCreatedAt())
         );
     }
 }

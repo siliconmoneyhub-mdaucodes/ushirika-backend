@@ -2,11 +2,10 @@ package com.mdau.ushirika.module.fx.dto;
 
 import com.mdau.ushirika.module.fx.service.ExchangeRateService;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
 
-public record ExchangeRateDto(double usdToKes, LocalDateTime asOf) {
+public record ExchangeRateDto(double usdToKes, Instant asOf) {
     public static ExchangeRateDto from(ExchangeRateService.Rate rate) {
-        return new ExchangeRateDto(rate.usdToKes(), LocalDateTime.ofInstant(rate.asOf(), ZoneOffset.UTC));
+        return new ExchangeRateDto(rate.usdToKes(), rate.asOf());
     }
 }

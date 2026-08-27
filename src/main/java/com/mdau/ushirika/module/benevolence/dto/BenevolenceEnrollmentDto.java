@@ -2,10 +2,11 @@ package com.mdau.ushirika.module.benevolence.dto;
 
 import com.mdau.ushirika.module.benevolence.entity.BenevolenceEnrollment;
 import com.mdau.ushirika.module.benevolence.enums.EnrollmentStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,10 +16,10 @@ public record BenevolenceEnrollmentDto(
         String memberName,
         String email,
         String memberId,
-        LocalDateTime enrolledAt,
+        Instant enrolledAt,
         BigDecimal totalPaid,
         BigDecimal remainingBalance,
-        LocalDateTime completedAt,
+        Instant completedAt,
         LocalDate probationEndsAt,
         EnrollmentStatus status,
         boolean beneficiariesLocked,
@@ -37,8 +38,8 @@ public record BenevolenceEnrollmentDto(
 
         return new BenevolenceEnrollmentDto(
                 e.getId(), e.getUser().getId(), fullName, e.getUser().getEmail(), memberId,
-                e.getEnrolledAt(), e.getTotalPaid(), remaining,
-                e.getCompletedAt(), e.getProbationEndsAt(), e.getStatus(),
+                AppClock.serverInstant(e.getEnrolledAt()), e.getTotalPaid(), remaining,
+                AppClock.serverInstant(e.getCompletedAt()), e.getProbationEndsAt(), e.getStatus(),
                 e.isBeneficiariesLocked(), beneficiaries.size(), payments, beneficiaries
         );
     }
@@ -51,8 +52,8 @@ public record BenevolenceEnrollmentDto(
 
         return new BenevolenceEnrollmentDto(
                 e.getId(), e.getUser().getId(), fullName, e.getUser().getEmail(), memberId,
-                e.getEnrolledAt(), e.getTotalPaid(), remaining,
-                e.getCompletedAt(), e.getProbationEndsAt(), e.getStatus(),
+                AppClock.serverInstant(e.getEnrolledAt()), e.getTotalPaid(), remaining,
+                AppClock.serverInstant(e.getCompletedAt()), e.getProbationEndsAt(), e.getStatus(),
                 e.isBeneficiariesLocked(), beneficiaryCount, null, null
         );
     }

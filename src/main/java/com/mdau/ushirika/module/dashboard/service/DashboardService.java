@@ -192,12 +192,12 @@ public class DashboardService {
         List<ComplianceDashboardDto.AuditEntrySummary> recentActivity = auditLogRepository
                 .findWithFilters(null, null, null, org.springframework.data.domain.PageRequest.of(0, 10))
                 .map(a -> new ComplianceDashboardDto.AuditEntrySummary(
-                        a.getActorName(), a.getAction(), a.getDescription(), a.getCreatedAt()))
+                        a.getActorName(), a.getAction(), a.getDescription(), AppClock.serverInstant(a.getCreatedAt())))
                 .getContent();
 
         return new ComplianceDashboardDto(
-                constitution.isPresent(), constitution.map(d -> d.getPublishedAt()).orElse(null),
-                bylaws.isPresent(), bylaws.map(d -> d.getPublishedAt()).orElse(null),
+                constitution.isPresent(), constitution.map(d -> AppClock.serverInstant(d.getPublishedAt())).orElse(null),
+                bylaws.isPresent(), bylaws.map(d -> AppClock.serverInstant(d.getPublishedAt())).orElse(null),
                 reinstatementRequestRepository.countByStatus(ReinstatementStatus.PENDING),
                 recentActivity
         );

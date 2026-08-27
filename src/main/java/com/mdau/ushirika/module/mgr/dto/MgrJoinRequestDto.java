@@ -2,8 +2,9 @@ package com.mdau.ushirika.module.mgr.dto;
 
 import com.mdau.ushirika.module.mgr.entity.MgrJoinRequest;
 import com.mdau.ushirika.module.mgr.enums.JoinRequestStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record MgrJoinRequestDto(
@@ -18,15 +19,15 @@ public record MgrJoinRequestDto(
         String memberNotes,
         String adminNotes,
         String respondedByName,
-        LocalDateTime respondedAt,
-        LocalDateTime admittedAt,
-        LocalDateTime formSentAt,
+        Instant respondedAt,
+        Instant admittedAt,
+        Instant formSentAt,
         UUID invitedCycleId,
         String invitedCycleName,
-        LocalDateTime invitedAt,
+        Instant invitedAt,
         Boolean cycleOptIn,
-        LocalDateTime cycleRespondedAt,
-        LocalDateTime createdAt
+        Instant cycleRespondedAt,
+        Instant createdAt
 ) {
     public static MgrJoinRequestDto from(MgrJoinRequest r, String memberId) {
         return new MgrJoinRequestDto(
@@ -41,15 +42,15 @@ public record MgrJoinRequestDto(
                 r.getMemberNotes(),
                 r.getAdminNotes(),
                 r.getRespondedBy() != null ? r.getRespondedBy().getFullName() : null,
-                r.getRespondedAt(),
-                r.getAdmittedAt(),
-                r.getFormSentAt(),
+                AppClock.serverInstant(r.getRespondedAt()),
+                AppClock.serverInstant(r.getAdmittedAt()),
+                AppClock.serverInstant(r.getFormSentAt()),
                 r.getInvitedCycle() != null ? r.getInvitedCycle().getId() : null,
                 r.getInvitedCycle() != null ? r.getInvitedCycle().getName() : null,
-                r.getInvitedAt(),
+                AppClock.serverInstant(r.getInvitedAt()),
                 r.getCycleOptIn(),
-                r.getCycleRespondedAt(),
-                r.getCreatedAt()
+                AppClock.serverInstant(r.getCycleRespondedAt()),
+                AppClock.serverInstant(r.getCreatedAt())
         );
     }
 }

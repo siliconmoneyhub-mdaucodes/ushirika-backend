@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.report.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.entity.AttendanceRecord;
 import com.mdau.ushirika.module.attendance.entity.Fine;
 import com.mdau.ushirika.module.attendance.entity.Meeting;
@@ -585,7 +586,7 @@ public class ReportService {
                 due.getYear(),
                 due.getAmount(),
                 due.getDueDate(),
-                due.getPaidAt(),
+                AppClock.serverInstant(due.getPaidAt()),
                 due.getPaymentMethod(),
                 due.getPaymentReference()
         );
@@ -616,7 +617,7 @@ public class ReportService {
                 fine.getReason(),
                 fine.getAmount(),
                 fine.getDueDate(),
-                fine.getPaidAt(),
+                AppClock.serverInstant(fine.getPaidAt()),
                 fine.getMeeting() != null ? fine.getMeeting().getTitle() : null
         );
     }

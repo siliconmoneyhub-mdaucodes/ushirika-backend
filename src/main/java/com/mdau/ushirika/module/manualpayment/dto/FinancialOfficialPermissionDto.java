@@ -1,8 +1,9 @@
 package com.mdau.ushirika.module.manualpayment.dto;
 
 import com.mdau.ushirika.module.manualpayment.entity.FinancialOfficialPermission;
+import com.mdau.ushirika.common.util.AppClock;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record FinancialOfficialPermissionDto(
@@ -14,7 +15,7 @@ public record FinancialOfficialPermissionDto(
     boolean canApprovePayments,
     String grantedByName,
     String grantedByEmail,
-    LocalDateTime grantedAt
+    Instant grantedAt
 ) {
     public static FinancialOfficialPermissionDto from(FinancialOfficialPermission p) {
         return new FinancialOfficialPermissionDto(
@@ -26,7 +27,7 @@ public record FinancialOfficialPermissionDto(
             p.isCanApprovePayments(),
             p.getGrantedBy().getFullName(),
             p.getGrantedBy().getEmail(),
-            p.getCreatedAt()
+            AppClock.serverInstant(p.getCreatedAt())
         );
     }
 }

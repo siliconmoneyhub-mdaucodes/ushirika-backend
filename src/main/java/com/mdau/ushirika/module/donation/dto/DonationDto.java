@@ -2,9 +2,10 @@ package com.mdau.ushirika.module.donation.dto;
 
 import com.mdau.ushirika.module.donation.entity.Donation;
 import com.mdau.ushirika.module.donation.enums.DonationStatus;
+import com.mdau.ushirika.common.util.AppClock;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record DonationDto(
@@ -18,7 +19,7 @@ public record DonationDto(
         String message,
         String stripeSessionId,
         DonationStatus status,
-        LocalDateTime donatedAt
+        Instant donatedAt
 ) {
     public static DonationDto from(Donation d) {
         return new DonationDto(
@@ -32,7 +33,7 @@ public record DonationDto(
                 d.getMessage(),
                 d.getStripeSessionId(),
                 d.getStatus(),
-                d.getDonatedAt()
+                AppClock.serverInstant(d.getDonatedAt())
         );
     }
 }
