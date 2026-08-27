@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.actionitems.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.actionitems.dto.ActionItemDto;
 import com.mdau.ushirika.module.actionitems.dto.ActionItemsDto;
 import com.mdau.ushirika.module.attendance.entity.AttendanceExcuse;
@@ -114,7 +115,7 @@ public class ActionItemsService {
                     name != null ? name : "New applicant",
                     "New application — " + app.getReferenceNumber(),
                     "/admin/applications",
-                    occurredAt.toString()
+                    AppClock.serverInstant(occurredAt).toString()
             ));
         }
         return submitted.size();
@@ -167,7 +168,7 @@ public class ActionItemsService {
                     t.getMember().getFullName(),
                     subtitle,
                     link,
-                    m.getCreatedAt().toString()
+                    AppClock.serverInstant(m.getCreatedAt()).toString()
             ));
         }
         return unread.size();
@@ -188,7 +189,7 @@ public class ActionItemsService {
                         r.getUser().getFullName(),
                         "Wants to join Benevolence — needs Send Form",
                         "/admin/benevolence",
-                        r.getCreatedAt().toString()
+                        AppClock.serverInstant(r.getCreatedAt()).toString()
                 ));
             }
             count += pending.size();
@@ -208,7 +209,7 @@ public class ActionItemsService {
                         c.getDeceasedName() != null ? "Claim: " + c.getDeceasedName() : "New claim",
                         "Submitted by " + c.getEnrollment().getUser().getFullName() + " — " + c.getReferenceNumber(),
                         "/admin/benevolence",
-                        (c.getSubmittedAt() != null ? c.getSubmittedAt() : c.getCreatedAt()).toString()
+                        AppClock.serverInstant(c.getSubmittedAt() != null ? c.getSubmittedAt() : c.getCreatedAt()).toString()
                 ));
             }
             count += submitted.size();
@@ -230,7 +231,7 @@ public class ActionItemsService {
                     r.getUser().getFullName(),
                     "Wants to join MGR — needs Send Form",
                     "/admin/mgr",
-                    r.getCreatedAt().toString()
+                    AppClock.serverInstant(r.getCreatedAt()).toString()
             ));
         }
         return pending.size();
@@ -254,7 +255,7 @@ public class ActionItemsService {
                     e.getAttendanceRecord().getUser().getFullName(),
                     "Submitted an excuse — " + preview(e.getReason()),
                     "/admin/meetings",
-                    e.getCreatedAt().toString()
+                    AppClock.serverInstant(e.getCreatedAt()).toString()
             ));
         }
         return pending.size();
@@ -275,7 +276,7 @@ public class ActionItemsService {
                     c.getCandidate().getFullName(),
                     "New candidacy — " + c.getSeat().getTitle(),
                     "/admin/elections",
-                    c.getCreatedAt().toString()
+                    AppClock.serverInstant(c.getCreatedAt()).toString()
             ));
         }
         return pending.size();
