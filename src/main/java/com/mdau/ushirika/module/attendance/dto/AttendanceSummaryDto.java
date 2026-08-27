@@ -1,6 +1,6 @@
 package com.mdau.ushirika.module.attendance.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +17,7 @@ public record AttendanceSummaryDto(
     public record MeetingItem(
             UUID meetingId,
             String title,
-            LocalDateTime meetingDate,
+            Instant meetingDate,
             String type,
             String attendanceStatus
     ) {}

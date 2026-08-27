@@ -1,11 +1,12 @@
 package com.mdau.ushirika.module.event.dto;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.event.entity.Event;
 import com.mdau.ushirika.module.event.enums.EventStatus;
 import com.mdau.ushirika.module.event.enums.EventType;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,9 +18,9 @@ public record EventDto(
         EventStatus status,
         String venue,
         String onlineLink,
-        LocalDateTime startDateTime,
-        LocalDateTime endDateTime,
-        LocalDateTime registrationDeadline,
+        Instant startDateTime,
+        Instant endDateTime,
+        Instant registrationDeadline,
         Integer capacity,
         boolean membersOnly,
         boolean requiresPayment,
@@ -32,7 +33,8 @@ public record EventDto(
         return new EventDto(
                 e.getId(), e.getTitle(), e.getDescription(),
                 e.getType(), e.getStatus(), e.getVenue(), e.getOnlineLink(),
-                e.getStartDateTime(), e.getEndDateTime(), e.getRegistrationDeadline(),
+                AppClock.toInstant(e.getStartDateTime()), AppClock.toInstant(e.getEndDateTime()),
+                AppClock.toInstant(e.getRegistrationDeadline()),
                 e.getCapacity(), e.isMembersOnly(), e.isRequiresPayment(), e.getTicketPrice(),
                 e.getCoverImageUrl(), e.getTags(), registeredCount
         );

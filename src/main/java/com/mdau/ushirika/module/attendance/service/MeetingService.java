@@ -312,7 +312,7 @@ public class MeetingService {
             items.add(new AttendanceSummaryDto.MeetingItem(
                     r.getMeeting().getId(),
                     r.getMeeting().getTitle(),
-                    r.getMeeting().getMeetingDate(),
+                    AppClock.toInstant(r.getMeeting().getMeetingDate()),
                     r.getMeeting().getType().name(),
                     r.getStatus().name()
             ));

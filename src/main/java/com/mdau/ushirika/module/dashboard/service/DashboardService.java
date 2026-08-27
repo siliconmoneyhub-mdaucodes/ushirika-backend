@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.dashboard.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.entity.Meeting;
 import com.mdau.ushirika.module.attendance.enums.AttendanceStatus;
 import com.mdau.ushirika.module.attendance.enums.ExcuseStatus;
@@ -243,7 +244,7 @@ public class DashboardService {
     }
 
     private MeetingSummaryDto toMeetingSummary(Meeting m) {
-        return m == null ? null : new MeetingSummaryDto(m.getId(), m.getTitle(), m.getMeetingDate());
+        return m == null ? null : new MeetingSummaryDto(m.getId(), m.getTitle(), AppClock.toInstant(m.getMeetingDate()));
     }
 
     /** Percentage of recorded attendees marked PRESENT or LATE at the given meeting — null if no meeting or no records yet. */

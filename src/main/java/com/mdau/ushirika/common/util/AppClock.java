@@ -1,5 +1,6 @@
 package com.mdau.ushirika.common.util;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -27,5 +28,17 @@ public final class AppClock {
 
     public static LocalDateTime now() {
         return LocalDateTime.now(ORG_ZONE);
+    }
+
+    /**
+     * Entities like {@code Meeting.meetingDate} store a bare {@code LocalDateTime} meaning
+     * "wall-clock time in {@link #ORG_ZONE}", with no offset of its own. Sent to the frontend
+     * as-is, a viewer's browser (e.g. {@code new Date(iso)}) reads it as its OWN local time
+     * instead -- correct only for a Central-time viewer, wrong by several hours for anyone else
+     * (an admin browsing from Kenya, in practice). Convert to a real instant before it crosses
+     * the wire so every viewer's browser converts it to their own local time correctly.
+     */
+    public static Instant toInstant(LocalDateTime orgLocal) {
+        return orgLocal == null ? null : orgLocal.atZone(ORG_ZONE).toInstant();
     }
 }
