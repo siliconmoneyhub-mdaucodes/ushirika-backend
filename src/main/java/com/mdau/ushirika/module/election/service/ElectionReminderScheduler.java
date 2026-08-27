@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.election.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -52,9 +53,9 @@ public class ElectionReminderScheduler {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
-    @Scheduled(cron = "0 0 9 * * *")
+    @Scheduled(cron = "0 0 9 * * *", zone = "America/Chicago")
     public void sendVotingReminders() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         int sent = 0;
 
         for (Election election : electionRepository.findAllByOrderByYearDescCreatedAtDesc()) {

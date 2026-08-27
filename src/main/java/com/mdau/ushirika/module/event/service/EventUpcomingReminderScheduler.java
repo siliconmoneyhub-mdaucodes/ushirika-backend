@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.event.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.event.entity.Event;
 import com.mdau.ushirika.module.event.entity.EventRegistration;
 import com.mdau.ushirika.module.event.enums.EventStatus;
@@ -48,7 +49,7 @@ public class EventUpcomingReminderScheduler {
 
     @Scheduled(cron = "0 */15 * * * *")
     public void sendUpcomingReminders() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = AppClock.now();
 
         List<Event> due24h = eventRepository.findByStatusInAndReminder24hSentFalseAndStartDateTimeBetween(
                 List.of(EventStatus.PUBLISHED), now, now.plusHours(24));

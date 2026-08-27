@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.benevolence.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.benevolence.entity.BenevolenceReplenishment;
 import com.mdau.ushirika.module.benevolence.entity.ReplenishmentPayment;
 import com.mdau.ushirika.module.benevolence.enums.ReplenishmentPaymentStatus;
@@ -49,9 +50,9 @@ public class ReplenishmentReminderScheduler {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
-    @Scheduled(cron = "0 30 8 * * *")
+    @Scheduled(cron = "0 30 8 * * *", zone = "America/Chicago")
     public void sendReplenishmentReminders() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         List<BenevolenceReplenishment> active =
                 replenishmentRepository.findAllByStatus(ReplenishmentStatus.ACTIVE);
         int sent = 0;

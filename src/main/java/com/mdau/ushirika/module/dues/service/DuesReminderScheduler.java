@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.dues.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.dues.entity.MembershipDue;
 import com.mdau.ushirika.module.dues.enums.DuesStatus;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
@@ -43,10 +44,10 @@ public class DuesReminderScheduler {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
-    @Scheduled(cron = "0 0 7 * * *")
+    @Scheduled(cron = "0 0 7 * * *", zone = "America/Chicago")
     @Transactional(readOnly = true)
     public void sendDuesReminders() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         int sent = 0;
 
         for (int days : REMINDER_DAYS) {

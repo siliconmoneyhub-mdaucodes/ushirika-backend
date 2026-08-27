@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.mgr.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.mgr.entity.MgrContribution;
 import com.mdau.ushirika.module.mgr.entity.MgrCycle;
 import com.mdau.ushirika.module.mgr.enums.ContributionStatus;
@@ -49,9 +50,9 @@ public class MgrReminderScheduler {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
-    @Scheduled(cron = "0 0 8 * * *")
+    @Scheduled(cron = "0 0 8 * * *", zone = "America/Chicago")
     public void sendMgrReminders() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         List<MgrCycle> activeCycles = cycleRepository.findAllByStatus(CycleStatus.ACTIVE);
         int sent = 0;
 

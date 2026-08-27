@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.benevolence.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.benevolence.entity.BenevolenceEnrollment;
 import com.mdau.ushirika.module.benevolence.enums.EnrollmentStatus;
 import com.mdau.ushirika.module.benevolence.repository.BenevolenceEnrollmentRepository;
@@ -20,11 +21,11 @@ public class BenevolenceScheduler {
     private final BenevolenceEnrollmentRepository enrollmentRepo;
 
     /** Runs daily at 02:00 — promotes members out of probation once probationEndsAt has passed. */
-    @Scheduled(cron = "0 0 2 * * *")
+    @Scheduled(cron = "0 0 2 * * *", zone = "America/Chicago")
     @Transactional
     public void promoteProbationToEligible() {
         List<BenevolenceEnrollment> probation = enrollmentRepo.findAllByStatus(EnrollmentStatus.PROBATION);
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         int promoted = 0;
         for (BenevolenceEnrollment e : probation) {
             if (e.getProbationEndsAt() != null && !today.isBefore(e.getProbationEndsAt())) {

@@ -3,6 +3,7 @@ package com.mdau.ushirika.module.dues.service;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -60,7 +61,7 @@ public class MembershipDuesService {
 
     @Transactional
     public void createInitialDues(User user) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         int year = today.getYear();
         // The membership year runs November 1 -> October 31. A brand-new member owes nothing
         // toward a cycle that's already mostly (or entirely) elapsed -- dues only become
@@ -85,7 +86,7 @@ public class MembershipDuesService {
 
     @Transactional(readOnly = true)
     public Optional<DuesStatus> getCurrentYearStatus(User user) {
-        return dueRepository.findByUserAndYear(user, LocalDate.now().getYear())
+        return dueRepository.findByUserAndYear(user, AppClock.today().getYear())
                 .map(MembershipDue::getStatus);
     }
 
@@ -135,7 +136,7 @@ public class MembershipDuesService {
      */
     @Transactional
     public void applyExternalPayment(User member, BigDecimal amount) {
-        int year = LocalDate.now().getYear();
+        int year = AppClock.today().getYear();
         dueRepository.findByUserAndYear(member, year).ifPresent(due -> {
             if (due.getStatus() == DuesStatus.PAID || due.getStatus() == DuesStatus.WAIVED) return;
 
@@ -184,7 +185,7 @@ public class MembershipDuesService {
             throw new BadRequestException("This due is already " + due.getStatus().name().toLowerCase() + ".");
         }
         due.setStatus(DuesStatus.PENDING);
-        due.setDueDate(LocalDate.now().plusDays(days));
+        due.setDueDate(AppClock.today().plusDays(days));
         dueRepository.save(due);
         reactivateIfNeeded(due.getUser(), "granted a " + days + "-day dues grace period by admin");
         auditLogService.log(currentUser(), "DUES_GRACE_PERIOD_GRANTED", "MembershipDue", due.getId(),
@@ -198,7 +199,7 @@ public class MembershipDuesService {
      *  the member has no overdue dues (e.g. they were suspended for an unrelated reason). */
     @Transactional
     public void resetOverdueDuesToGracePeriod(User user, int days) {
-        LocalDate newDueDate = LocalDate.now().plusDays(days);
+        LocalDate newDueDate = AppClock.today().plusDays(days);
         List<MembershipDue> overdue = dueRepository.findByUserOrderByYearDesc(user).stream()
                 .filter(d -> d.getStatus() == DuesStatus.OVERDUE)
                 .toList();
@@ -217,10 +218,10 @@ public class MembershipDuesService {
     // still-PENDING dues get flipped (never re-processes ones already OVERDUE), and the
     // deactivation loop skips anyone already inactive.
 
-    @Scheduled(cron = "0 0 6 * * *")
+    @Scheduled(cron = "0 0 6 * * *", zone = "America/Chicago")
     @Transactional
     public int assessOverdue() {
-        List<MembershipDue> overdue = dueRepository.findOverdue(LocalDate.now(), DuesStatus.PENDING);
+        List<MembershipDue> overdue = dueRepository.findOverdue(AppClock.today(), DuesStatus.PENDING);
         overdue.forEach(d -> d.setStatus(DuesStatus.OVERDUE));
         dueRepository.saveAll(overdue);
 
@@ -283,7 +284,7 @@ public class MembershipDuesService {
     /** Outstanding balance on this year's dues — 0 if PAID/WAIVED or no due row exists yet. */
     @Transactional(readOnly = true)
     public BigDecimal outstandingBalance(User user) {
-        return dueRepository.findByUserAndYear(user, LocalDate.now().getYear())
+        return dueRepository.findByUserAndYear(user, AppClock.today().getYear())
                 .filter(d -> d.getStatus() != DuesStatus.PAID && d.getStatus() != DuesStatus.WAIVED)
                 .map(d -> ANNUAL_FEE.subtract(d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO).max(BigDecimal.ZERO))
                 .orElse(BigDecimal.ZERO);
@@ -294,7 +295,7 @@ public class MembershipDuesService {
      * balance on "Pay My Balances". */
     @Transactional(readOnly = true)
     public Optional<MembershipDue> currentYearOutstandingDue(User user) {
-        return dueRepository.findByUserAndYear(user, LocalDate.now().getYear())
+        return dueRepository.findByUserAndYear(user, AppClock.today().getYear())
                 .filter(d -> d.getStatus() != DuesStatus.PAID && d.getStatus() != DuesStatus.WAIVED);
     }
 

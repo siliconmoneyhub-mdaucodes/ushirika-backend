@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.attendance.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.entity.Fine;
 import com.mdau.ushirika.module.attendance.enums.FineStatus;
 import com.mdau.ushirika.module.attendance.repository.FineRepository;
@@ -42,9 +43,9 @@ public class FineReminderScheduler {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
-    @Scheduled(cron = "0 30 7 * * *")
+    @Scheduled(cron = "0 30 7 * * *", zone = "America/Chicago")
     public void sendFineReminders() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         int sent = 0;
 
         for (int days : REMINDER_DAYS) {

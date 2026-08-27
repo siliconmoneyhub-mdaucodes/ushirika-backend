@@ -7,6 +7,7 @@ import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
 import com.mdau.ushirika.common.service.QuorumApprovalService;
 import com.mdau.ushirika.common.service.QuorumApprovalService.QuorumResult;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
@@ -158,7 +159,7 @@ public class ScholarshipService {
             throw new BadRequestException("This scholarship program is not currently accepting applications.");
         }
         if (program.getApplicationDeadline() != null
-                && LocalDate.now().isAfter(program.getApplicationDeadline())) {
+                && AppClock.today().isAfter(program.getApplicationDeadline())) {
             throw new BadRequestException("The application deadline for this program has passed.");
         }
         if (applicationRepository.existsByMemberAndProgram(member, program)) {

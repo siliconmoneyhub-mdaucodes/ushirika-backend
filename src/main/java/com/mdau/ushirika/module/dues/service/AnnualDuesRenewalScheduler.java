@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.dues.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -29,10 +30,10 @@ public class AnnualDuesRenewalScheduler {
     private final MembershipDueRepository dueRepository;
     private final UserRepository          userRepository;
 
-    @Scheduled(cron = "0 0 1 1 1 *")
+    @Scheduled(cron = "0 0 1 1 1 *", zone = "America/Chicago")
     @Transactional
     public void createAnnualDues() {
-        int year = LocalDate.now().getYear();
+        int year = AppClock.today().getYear();
         LocalDate dueDate = LocalDate.of(year, 10, 31);
 
         List<User> activeMembers = userRepository.findAllByActiveTrue();

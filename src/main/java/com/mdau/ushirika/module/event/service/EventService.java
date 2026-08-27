@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.event.dto.*;
@@ -154,7 +155,7 @@ public class EventService {
         if (event.getStatus() == EventStatus.COMPLETED || event.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("Cannot cancel registration for a completed or cancelled event.");
         }
-        if (LocalDateTime.now().isAfter(event.getStartDateTime())) {
+        if (AppClock.now().isAfter(event.getStartDateTime())) {
             throw new BadRequestException("Cannot cancel registration after the event has started.");
         }
 
@@ -275,7 +276,7 @@ public class EventService {
             throw new BadRequestException("This event is not currently open for registration.");
         }
         if (event.getRegistrationDeadline() != null
-                && LocalDateTime.now().isAfter(event.getRegistrationDeadline())) {
+                && AppClock.now().isAfter(event.getRegistrationDeadline())) {
             throw new BadRequestException("The registration deadline for this event has passed.");
         }
     }

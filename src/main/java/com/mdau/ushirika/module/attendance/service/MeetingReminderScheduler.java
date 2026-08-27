@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.attendance.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.entity.Meeting;
 import com.mdau.ushirika.module.attendance.enums.MeetingStatus;
 import com.mdau.ushirika.module.auth.enums.UserRole;
@@ -39,9 +40,9 @@ public class MeetingReminderScheduler {
     private final SmsService              smsService;
     private final InAppNotificationService notificationService;
 
-    @Scheduled(cron = "0 0 7 * * *")
+    @Scheduled(cron = "0 0 7 * * *", zone = "America/Chicago")
     public void sendMeetingReminders() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppClock.today();
         var members = userRepository.findAllByRole(UserRole.MEMBER);
         if (members.isEmpty()) return;
 

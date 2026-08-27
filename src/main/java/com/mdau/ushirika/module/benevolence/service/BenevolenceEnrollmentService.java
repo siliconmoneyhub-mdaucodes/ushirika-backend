@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.common.util.TextNormalizer;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
@@ -618,7 +619,7 @@ public class BenevolenceEnrollmentService {
         if (newTotal.compareTo(ENROLLMENT_TOTAL) >= 0) {
             enrollment.setTotalPaid(ENROLLMENT_TOTAL);
             enrollment.setCompletedAt(LocalDateTime.now());
-            enrollment.setProbationEndsAt(LocalDate.now().plusMonths(platformSettingsService.getBenevolenceProbationMonths()));
+            enrollment.setProbationEndsAt(AppClock.today().plusMonths(platformSettingsService.getBenevolenceProbationMonths()));
             enrollment.setStatus(EnrollmentStatus.PROBATION);
         } else {
             enrollment.setTotalPaid(newTotal);

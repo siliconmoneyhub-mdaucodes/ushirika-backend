@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.attendance.service;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.entity.Fine;
 import com.mdau.ushirika.module.attendance.enums.FineStatus;
 import com.mdau.ushirika.module.attendance.repository.FineRepository;
@@ -39,10 +40,10 @@ public class FineDeactivationScheduler {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
-    @Scheduled(cron = "0 0 8 * * *")
+    @Scheduled(cron = "0 0 8 * * *", zone = "America/Chicago")
     @Transactional
     public void deactivateOverdueFines() {
-        LocalDate sevenDaysAgo = LocalDate.now().minusDays(7);
+        LocalDate sevenDaysAgo = AppClock.today().minusDays(7);
         List<Fine> overdue = fineRepository.findByStatusAndDueDate(FineStatus.PENDING, sevenDaysAgo);
 
         int deactivated = 0;

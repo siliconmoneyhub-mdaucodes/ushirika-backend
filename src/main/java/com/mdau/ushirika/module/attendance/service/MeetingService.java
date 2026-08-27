@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.attendance.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.attendance.dto.*;
 import com.mdau.ushirika.module.attendance.entity.AttendanceRecord;
 import com.mdau.ushirika.module.attendance.entity.Fine;
@@ -256,7 +257,7 @@ public class MeetingService {
         if (meeting.getVenueLatitude() == null || meeting.getVenueLongitude() == null) {
             throw new BadRequestException("Venue location has not been set for this meeting — contact an admin.");
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = AppClock.now();
         if (now.isBefore(meeting.getCheckInOpensAt())) {
             throw new BadRequestException("Check-in has not opened yet for this meeting.");
         }
