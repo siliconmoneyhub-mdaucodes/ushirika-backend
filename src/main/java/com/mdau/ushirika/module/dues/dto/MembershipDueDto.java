@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.dues.dto;
 
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.dues.entity.MembershipDue;
 
 import java.math.BigDecimal;
@@ -48,12 +49,12 @@ public record MembershipDueDto(
                 paid,
                 remaining,
                 d.getDueDate() != null ? d.getDueDate().toString() : null,
-                d.getPaidAt() != null ? d.getPaidAt().toString() : null,
+                d.getPaidAt() != null ? AppClock.serverInstant(d.getPaidAt()).toString() : null,
                 d.getStatus().name(),
                 d.getPaymentMethod(),
                 d.getPaymentReference(),
                 d.getNotes(),
-                d.getCreatedAt() != null ? d.getCreatedAt().toString() : null,
+                d.getCreatedAt() != null ? AppClock.serverInstant(d.getCreatedAt()).toString() : null,
                 d.remainingMonths(),
                 d.recommendedMonthlyAmount(),
                 registrationFeeWaived
