@@ -58,7 +58,13 @@ public record UpdateProfileRequest(
 
         // ── Occupation ────────────────────────────────────────────────────────
         @Size(max = 150) String occupation,
-        @Size(max = 200) String employer
+        @Size(max = 200) String employer,
+
+        // ── References (optional — member-to-member vouching) ───────────────────
+        @Size(max = 150) String reference1Name,
+        @Size(max = 20)  String reference1MemberId,
+        @Size(max = 150) String reference2Name,
+        @Size(max = 20)  String reference2MemberId
 ) {
     @AssertTrue(message = "County, sub-county, location/village, and subdivision are required for a Kenyan address")
     public boolean isKenyaRegionComplete() {

@@ -149,6 +149,10 @@ public class UserController {
 
         profile.setOccupation(req.occupation() != null ? req.occupation().trim() : null);
         profile.setEmployer(req.employer() != null ? req.employer().trim() : null);
+        profile.setReference1Name(trimOrNull(req.reference1Name()));
+        profile.setReference1MemberId(trimOrNull(req.reference1MemberId()));
+        profile.setReference2Name(trimOrNull(req.reference2Name()));
+        profile.setReference2MemberId(trimOrNull(req.reference2MemberId()));
         profileRepository.save(profile);
 
         return ResponseEntity.ok(ApiResponse.ok("Profile updated.", FullMemberProfileDto.from(user, profile)));
