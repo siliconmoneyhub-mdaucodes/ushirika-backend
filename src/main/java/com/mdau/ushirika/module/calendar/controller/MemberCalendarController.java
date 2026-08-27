@@ -1,6 +1,7 @@
 package com.mdau.ushirika.module.calendar.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
+import com.mdau.ushirika.common.util.AppClock;
 import com.mdau.ushirika.module.calendar.dto.CalendarItemDto;
 import com.mdau.ushirika.module.calendar.service.CalendarService;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class MemberCalendarController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
-        LocalDate start = from != null ? from : LocalDate.now().withDayOfMonth(1);
+        LocalDate start = from != null ? from : AppClock.today().withDayOfMonth(1);
         LocalDate end   = to   != null ? to   : start.withDayOfMonth(start.lengthOfMonth());
         return ApiResponse.ok(calendarService.getMyCalendar(start, end));
     }
