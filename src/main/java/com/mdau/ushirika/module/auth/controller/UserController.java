@@ -17,6 +17,7 @@ import com.mdau.ushirika.module.member.entity.EmergencyContact;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.entity.NextOfKin;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +36,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final MemberProfileRepository profileRepository;
+    private final MembershipApplicationRepository applicationRepository;
     private final MembershipDuesService duesService;
     private final AuthService authService;
 
@@ -77,7 +79,8 @@ public class UserController {
     public ResponseEntity<ApiResponse<FullMemberProfileDto>> fullProfile() {
         User user = currentUser();
         MemberProfile profile = profileRepository.findByUser(user).orElse(null);
-        return ResponseEntity.ok(ApiResponse.ok(FullMemberProfileDto.from(user, profile)));
+        var application = applicationRepository.findByUser(user).orElse(null);
+        return ResponseEntity.ok(ApiResponse.ok(FullMemberProfileDto.from(user, profile, application)));
     }
 
     @PutMapping("/me/profile")
@@ -155,7 +158,8 @@ public class UserController {
         profile.setReference2MemberId(trimOrNull(req.reference2MemberId()));
         profileRepository.save(profile);
 
-        return ResponseEntity.ok(ApiResponse.ok("Profile updated.", FullMemberProfileDto.from(user, profile)));
+        var application = applicationRepository.findByUser(user).orElse(null);
+        return ResponseEntity.ok(ApiResponse.ok("Profile updated.", FullMemberProfileDto.from(user, profile, application)));
     }
 
     @PatchMapping("/me/photo")

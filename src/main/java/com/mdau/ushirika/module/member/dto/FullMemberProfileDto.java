@@ -2,12 +2,14 @@ package com.mdau.ushirika.module.member.dto;
 
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.Country;
 import com.mdau.ushirika.module.member.enums.Gender;
 import com.mdau.ushirika.module.member.enums.MaritalStatus;
 import com.mdau.ushirika.module.member.enums.UsState;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,9 +65,23 @@ public record FullMemberProfileDto(
 
         // membership (read-only)
         LocalDate memberSince,
-        String    membershipTier
+        String    membershipTier,
+
+        // governance acceptance record (read-only — proof of consent)
+        LocalDateTime constitutionAcceptedAt,
+        String        constitutionSignatureName,
+        String        constitutionSignatureInitials,
+        LocalDate     constitutionSignatureDate,
+        LocalDateTime bylawsAcceptedAt,
+        String        bylawsSignatureName,
+        String        bylawsSignatureInitials,
+        LocalDate     bylawsSignatureDate
 ) {
     public static FullMemberProfileDto from(User user, MemberProfile p) {
+        return from(user, p, null);
+    }
+
+    public static FullMemberProfileDto from(User user, MemberProfile p, MembershipApplication a) {
         String role = switch (user.getRole()) {
             case SUPERADMIN          -> "superadmin";
             case ADMIN               -> "admin";
@@ -119,7 +135,16 @@ public record FullMemberProfileDto(
                 p != null ? p.getReference2Name()      : null,
                 p != null ? p.getReference2MemberId()  : null,
                 p != null ? p.getMemberSince()     : null,
-                p != null ? p.getMembershipTier()  : null
+                p != null ? p.getMembershipTier()  : null,
+
+                a != null ? a.getConstitutionAcceptedAt()         : null,
+                a != null ? a.getConstitutionSignatureName()      : null,
+                a != null ? a.getConstitutionSignatureInitials()  : null,
+                a != null ? a.getConstitutionSignatureDate()      : null,
+                a != null ? a.getBylawsAcceptedAt()               : null,
+                a != null ? a.getBylawsSignatureName()            : null,
+                a != null ? a.getBylawsSignatureInitials()        : null,
+                a != null ? a.getBylawsSignatureDate()            : null
         );
     }
 }
