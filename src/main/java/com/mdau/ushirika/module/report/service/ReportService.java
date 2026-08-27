@@ -120,7 +120,7 @@ public class ReportService {
                  .col(u.getRole())
                  .col(u.isActive() ? "Active" : "Inactive")
                  .col(u.isMembershipCeased())
-                 .col(u.getCreatedAt() != null ? u.getCreatedAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(u.getCreatedAt()))
                  .col("")
                  .newRow();
         }
@@ -136,7 +136,7 @@ public class ReportService {
                      .col(u.getRole())
                      .col("Former Member")
                      .col(u.isMembershipCeased())
-                     .col(u.getCreatedAt() != null ? u.getCreatedAt().toLocalDate() : "")
+                     .col(AppClock.orgDate(u.getCreatedAt()))
                      .col(departureReasonLabel(u.getCurrentStatusReason()))
                      .newRow();
             }
@@ -191,7 +191,7 @@ public class ReportService {
                  .col(d.getAmount())
                  .col(d.getDueDate())
                  .col(d.getStatus())
-                 .col(d.getPaidAt() != null ? d.getPaidAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(d.getPaidAt()))
                  .col(d.getPaymentMethod() != null ? d.getPaymentMethod() : "")
                  .col(d.getPaymentReference() != null ? d.getPaymentReference() : "")
                  .newRow();
@@ -229,7 +229,7 @@ public class ReportService {
                  .col(f.getAmount())
                  .col(f.getDueDate())
                  .col(f.getStatus())
-                 .col(f.getPaidAt() != null ? f.getPaidAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(f.getPaidAt()))
                  .col(f.getMeeting() != null ? f.getMeeting().getTitle() : "")
                  .col(f.getWaivedReason() != null ? f.getWaivedReason() : "")
                  .newRow();
@@ -342,7 +342,7 @@ public class ReportService {
                  .col(c.getContributionMonth())
                  .col(c.getAmount())
                  .col(c.getStatus())
-                 .col(c.getPaidAt() != null ? c.getPaidAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(c.getPaidAt()))
                  .col(c.getPaymentMethod() != null ? c.getPaymentMethod() : "")
                  .col(c.getPaymentReference() != null ? c.getPaymentReference() : "")
                  .newRow();
@@ -383,9 +383,9 @@ public class ReportService {
                  .col(c.getDateOfDeath())
                  .col(c.getAmountApproved())
                  .col(c.getStatus())
-                 .col(c.getSubmittedAt() != null ? c.getSubmittedAt().toLocalDate() : "")
-                 .col(c.getReviewedAt() != null ? c.getReviewedAt().toLocalDate() : "")
-                 .col(c.getDisbursedAt() != null ? c.getDisbursedAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(c.getSubmittedAt()))
+                 .col(AppClock.orgDate(c.getReviewedAt()))
+                 .col(AppClock.orgDate(c.getDisbursedAt()))
                  .newRow();
         }
     }
@@ -473,8 +473,8 @@ public class ReportService {
                  .col(a.getAcademicYear())
                  .col(award != null ? award.getAmountAwarded() : null)
                  .col(a.getStatus())
-                 .col(a.getSubmittedAt() != null ? a.getSubmittedAt().toLocalDate() : "")
-                 .col(award != null && award.getAwardedAt() != null ? award.getAwardedAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(a.getSubmittedAt()))
+                 .col(award != null ? AppClock.orgDate(award.getAwardedAt()) : null)
                  .newRow();
         }
     }
@@ -551,8 +551,8 @@ public class ReportService {
                  .col(u.getFullName())
                  .col(u.getEmail())
                  .col(a.getStatus())
-                 .col(a.getAppliedAt() != null ? a.getAppliedAt().toLocalDate() : "")
-                 .col(a.getReviewedAt() != null ? a.getReviewedAt().toLocalDate() : "")
+                 .col(AppClock.orgDate(a.getAppliedAt()))
+                 .col(AppClock.orgDate(a.getReviewedAt()))
                  .col(a.getReviewedBy() != null ? a.getReviewedBy().getFullName() : "")
                  .col(a.getRejectionReason() != null ? a.getRejectionReason() : "")
                  .newRow();
@@ -640,7 +640,7 @@ public class ReportService {
     }
 
     private void populateFinanceSummaryTable(TableBuilder table, Integer year, int months) {
-        int resolvedYear = year != null ? year : java.time.LocalDate.now().getYear();
+        int resolvedYear = year != null ? year : AppClock.today().getYear();
         FinanceDashboardDto dto = dashboardService.getFinanceDashboard(resolvedYear, months);
 
         table.header("Section", "Metric", "Value");
@@ -683,7 +683,7 @@ public class ReportService {
         table.header("Date", "Actor", "Title", "Program", "Direction", "Amount", "Description");
 
         for (com.mdau.ushirika.module.audit.entity.AuditLog entry : entries) {
-            table.col(entry.getCreatedAt() != null ? entry.getCreatedAt().toLocalDate() : "")
+            table.col(AppClock.orgDate(entry.getCreatedAt()))
                  .col(entry.getActorName())
                  .col(entry.getActorTitle() != null ? entry.getActorTitle() : "")
                  .col(entry.getEntityType() != null ? entry.getEntityType() : "")

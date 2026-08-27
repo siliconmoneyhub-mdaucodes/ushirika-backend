@@ -55,4 +55,17 @@ public final class AppClock {
     public static Instant serverInstant(LocalDateTime utcStamp) {
         return utcStamp == null ? null : utcStamp.toInstant(ZoneOffset.UTC);
     }
+
+    /**
+     * Same UTC-stamp fields as {@link #serverInstant} (createdAt, paidAt, submittedAt, reviewedAt,
+     * and similar action stamps), but for server-rendered reports (CSV/XLSX/PDF) that print a
+     * plain "Date" column instead of shipping a real instant for the browser to convert. A bare
+     * {@code stamp.toLocalDate()} reads the UTC calendar day, which is the wrong day for anything
+     * that happened in the evening or night in {@link #ORG_ZONE} -- e.g. a payment recorded at
+     * 11pm Central on the 27th is stored as ~4am UTC on the 28th, so the report would print the
+     * 28th. Converts to the org's own calendar day instead.
+     */
+    public static LocalDate orgDate(LocalDateTime utcStamp) {
+        return utcStamp == null ? null : serverInstant(utcStamp).atZone(ORG_ZONE).toLocalDate();
+    }
 }
