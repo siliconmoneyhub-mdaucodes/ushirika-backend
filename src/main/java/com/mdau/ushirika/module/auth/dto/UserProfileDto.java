@@ -79,14 +79,17 @@ public record UserProfileDto(
         } else if (memberId == null) {
             // Approved email but application not yet reviewed
             status = "pending";
-        } else if ("PAID".equals(duesStatus) || "WAIVED".equals(duesStatus)) {
-            status = "active";
-        } else if ("PENDING".equals(duesStatus) || "OVERDUE".equals(duesStatus)) {
-            // Member approved but annual dues not yet paid
-            status = "inactive";
         } else {
-            // duesStatus null → no dues record exists yet; treat as inactive
-            status = "inactive";
+            // Approved, active member (we already returned above if !user.isActive()) --
+            // owing dues that aren't overdue yet is not the same thing as the account being
+            // inactive, and treating them as equivalent was the actual bug behind members
+            // showing "Inactive" the moment they onboard: their dues aren't due for months,
+            // but this branch used to flip them to "inactive" the instant a PENDING (or even
+            // absent) dues row existed. The real deactivation-for-nonpayment consequence
+            // still happens via assessOverdue() actually setting active=false, which is
+            // caught by the branch above and correctly shown as "suspended". Dues owed is
+            // surfaced separately via the Dues Balance field, not folded into this status.
+            status = "active";
         }
 
         String role = switch (user.getRole()) {

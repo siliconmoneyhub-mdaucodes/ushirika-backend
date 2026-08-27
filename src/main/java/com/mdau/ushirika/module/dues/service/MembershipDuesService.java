@@ -61,18 +61,20 @@ public class MembershipDuesService {
     @Transactional
     public void createInitialDues(User user) {
         LocalDate today = LocalDate.now();
-        // The October 31 cutoff for a given calendar year has already passed by the time
-        // November/December arrives -- creating a due dated Oct 31 of *this* year would be
-        // instantly overdue. Roll those approvals into next year's cycle instead, same as
-        // however far into the new cycle a January approval would land.
-        int year = today.getMonthValue() > 10 ? today.getYear() + 1 : today.getYear();
+        int year = today.getYear();
+        // The membership year runs November 1 -> October 31. A brand-new member owes nothing
+        // toward a cycle that's already mostly (or entirely) elapsed -- dues only become
+        // required once the new cycle actually starts, with a ~2-month window to pay before
+        // non-payment counts as overdue. Nov 1 of `year` is always either just about to happen
+        // (approved Jan-Oct) or just happened (approved Nov-Dec) -- either way the matching due
+        // date, two months in, is December 31 of that same calendar year.
         if (dueRepository.findByUserAndYear(user, year).isPresent()) return;
 
         MembershipDue due = MembershipDue.builder()
                 .user(user)
                 .year(year)
                 .amount(ANNUAL_FEE)
-                .dueDate(LocalDate.of(year, 10, 31))
+                .dueDate(LocalDate.of(year, 12, 31))
                 .status(DuesStatus.PENDING)
                 .build();
         dueRepository.save(due);
@@ -230,7 +232,7 @@ public class MembershipDuesService {
                     u.setActive(false);
                     userRepository.save(u);
                     statusChangeService.record(u, previousStatus, MemberStatus.INACTIVE,
-                            MemberStatusReason.DUES_NONPAYMENT, null, "Annual dues not paid by the October 31 deadline");
+                            MemberStatusReason.DUES_NONPAYMENT, null, "Annual dues not paid by the December 31 deadline");
                     sendDeactivationEmail(u);
                     log.info("Deactivated member {} — overdue dues", u.getEmail());
                 });
@@ -319,7 +321,7 @@ public class MembershipDuesService {
               <h2 style="color:#B91C1C">Membership Status: Inactive</h2>
               <p>Hi %s,</p>
               <p>Your Ushirika Welfare Organization membership has been set to <strong>Inactive</strong>
-                 because your annual dues ($100) were not paid by the October 31st deadline.</p>
+                 because your annual dues ($100) were not paid by the December 31st deadline.</p>
               <p>To restore your Active status, please log in to your member portal and submit
                  your payment. Your access to programs and benefits is paused until dues are settled.</p>
               <p>

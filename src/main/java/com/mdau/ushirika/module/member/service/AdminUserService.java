@@ -104,6 +104,10 @@ public class AdminUserService {
         User user = findById(userId);
 
         BigDecimal duesBalance = membershipDuesService.outstandingBalance(user);
+        var currentDue = membershipDuesService.currentYearOutstandingDue(user);
+        Integer duesYear = currentDue.map(d -> d.getYear()).orElse(null);
+        LocalDate duesDueDate = currentDue.map(d -> d.getDueDate()).orElse(null);
+        String duesStatus = currentDue.map(d -> d.getStatus().name()).orElse(null);
 
         BenevolenceEnrollmentService.EnrollmentBalance benBalance = benevolenceEnrollmentService.outstandingBalance(user);
         String benevolenceStatus = benBalance != null ? benBalance.status() : "NOT_ENROLLED";
@@ -116,8 +120,8 @@ public class AdminUserService {
                 .map(FineDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return new MemberFinancialSummaryDto(duesBalance, benevolenceStatus, benevolenceBalance,
-                outstandingFines, finesTotal);
+        return new MemberFinancialSummaryDto(duesBalance, duesYear, duesDueDate, duesStatus,
+                benevolenceStatus, benevolenceBalance, outstandingFines, finesTotal);
     }
 
     /**
