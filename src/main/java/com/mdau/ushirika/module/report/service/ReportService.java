@@ -29,13 +29,17 @@ import com.mdau.ushirika.module.election.repository.ElectionResultRepository;
 import com.mdau.ushirika.module.loan.entity.LoanApplication;
 import com.mdau.ushirika.module.loan.repository.LoanApplicationRepository;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
+import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.MemberStatusReason;
 import com.mdau.ushirika.module.member.repository.MemberProfileRepository;
+import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.mgr.entity.MgrContribution;
 import com.mdau.ushirika.module.mgr.repository.MgrContributionRepository;
 import com.mdau.ushirika.module.program.entity.ProgramApplication;
 import com.mdau.ushirika.module.program.enums.ProgramType;
 import com.mdau.ushirika.module.program.repository.ProgramApplicationRepository;
+import com.mdau.ushirika.module.reconciliation.entity.BankReconciliation;
+import com.mdau.ushirika.module.reconciliation.repository.BankReconciliationRepository;
 import com.mdau.ushirika.module.report.dto.*;
 import com.mdau.ushirika.module.report.util.CsvBuilder;
 import com.mdau.ushirika.module.report.util.PdfBuilder;
@@ -45,6 +49,7 @@ import com.mdau.ushirika.module.scholarship.entity.ScholarshipApplication;
 import com.mdau.ushirika.module.scholarship.entity.ScholarshipAward;
 import com.mdau.ushirika.module.scholarship.repository.ScholarshipApplicationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -72,6 +77,8 @@ public class ReportService {
     private final ElectionRepository         electionRepository;
     private final ElectionResultRepository   electionResultRepository;
     private final ProgramApplicationRepository programApplicationRepository;
+    private final MembershipApplicationRepository membershipApplicationRepository;
+    private final BankReconciliationRepository bankReconciliationRepository;
     private final com.mdau.ushirika.module.audit.repository.AuditLogRepository auditLogRepository;
 
     // ── Members ──────────────────────────────────────────────────────────────
@@ -150,6 +157,55 @@ public class ReportService {
             case ATTENDANCE_CEASED -> "Ceased — 2 consecutive missed meetings";
             default                -> reason.name();
         };
+    }
+
+    // ── Membership applications (the onboarding pipeline -- NOT ProgramApplication/CUSTOM
+    //    below, a completely different domain that happens to share the word "application") ──
+
+    @Transactional(readOnly = true)
+    public byte[] membershipApplicationsCsv() { var t = CsvBuilder.create(); populateMembershipApplicationsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] membershipApplicationsXlsx() { var t = XlsxBuilder.create("Membership Applications"); populateMembershipApplicationsTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] membershipApplicationsPdf() { var t = PdfBuilder.create("Membership Applications Report"); populateMembershipApplicationsTable(t); return t.toBytes(); }
+
+    private void populateMembershipApplicationsTable(TableBuilder table) {
+        List<MembershipApplication> apps = membershipApplicationRepository
+                .findAllByOrderByCreatedAtDesc(Pageable.unpaged())
+                .getContent();
+
+        table.header("Reference", "Name", "Email", "Phone", "Status", "Submitted",
+                "Form Sent", "Onboarding Complete", "Approved", "Fee Waived", "Rejection Reason");
+
+        for (MembershipApplication a : apps) {
+            User u = a.getUser();
+            String name  = u != null ? u.getFullName() : a.getApplicantName();
+            String email = u != null ? u.getEmail()    : a.getApplicantEmail();
+            String phone = u != null ? u.getPhone()    : a.getApplicantPhone();
+            // Mirrors AdminApplicationDto.from()'s onboardingComplete computation -- keep both in
+            // sync if the onboarding step list ever changes.
+            boolean onboardingComplete = a.getEmailReverifiedAt() != null
+                    && a.getIdentityInfoSubmittedAt() != null
+                    && a.getAddressInfoSubmittedAt() != null
+                    && a.getKinContactsSubmittedAt() != null
+                    && a.getConstitutionAcceptedAt() != null
+                    && a.getBylawsAcceptedAt() != null;
+
+            table.col(a.getReferenceNumber())
+                 .col(name)
+                 .col(email)
+                 .col(phone != null ? phone : "")
+                 .col(a.getStatus())
+                 .col(AppClock.orgDate(a.getSubmittedAt()))
+                 .col(AppClock.orgDate(a.getFormSentAt()))
+                 .col(onboardingComplete)
+                 .col(AppClock.orgDate(a.getApprovedAt()))
+                 .col(a.isRegistrationFeeWaived())
+                 .col(a.getRejectionReason() != null ? a.getRejectionReason() : "")
+                 .newRow();
+        }
     }
 
     // ── Dues ─────────────────────────────────────────────────────────────────
@@ -715,6 +771,40 @@ public class ReportService {
                 .forEach(e -> table.col(e.getKey()).col(e.getValue().toString()).newRow());
 
         table.col("TOTAL (org-wide)").col(balances.orgWideNet().toString()).newRow();
+    }
+
+    // ── Bank reconciliation ──────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] reconciliationCsv() { var t = CsvBuilder.create(); populateReconciliationTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] reconciliationXlsx() { var t = XlsxBuilder.create("Bank Reconciliation"); populateReconciliationTable(t); return t.toBytes(); }
+
+    @Transactional(readOnly = true)
+    public byte[] reconciliationPdf() { var t = PdfBuilder.create("Bank Reconciliation Report"); populateReconciliationTable(t); return t.toBytes(); }
+
+    /** {@code scope}=null returns every scope (org-wide + every program) -- see
+     * BankReconciliationRepository.findByScope's Javadoc for the null/"ORG_WIDE" distinction. */
+    private void populateReconciliationTable(TableBuilder table) {
+        List<BankReconciliation> records = bankReconciliationRepository
+                .findByScope(null, Pageable.unpaged())
+                .getContent();
+
+        table.header("Recorded", "Scope", "Physical Balance", "Expected Balance", "Variance", "Recorded By", "Note");
+
+        for (BankReconciliation r : records) {
+            String recordedBy = r.getRecordedByName()
+                    + (r.getRecordedByTitle() != null ? " (" + r.getRecordedByTitle() + ")" : "");
+            table.col(AppClock.orgDate(r.getRecordedAt()))
+                 .col(r.getScope() != null ? r.getScope() : "Org-wide")
+                 .col(r.getPhysicalBalance())
+                 .col(r.getExpectedBalance())
+                 .col(r.getVariance())
+                 .col(recordedBy)
+                 .col(r.getNote() != null ? r.getNote() : "")
+                 .newRow();
+        }
     }
 
     // ── Officials directory (Finance Visibility plan, Phase 5) ─────────────────

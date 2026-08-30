@@ -242,6 +242,27 @@ public class AdminReportController {
         return pdf(reportService.programApplicationsPdf(), "program_applications_" + LocalDate.now() + ".pdf");
     }
 
+    /** Deliberately a different endpoint from applications.* above -- that one is Program
+     * Applications (custom programs only, see ReportService), a completely different domain from
+     * the membership onboarding pipeline (enquiry -> form sent -> onboarding -> approved) here. */
+    @GetMapping("/admin/reports/membership-applications.csv")
+    @PreAuthorize(MEMBERSHIP)
+    public ResponseEntity<byte[]> membershipApplicationsCsv() {
+        return csv(reportService.membershipApplicationsCsv(), "membership_applications_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/membership-applications.xlsx")
+    @PreAuthorize(MEMBERSHIP)
+    public ResponseEntity<byte[]> membershipApplicationsXlsx() {
+        return xlsx(reportService.membershipApplicationsXlsx(), "membership_applications_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/membership-applications.pdf")
+    @PreAuthorize(MEMBERSHIP)
+    public ResponseEntity<byte[]> membershipApplicationsPdf() {
+        return pdf(reportService.membershipApplicationsPdf(), "membership_applications_" + LocalDate.now() + ".pdf");
+    }
+
     @GetMapping("/admin/reports/money-flow.csv")
     @PreAuthorize(FINANCE)
     public ResponseEntity<byte[]> moneyFlowCsv() {
@@ -276,6 +297,26 @@ public class AdminReportController {
     @PreAuthorize(FINANCE)
     public ResponseEntity<byte[]> balancesPdf() {
         return pdf(reportService.balancesPdf(), "balances_" + LocalDate.now() + ".pdf");
+    }
+
+    /** Distinct from balances.* above -- that one is computed net balances per program; this is
+     * the actual physical-vs-expected bank reconciliation check history. */
+    @GetMapping("/admin/reports/reconciliation.csv")
+    @PreAuthorize(FINANCE)
+    public ResponseEntity<byte[]> reconciliationCsv() {
+        return csv(reportService.reconciliationCsv(), "bank_reconciliation_" + LocalDate.now() + ".csv");
+    }
+
+    @GetMapping("/admin/reports/reconciliation.xlsx")
+    @PreAuthorize(FINANCE)
+    public ResponseEntity<byte[]> reconciliationXlsx() {
+        return xlsx(reportService.reconciliationXlsx(), "bank_reconciliation_" + LocalDate.now() + ".xlsx");
+    }
+
+    @GetMapping("/admin/reports/reconciliation.pdf")
+    @PreAuthorize(FINANCE)
+    public ResponseEntity<byte[]> reconciliationPdf() {
+        return pdf(reportService.reconciliationPdf(), "bank_reconciliation_" + LocalDate.now() + ".pdf");
     }
 
     @GetMapping("/admin/reports/officials.csv")
