@@ -30,7 +30,7 @@ toward Benevolence enrollment heavily — see "Open idea, not yet scoped" below.
 - **Frontend**: `J:\frontend\ushirika-main\ushirika-connect-main` — TanStack Start / React /
   TypeScript. Git remote `MdauCodes/ushirika-connect`, branch `main`. Deployed on **Vercel** at
   `https://ushirikacommunity.site` — pushing to `main` auto-deploys (typically live within ~60s).
-- Both repos are clean and pushed as of this update (backend `89ff90a`, frontend `408f516`).
+- Both repos are clean and pushed as of this update (backend `443a398`, frontend `9e87c8b`).
 - Admin panel lives inside the frontend app at `/admin/*`. Public site, member portal
   (`/portal/*`), and applicant onboarding (`/membership?apply=1` → enquiry → emailed login →
   `/onboarding`) are all the same frontend app, gated by role.
@@ -583,6 +583,28 @@ commit anything (not even locally) until they return and review the diff.** Find
   are correctly set up and already in use, but narrowly (5 of ~33 backend modules have any test
   coverage at all) — worth expanding if that matters going forward, no action taken beyond
   answering.
+
+### Same day, continued: Dashboard "Active Members: 0" traced to a real Dues page bug
+
+User circled "Active Members: 0" on the Dashboard as suspicious. Traced the definition
+(`DashboardService.countActiveMembers()`: MEMBER role + not ceased + approved + current-year dues
+PAID/WAIVED) and asked the user to check the Dues tab rather than guess, since I have no live DB
+access. Their screenshots + a downloaded Dues Report PDF confirmed two things at once:
+
+1. **Real bug, now fixed**: the Dues page's Paid/Pending/Overdue/Waived stat cards were computed
+   from the server response of `listAllDues(year, status)`, which is itself status-filtered — with
+   "Overdue" selected by default, Paid/Pending/Waived could only ever show 0 regardless of real
+   data. Confirmed live: real 2026 totals are 9 Pending + 1 Waived + 0 Paid (matching the
+   already-correct PDF report, which queries unfiltered), but the cards showed all zeros. Fixed:
+   `listAllDues` now fetches the full year unfiltered (page size bumped to 500), the status
+   dropdown filters that same list client-side for the table instead of re-fetching. Pushed
+   (`9e87c8b`).
+2. **"Active Members: 0" is *not* a bug** — it's an accurate reading of real data. Zero PAID,
+   and the one WAIVED row (`UW-2026-0001`, "Ushirika Welfare" / ushirikawelfare@outlook.com) reads
+   like an org/system placeholder, not a real member. Everyone else approved this week is
+   correctly PENDING with due dates still 1-4 months out — normal for a fresh approval, not a
+   defect. Flagged for the user (not acted on): is `UW-2026-0001` meant to be a real member record,
+   or should it be excluded from dues/member counts as a placeholder? Their call, not fixed.
 
 ## Next up: resume the paused live-testing thread
 
