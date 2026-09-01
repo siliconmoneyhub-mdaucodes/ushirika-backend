@@ -5,6 +5,9 @@ import com.cloudinary.utils.ObjectUtils;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.content.dto.*;
 import com.mdau.ushirika.module.content.entity.AlbumMedia;
 import com.mdau.ushirika.module.content.entity.CommunityAlbum;
@@ -14,6 +17,7 @@ import com.mdau.ushirika.module.content.repository.CommunityAlbumRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,18 +31,24 @@ public class CommunityAlbumService {
 
     private final CommunityAlbumRepository albumRepository;
     private final AlbumMediaRepository     mediaRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
     private final Cloudinary cloudinary;
     private final boolean devMode;
 
     public CommunityAlbumService(
             CommunityAlbumRepository albumRepository,
             AlbumMediaRepository mediaRepository,
+            UserRepository userRepository,
+            AuditLogService auditLogService,
             @Value("${app.cloudinary.cloud-name:NOT_SET}") String cloudName,
             @Value("${app.cloudinary.api-key:NOT_SET}")    String apiKey,
             @Value("${app.cloudinary.api-secret:NOT_SET}") String apiSecret
     ) {
         this.albumRepository = albumRepository;
         this.mediaRepository = mediaRepository;
+        this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
         this.devMode = "NOT_SET".equals(cloudName) || "NOT_SET".equals(apiKey);
         this.cloudinary = devMode
                 ? new Cloudinary()
@@ -94,7 +104,10 @@ public class CommunityAlbumService {
                 .eventDate(req.eventDate())
                 .location(req.location())
                 .build();
-        return CommunityAlbumDto.from(albumRepository.save(album));
+        CommunityAlbum saved = albumRepository.save(album);
+        auditLogService.log(currentUser(), "ALBUM_CREATED", "CommunityAlbum", saved.getId(),
+                "Created album \"" + saved.getTitle() + "\"");
+        return CommunityAlbumDto.from(saved);
     }
 
     @Transactional
@@ -108,7 +121,10 @@ public class CommunityAlbumService {
         album.setCoverImagePublicId(req.coverImagePublicId());
         album.setEventDate(req.eventDate());
         album.setLocation(req.location());
-        CommunityAlbumDto dto = CommunityAlbumDto.from(albumRepository.save(album));
+        CommunityAlbum saved = albumRepository.save(album);
+        CommunityAlbumDto dto = CommunityAlbumDto.from(saved);
+        auditLogService.log(currentUser(), "ALBUM_UPDATED", "CommunityAlbum", saved.getId(),
+                "Updated album \"" + saved.getTitle() + "\"");
 
         if (oldCoverPublicId != null && !oldCoverPublicId.equals(req.coverImagePublicId())) {
             destroyOnCloudinary(oldCoverPublicId);
@@ -127,7 +143,10 @@ public class CommunityAlbumService {
             album.setPublishedAt(LocalDateTime.now());
         }
         log.info("Album '{}' published", album.getTitle());
-        return CommunityAlbumDto.from(albumRepository.save(album));
+        CommunityAlbum saved = albumRepository.save(album);
+        auditLogService.log(currentUser(), "ALBUM_PUBLISHED", "CommunityAlbum", saved.getId(),
+                "Published album \"" + saved.getTitle() + "\"");
+        return CommunityAlbumDto.from(saved);
     }
 
     @Transactional
@@ -135,7 +154,10 @@ public class CommunityAlbumService {
         CommunityAlbum album = findById(id);
         album.setStatus(AlbumStatus.DRAFT);
         log.info("Album '{}' unpublished", album.getTitle());
-        return CommunityAlbumDto.from(albumRepository.save(album));
+        CommunityAlbum saved = albumRepository.save(album);
+        auditLogService.log(currentUser(), "ALBUM_UNPUBLISHED", "CommunityAlbum", saved.getId(),
+                "Unpublished album \"" + saved.getTitle() + "\"");
+        return CommunityAlbumDto.from(saved);
     }
 
     @Transactional
@@ -144,12 +166,15 @@ public class CommunityAlbumService {
         if (album.getStatus() == AlbumStatus.PUBLISHED) {
             throw new BadRequestException("Cannot delete a published album. Unpublish it first.");
         }
+        String title = album.getTitle();
         if (album.getCoverImagePublicId() != null) {
             destroyOnCloudinary(album.getCoverImagePublicId());
         }
         album.getMedia().forEach(m -> destroyOnCloudinary(m.getPublicId()));
         albumRepository.delete(album);
-        log.info("Album deleted: id={} title={}", id, album.getTitle());
+        auditLogService.log(currentUser(), "ALBUM_DELETED", "CommunityAlbum", id,
+                "Deleted album \"" + title + "\"");
+        log.info("Album deleted: id={} title={}", id, title);
     }
 
     // ─────────────────────────────────────── Media management
@@ -172,7 +197,10 @@ public class CommunityAlbumService {
                 .height(req.height())
                 .build();
 
-        album.getMedia().add(mediaRepository.save(media));
+        AlbumMedia savedMedia = mediaRepository.save(media);
+        album.getMedia().add(savedMedia);
+        auditLogService.log(currentUser(), "ALBUM_MEDIA_ADDED", "AlbumMedia", savedMedia.getId(),
+                "Added media to album \"" + album.getTitle() + "\"");
         return CommunityAlbumDto.from(album);
     }
 
@@ -183,12 +211,21 @@ public class CommunityAlbumService {
         if (!media.getAlbum().getId().equals(albumId)) {
             throw new BadRequestException("Media item does not belong to this album.");
         }
+        String albumTitle = media.getAlbum().getTitle();
         mediaRepository.delete(media);
         destroyOnCloudinary(media.getPublicId());
+        auditLogService.log(currentUser(), "ALBUM_MEDIA_REMOVED", "AlbumMedia", mediaId,
+                "Removed media from album \"" + albumTitle + "\"");
         log.info("Album media removed: albumId={} mediaId={}", albumId, mediaId);
     }
 
     // ─────────────────────────────────────── Private
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
+    }
 
     private void destroyOnCloudinary(String publicId) {
         if (devMode) {

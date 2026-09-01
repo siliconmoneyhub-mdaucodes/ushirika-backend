@@ -26,13 +26,16 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "actor_id", nullable = false)
+    /** Null only for a failed-attempt row where the identifier typed didn't match any real
+     * account (e.g. a login attempt against an unknown email) -- there's no real User to
+     * reference. actorName still carries the raw attempted identifier in that case. */
+    @Column(name = "actor_id")
     private UUID actorId;
 
-    @Column(name = "actor_name", nullable = false, length = 200)
+    @Column(name = "actor_name", length = 200)
     private String actorName;
 
-    @Column(name = "actor_role", nullable = false, length = 50)
+    @Column(name = "actor_role", length = 50)
     private String actorRole;
 
     /** Snapshot of the actor's OfficialTitle at log time, if they held one. Null otherwise --

@@ -5,6 +5,7 @@ import com.cloudinary.utils.ObjectUtils;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.content.dto.MediaAssetDto;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -27,18 +29,21 @@ public class MediaService {
 
     private final MediaAssetRepository mediaAssetRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
     private final Cloudinary cloudinary;
     private final boolean devMode;
 
     public MediaService(
             MediaAssetRepository mediaAssetRepository,
             UserRepository userRepository,
+            AuditLogService auditLogService,
             @Value("${app.cloudinary.cloud-name:NOT_SET}") String cloudName,
             @Value("${app.cloudinary.api-key:NOT_SET}")    String apiKey,
             @Value("${app.cloudinary.api-secret:NOT_SET}") String apiSecret
     ) {
         this.mediaAssetRepository = mediaAssetRepository;
         this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
         this.devMode = "NOT_SET".equals(cloudName) || "NOT_SET".equals(apiKey);
 
         if (devMode) {
@@ -64,6 +69,8 @@ public class MediaService {
             MediaAsset asset = saveAsset(fakePublicId, fakeUrl, folder, file.getOriginalFilename(),
                     "jpg", file.getSize(), null, null);
             log.info("[Cloudinary DEV] Simulated upload: publicId={}", fakePublicId);
+            auditLogService.log(asset.getUploadedBy(), "MEDIA_UPLOADED", "MediaAsset", asset.getId(),
+                    "Uploaded media \"" + asset.getOriginalFilename() + "\" to folder \"" + folder + "\"");
             return MediaAssetDto.from(asset);
         }
 
@@ -90,6 +97,8 @@ public class MediaService {
                     file.getOriginalFilename(), format, bytes, width, height);
 
             log.info("Cloudinary upload success: publicId={} url={}", publicId, url);
+            auditLogService.log(asset.getUploadedBy(), "MEDIA_UPLOADED", "MediaAsset", asset.getId(),
+                    "Uploaded media \"" + asset.getOriginalFilename() + "\" to folder \"" + folder + "\"");
             return MediaAssetDto.from(asset);
 
         } catch (IOException e) {
@@ -102,6 +111,8 @@ public class MediaService {
         MediaAsset asset = mediaAssetRepository.findByPublicId(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Media asset not found with publicId: " + publicId));
+        UUID assetId = asset.getId();
+        String filename = asset.getOriginalFilename();
 
         if (!devMode) {
             try {
@@ -116,6 +127,8 @@ public class MediaService {
         }
 
         mediaAssetRepository.delete(asset);
+        auditLogService.log(currentUser(), "MEDIA_DELETED", "MediaAsset", assetId,
+                "Deleted media \"" + filename + "\" (publicId=" + publicId + ")");
     }
 
     @Transactional(readOnly = true)

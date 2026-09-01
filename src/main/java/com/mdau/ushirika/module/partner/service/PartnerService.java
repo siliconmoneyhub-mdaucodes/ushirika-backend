@@ -4,12 +4,16 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.partner.dto.PartnerDto;
 import com.mdau.ushirika.module.partner.dto.SavePartnerRequest;
 import com.mdau.ushirika.module.partner.entity.Partner;
 import com.mdau.ushirika.module.partner.repository.PartnerRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,16 +28,22 @@ import java.util.UUID;
 public class PartnerService {
 
     private final PartnerRepository repo;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
     private final Cloudinary cloudinary;
     private final boolean devMode;
 
     public PartnerService(
             PartnerRepository repo,
+            UserRepository userRepository,
+            AuditLogService auditLogService,
             @Value("${app.cloudinary.cloud-name:NOT_SET}") String cloudName,
             @Value("${app.cloudinary.api-key:NOT_SET}")    String apiKey,
             @Value("${app.cloudinary.api-secret:NOT_SET}") String apiSecret
     ) {
         this.repo = repo;
+        this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
         this.devMode = "NOT_SET".equals(cloudName) || "NOT_SET".equals(apiKey);
         this.cloudinary = devMode
                 ? new Cloudinary()
@@ -71,6 +81,8 @@ public class PartnerService {
                 .active(true)
                 .build();
         repo.save(partner);
+        auditLogService.log(currentUser(), "PARTNER_CREATED", "Partner", partner.getId(),
+                "Created partner \"" + partner.getName() + "\"");
         return PartnerDto.from(partner);
     }
 
@@ -82,6 +94,8 @@ public class PartnerService {
         if (req.websiteUrl()   != null) partner.setWebsiteUrl(req.websiteUrl());
         if (req.sortOrder()    != null) partner.setSortOrder(req.sortOrder());
         repo.save(partner);
+        auditLogService.log(currentUser(), "PARTNER_UPDATED", "Partner", partner.getId(),
+                "Updated partner \"" + partner.getName() + "\"");
         return PartnerDto.from(partner);
     }
 
@@ -123,6 +137,8 @@ public class PartnerService {
         }
 
         repo.save(partner);
+        auditLogService.log(currentUser(), "PARTNER_LOGO_UPDATED", "Partner", partner.getId(),
+                "Updated logo for partner \"" + partner.getName() + "\"");
         return PartnerDto.from(partner);
     }
 
@@ -131,6 +147,9 @@ public class PartnerService {
         Partner partner = find(id);
         partner.setActive(!partner.isActive());
         repo.save(partner);
+        auditLogService.log(currentUser(), partner.isActive() ? "PARTNER_ACTIVATED" : "PARTNER_DEACTIVATED",
+                "Partner", partner.getId(),
+                (partner.isActive() ? "Activated " : "Deactivated ") + "partner \"" + partner.getName() + "\"");
         return PartnerDto.from(partner);
     }
 
@@ -144,6 +163,8 @@ public class PartnerService {
                 log.warn("Could not delete Cloudinary logo for partner {}: {}", id, e.getMessage());
             }
         }
+        auditLogService.log(currentUser(), "PARTNER_DELETED", "Partner", partner.getId(),
+                "Deleted partner \"" + partner.getName() + "\"");
         repo.delete(partner);
     }
 
@@ -152,6 +173,12 @@ public class PartnerService {
     private Partner find(UUID id) {
         return repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Partner not found: " + id));
+    }
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
     }
 
     private void validateImage(MultipartFile file) {

@@ -64,4 +64,24 @@ public class AuditLogService {
                     action, actor.getId(), e.getMessage());
         }
     }
+
+    /**
+     * Log a failed attempt (e.g. login) against an identifier that doesn't match any real
+     * account -- there's no User to attach it to, so actorId/actorRole stay null and
+     * attemptedIdentifier carries the raw input the caller typed, for security visibility into
+     * unknown-account probing without pretending there's a real actor behind it.
+     */
+    @Async
+    public void logUnknownAttempt(String action, String attemptedIdentifier, String description) {
+        try {
+            AuditLog entry = AuditLog.builder()
+                    .actorName(attemptedIdentifier)
+                    .action(action)
+                    .description(description)
+                    .build();
+            auditLogRepository.save(entry);
+        } catch (Exception e) {
+            log.warn("AuditLogService: failed to persist unknown-attempt audit entry [{}]: {}", action, e.getMessage());
+        }
+    }
 }

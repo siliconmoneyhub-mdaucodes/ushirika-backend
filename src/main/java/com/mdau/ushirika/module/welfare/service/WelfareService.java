@@ -73,7 +73,10 @@ public class WelfareService {
                 .maxAmount(req.maxAmount())
                 .active(req.active())
                 .build();
-        return WelfareCategoryDto.from(categoryRepository.save(cat));
+        categoryRepository.save(cat);
+        auditLogService.log(currentUser(), "WELFARE_CATEGORY_CREATED", "WelfareCategory", cat.getId(),
+                "Created welfare category \"" + cat.getName() + "\"");
+        return WelfareCategoryDto.from(cat);
     }
 
     @Transactional
@@ -84,7 +87,10 @@ public class WelfareService {
         cat.setDescription(req.description());
         cat.setMaxAmount(req.maxAmount());
         cat.setActive(req.active());
-        return WelfareCategoryDto.from(categoryRepository.save(cat));
+        categoryRepository.save(cat);
+        auditLogService.log(currentUser(), "WELFARE_CATEGORY_UPDATED", "WelfareCategory", cat.getId(),
+                "Updated welfare category \"" + cat.getName() + "\"");
+        return WelfareCategoryDto.from(cat);
     }
 
     // ─────────────────────────────────────── Member — create & submit
@@ -197,6 +203,9 @@ public class WelfareService {
         approvalRepository.save(approval);
         request.getApprovals().add(approval);
         request.setStatus(WelfareRequestStatus.UNDER_REVIEW);
+        auditLogService.log(admin, "WELFARE_REQUEST_" + req.decision().name(), "WelfareRequest", request.getId(),
+                "Voted " + req.decision().name() + " on welfare request " + request.getReferenceNumber()
+                        + " from " + request.getMember().getFullName());
 
         long approved = approvalRepository.countByWelfareRequestAndDecision(request, ApprovalDecision.APPROVED);
         long rejected = approvalRepository.countByWelfareRequestAndDecision(request, ApprovalDecision.REJECTED);

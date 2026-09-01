@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -29,6 +30,7 @@ public class ProgramService {
     private final ProgramRepository programRepository;
     private final ProgramAdminAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     // ── Public ───────────────────────────────────────────────────────────────
 
@@ -70,6 +72,8 @@ public class ProgramService {
                 .createdByUser(currentUser())
                 .build();
         program = programRepository.save(program);
+        auditLogService.log(currentUser(), "PROGRAM_CREATED", "Program", program.getId(),
+                "Created program \"" + program.getName() + "\"");
         return ProgramDto.from(program, List.of());
     }
 
@@ -79,6 +83,8 @@ public class ProgramService {
         program.setName(req.name());
         program.setShortDescription(req.shortDescription());
         programRepository.save(program);
+        auditLogService.log(currentUser(), "PROGRAM_UPDATED", "Program", program.getId(),
+                "Updated basic info for \"" + program.getName() + "\"");
         return ProgramDto.from(program, adminsFor(programId));
     }
 
@@ -87,6 +93,8 @@ public class ProgramService {
         Program program = findProgram(programId);
         program.setStatus(req.status());
         programRepository.save(program);
+        auditLogService.log(currentUser(), "PROGRAM_STATUS_CHANGED", "Program", program.getId(),
+                "Changed \"" + program.getName() + "\" status to " + program.getStatus());
         return ProgramDto.from(program, adminsFor(programId));
     }
 
@@ -115,7 +123,10 @@ public class ProgramService {
                 .user(user)
                 .assignedBy(currentUser())
                 .build();
-        return ProgramAdminDto.from(assignmentRepository.save(assignment));
+        assignment = assignmentRepository.save(assignment);
+        auditLogService.log(currentUser(), "PROGRAM_ADMIN_ASSIGNED", "Program", program.getId(),
+                "Assigned " + user.getFullName() + " as admin of \"" + program.getName() + "\"");
+        return ProgramAdminDto.from(assignment);
     }
 
     @Transactional
@@ -123,7 +134,12 @@ public class ProgramService {
         if (!assignmentRepository.existsByProgramIdAndUserId(programId, userId)) {
             throw new ResourceNotFoundException("This user does not administer this program");
         }
+        Program program = findProgram(programId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         assignmentRepository.deleteByProgramIdAndUserId(programId, userId);
+        auditLogService.log(currentUser(), "PROGRAM_ADMIN_REMOVED", "Program", program.getId(),
+                "Removed " + user.getFullName() + " as admin of \"" + program.getName() + "\"");
     }
 
     // ── Program-admin-scoped (assigned admin OR global admin/superadmin) ──────
@@ -157,6 +173,8 @@ public class ProgramService {
         program.setBenefits(req.benefits() != null ? req.benefits() : List.of());
         program.setMaxBeneficiaries(req.maxBeneficiaries());
         programRepository.save(program);
+        auditLogService.log(me, "PROGRAM_DETAILS_UPDATED", "Program", program.getId(),
+                "Updated details for \"" + program.getName() + "\" by " + me.getFullName());
         return ProgramDto.from(program, adminsFor(programId));
     }
 

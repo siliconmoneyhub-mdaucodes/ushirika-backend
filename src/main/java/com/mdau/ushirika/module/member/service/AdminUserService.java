@@ -265,6 +265,8 @@ public class AdminUserService {
 
         profile.setMembershipTier(req.tier());
         profileRepository.save(profile);
+        auditLogService.log(currentUser(), "MEMBER_TIER_CHANGED", "User", target.getId(),
+                "Set " + target.getFullName() + "'s membership tier to " + req.tier());
         return UserProfileDto.from(target, profile, resolveDuesStatus(target, profile));
     }
 

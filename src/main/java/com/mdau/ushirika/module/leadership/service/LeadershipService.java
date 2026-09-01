@@ -4,6 +4,9 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.leadership.dto.LeadershipOfficialDto;
 import com.mdau.ushirika.module.leadership.dto.PublicLeadershipDto;
 import com.mdau.ushirika.module.leadership.dto.SaveOfficialRequest;
@@ -12,6 +15,7 @@ import com.mdau.ushirika.module.leadership.enums.LeadershipTeam;
 import com.mdau.ushirika.module.leadership.repository.LeadershipOfficialRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,16 +30,22 @@ import java.util.UUID;
 public class LeadershipService {
 
     private final LeadershipOfficialRepository repo;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
     private final Cloudinary cloudinary;
     private final boolean devMode;
 
     public LeadershipService(
             LeadershipOfficialRepository repo,
+            UserRepository userRepository,
+            AuditLogService auditLogService,
             @Value("${app.cloudinary.cloud-name:NOT_SET}") String cloudName,
             @Value("${app.cloudinary.api-key:NOT_SET}")    String apiKey,
             @Value("${app.cloudinary.api-secret:NOT_SET}") String apiSecret
     ) {
         this.repo = repo;
+        this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
         this.devMode = "NOT_SET".equals(cloudName) || "NOT_SET".equals(apiKey);
         this.cloudinary = devMode
                 ? new Cloudinary()
@@ -76,6 +86,8 @@ public class LeadershipService {
                 .active(true)
                 .build();
         repo.save(official);
+        auditLogService.log(currentUser(), "LEADERSHIP_CREATED", "LeadershipOfficial", official.getId(),
+                "Created leadership entry for \"" + official.getName() + "\"");
         return LeadershipOfficialDto.from(official);
     }
 
@@ -88,6 +100,8 @@ public class LeadershipService {
         if (req.bio()       != null) official.setBio(req.bio());
         if (req.sortOrder() != null) official.setSortOrder(req.sortOrder());
         repo.save(official);
+        auditLogService.log(currentUser(), "LEADERSHIP_UPDATED", "LeadershipOfficial", official.getId(),
+                "Updated leadership entry for \"" + official.getName() + "\"");
         return LeadershipOfficialDto.from(official);
     }
 
@@ -130,6 +144,8 @@ public class LeadershipService {
         }
 
         repo.save(official);
+        auditLogService.log(currentUser(), "LEADERSHIP_IMAGE_UPDATED", "LeadershipOfficial", official.getId(),
+                "Updated image for leadership entry \"" + official.getName() + "\"");
         return LeadershipOfficialDto.from(official);
     }
 
@@ -138,6 +154,9 @@ public class LeadershipService {
         LeadershipOfficial official = find(id);
         official.setActive(!official.isActive());
         repo.save(official);
+        auditLogService.log(currentUser(), official.isActive() ? "LEADERSHIP_ACTIVATED" : "LEADERSHIP_DEACTIVATED",
+                "LeadershipOfficial", official.getId(),
+                (official.isActive() ? "Activated " : "Deactivated ") + "leadership entry \"" + official.getName() + "\"");
         return LeadershipOfficialDto.from(official);
     }
 
@@ -151,6 +170,8 @@ public class LeadershipService {
                 log.warn("Could not delete Cloudinary image for official {}: {}", id, e.getMessage());
             }
         }
+        auditLogService.log(currentUser(), "LEADERSHIP_DELETED", "LeadershipOfficial", official.getId(),
+                "Deleted leadership entry \"" + official.getName() + "\"");
         repo.delete(official);
     }
 
@@ -164,6 +185,12 @@ public class LeadershipService {
     private LeadershipOfficial find(UUID id) {
         return repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Official not found: " + id));
+    }
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
     }
 
     private void validateImage(MultipartFile file) {

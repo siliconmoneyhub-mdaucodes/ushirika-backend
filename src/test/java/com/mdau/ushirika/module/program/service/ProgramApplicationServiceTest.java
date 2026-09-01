@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.program.service;
 
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -46,6 +47,7 @@ class ProgramApplicationServiceTest {
     @Mock private ProgramAdminAssignmentRepository assignmentRepository;
     @Mock private UserRepository userRepository;
     @Mock private BenevolenceEnrollmentService benevolenceEnrollmentService;
+    @Mock private AuditLogService auditLogService;
 
     private ProgramApplicationService service;
     private UUID programId;
@@ -55,7 +57,7 @@ class ProgramApplicationServiceTest {
     void setUp() {
         service = new ProgramApplicationService(
                 applicationRepository, programRepository, assignmentRepository,
-                userRepository, benevolenceEnrollmentService);
+                userRepository, benevolenceEnrollmentService, auditLogService);
 
         programId = UUID.randomUUID();
         benevolenceProgram = Program.builder().name("Benevolence").type(ProgramType.BENEVOLENCE).build();

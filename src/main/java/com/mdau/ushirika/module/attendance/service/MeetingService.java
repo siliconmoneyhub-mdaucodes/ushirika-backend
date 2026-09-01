@@ -12,6 +12,7 @@ import com.mdau.ushirika.module.attendance.enums.MeetingStatus;
 import com.mdau.ushirika.module.attendance.enums.MeetingType;
 import com.mdau.ushirika.module.attendance.repository.AttendanceRecordRepository;
 import com.mdau.ushirika.module.attendance.repository.MeetingRepository;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -52,6 +53,7 @@ public class MeetingService {
     private final EmailService emailService;
     private final FineService fineService;
     private final MemberStatusChangeService statusChangeService;
+    private final AuditLogService auditLogService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
@@ -80,7 +82,10 @@ public class MeetingService {
                 .checkInRadiusMeters(req.checkInRadiusMeters() != null ? req.checkInRadiusMeters() : 150)
                 .checkInSecret(UUID.randomUUID().toString().replace("-", ""))
                 .build();
-        return MeetingDto.from(meetingRepository.save(meeting));
+        meeting = meetingRepository.save(meeting);
+        auditLogService.log(currentUser(), "MEETING_CREATED", "Meeting", meeting.getId(),
+                "Created meeting \"" + meeting.getTitle() + "\"");
+        return MeetingDto.from(meeting);
     }
 
     @Transactional
@@ -102,7 +107,10 @@ public class MeetingService {
         if (req.venueLatitude()       != null) meeting.setVenueLatitude(req.venueLatitude());
         if (req.venueLongitude()      != null) meeting.setVenueLongitude(req.venueLongitude());
         if (req.checkInRadiusMeters() != null) meeting.setCheckInRadiusMeters(req.checkInRadiusMeters());
-        return MeetingDto.from(meetingRepository.save(meeting));
+        meeting = meetingRepository.save(meeting);
+        auditLogService.log(currentUser(), "MEETING_UPDATED", "Meeting", meeting.getId(),
+                "Updated meeting \"" + meeting.getTitle() + "\"");
+        return MeetingDto.from(meeting);
     }
 
     @Transactional
@@ -112,7 +120,10 @@ public class MeetingService {
             throw new BadRequestException("Completed meetings cannot be cancelled.");
         }
         meeting.setStatus(MeetingStatus.CANCELLED);
-        return MeetingDto.from(meetingRepository.save(meeting));
+        meeting = meetingRepository.save(meeting);
+        auditLogService.log(currentUser(), "MEETING_CANCELLED", "Meeting", meeting.getId(),
+                "Cancelled meeting \"" + meeting.getTitle() + "\"");
+        return MeetingDto.from(meeting);
     }
 
     /**
@@ -129,9 +140,12 @@ public class MeetingService {
         meeting.setStatus(MeetingStatus.COMPLETED);
         meetingRepository.save(meeting);
 
+        User admin = currentUser();
+        auditLogService.log(admin, "MEETING_COMPLETED", "Meeting", meeting.getId(),
+                "Completed meeting \"" + meeting.getTitle() + "\"");
+
         Set<UUID> recordedIds = attendanceRecordRepository.recordedUserIds(meeting);
         List<User> allMembers = activeMembers();
-        User admin = currentUser();
 
         for (User member : allMembers) {
             if (!recordedIds.contains(member.getId())) {
@@ -222,6 +236,8 @@ public class MeetingService {
                 applyConsecutiveAbsenceRule(user);
             }
         }
+        auditLogService.log(admin, "MEETING_ATTENDANCE_RECORDED", "Meeting", meeting.getId(),
+                "Recorded attendance for " + results.size() + " member(s) at \"" + meeting.getTitle() + "\"");
         return results;
     }
 

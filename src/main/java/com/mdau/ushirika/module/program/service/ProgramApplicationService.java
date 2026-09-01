@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ForbiddenException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
@@ -43,6 +44,7 @@ public class ProgramApplicationService {
     private final ProgramAdminAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
     private final BenevolenceEnrollmentService benevolenceEnrollmentService;
+    private final AuditLogService auditLogService;
 
     private static final List<ProgramApplicationStatus> COORDINATOR_VISIBLE_STATUSES =
             List.of(ProgramApplicationStatus.PENDING_REVIEW, ProgramApplicationStatus.APPROVED, ProgramApplicationStatus.REJECTED);
@@ -196,14 +198,20 @@ public class ProgramApplicationService {
             throw new BadRequestException("Only applications pending review can be decided. Current status: " + application.getStatus());
         }
 
+        User reviewer = currentUser();
         boolean approved = req.decision() == DecideProgramApplicationRequest.Decision.APPROVE;
         application.setStatus(approved ? ProgramApplicationStatus.APPROVED : ProgramApplicationStatus.REJECTED);
         application.setReviewedAt(LocalDateTime.now());
-        application.setReviewedBy(currentUser());
+        application.setReviewedBy(reviewer);
         if (!approved) {
             application.setRejectionReason(req.reason());
         }
         ProgramApplication saved = applicationRepository.save(application);
+
+        auditLogService.log(reviewer, "PROGRAM_APPLICATION_" + saved.getStatus().name(),
+                "ProgramApplication", saved.getId(),
+                "Application by " + saved.getApplicant().getFullName() + " to \""
+                        + saved.getProgram().getName() + "\" was " + saved.getStatus().name().toLowerCase());
 
         if (approved && saved.getProgram().getType() == ProgramType.BENEVOLENCE) {
             benevolenceEnrollmentService.ensureEnrolled(saved.getApplicant());

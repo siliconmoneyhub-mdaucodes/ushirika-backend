@@ -88,6 +88,8 @@ public class MgrService {
                 .build();
         cycleRepo.save(cycle);
         log.info("MGR cycle created: id={} name={}", cycle.getId(), cycle.getName());
+        auditLogService.log(currentUser(), "MGR_CYCLE_CREATED", "MgrCycle", cycle.getId(),
+                "Created MGR cycle \"" + cycle.getName() + "\" (" + cycle.getYear() + ")");
         askWaitlistForNewCycle(cycle);
         return MgrCycleDto.summary(cycle, 0, 0);
     }
@@ -146,6 +148,8 @@ public class MgrService {
         if (req.benefitPayoutDay()    != null) cycle.setBenefitPayoutDay(req.benefitPayoutDay());
         if (req.notes()               != null) cycle.setNotes(req.notes());
         cycleRepo.save(cycle);
+        auditLogService.log(currentUser(), "MGR_CYCLE_UPDATED", "MgrCycle", cycle.getId(),
+                "Updated MGR cycle \"" + cycle.getName() + "\"");
         return toFullDto(cycle);
     }
 
@@ -189,6 +193,8 @@ public class MgrService {
 
         log.info("MGR cycle activated: id={} slots={} admittedFromWaitlist={}",
                 id, slots.size(), admittedFromWaitlist.size());
+        auditLogService.log(currentUser(), "MGR_CYCLE_ACTIVATED", "MgrCycle", cycle.getId(),
+                "Activated MGR cycle \"" + cycle.getName() + "\" with " + slots.size() + " slot(s)");
         notifyAllSlotMembers(cycle, slots, "MGR Cycle Activated — " + cycle.getName(),
                 "Your Merry-Go-Round cycle is now active! Log in to your portal to see your contribution schedule.");
 
@@ -252,6 +258,8 @@ public class MgrService {
         cycle.setStatus(CycleStatus.COMPLETED);
         cycle.setCompletedAt(LocalDateTime.now());
         cycleRepo.save(cycle);
+        auditLogService.log(currentUser(), "MGR_CYCLE_COMPLETED", "MgrCycle", cycle.getId(),
+                "Completed MGR cycle \"" + cycle.getName() + "\"");
         return toFullDto(cycle);
     }
 
@@ -282,6 +290,8 @@ public class MgrService {
             joinRequestRepo.save(request);
         }
         log.info("MGR cycle cancelled: id={} — cleared invite state for {} member(s)", cycle.getId(), invited.size());
+        auditLogService.log(currentUser(), "MGR_CYCLE_CANCELLED", "MgrCycle", cycle.getId(),
+                "Cancelled MGR cycle \"" + cycle.getName() + "\"");
 
         return toFullDto(cycle);
     }
@@ -357,6 +367,8 @@ public class MgrService {
 
         log.info("MGR join-request form sent: id={} member={} by={}",
                 requestId, request.getUser().getEmail(), admin.getEmail());
+        auditLogService.log(admin, "MGR_FORM_SENT", "MgrJoinRequest", request.getId(),
+                "Sent MGR info form to " + request.getUser().getFullName());
         sendMgrFormEmail(request);
         return MgrJoinRequestDto.from(request, memberId(request.getUser()));
     }
@@ -381,6 +393,8 @@ public class MgrService {
         joinRequestRepo.save(request);
 
         log.info("MGR join request confirmed by member: id={} member={}", requestId, member.getEmail());
+        auditLogService.log(member, "MGR_JOIN_CONFIRMED", "MgrJoinRequest", request.getId(),
+                "Confirmed joining the MGR waitlist");
         sendWaitlistedEmail(request);
 
         // A cycle may already be sitting in DRAFT waiting for members -- give this brand-new
@@ -417,6 +431,8 @@ public class MgrService {
         joinRequestRepo.save(request);
 
         log.info("MGR cycle invite response: id={} member={} joining={}", requestId, member.getEmail(), joining);
+        auditLogService.log(member, "MGR_CYCLE_INVITE_RESPONDED", "MgrJoinRequest", request.getId(),
+                joining ? "Opted in to join the invited MGR cycle" : "Opted to keep waiting rather than join the invited MGR cycle");
         return MgrJoinRequestDto.from(request, memberId(request.getUser()));
     }
 
@@ -439,6 +455,8 @@ public class MgrService {
         joinRequestRepo.save(request);
 
         log.info("MGR join request rejected: id={} member={}", requestId, request.getUser().getEmail());
+        auditLogService.log(admin, "MGR_JOIN_REJECTED", "MgrJoinRequest", request.getId(),
+                "Rejected MGR join request from " + request.getUser().getFullName());
         sendRejectedJoinEmail(request, adminNotes);
         return MgrJoinRequestDto.from(request, memberId(request.getUser()));
     }
@@ -514,6 +532,8 @@ public class MgrService {
         String beneficiaryNames = drawn.stream()
                 .map(s -> s.getUser().getFullName())
                 .collect(Collectors.joining(" & "));
+        auditLogService.log(admin, "MGR_MONTHLY_DRAW", "MgrCycle", cycle.getId(),
+                "Ran month " + month + " draw for \"" + cycle.getName() + "\" — selected: " + beneficiaryNames);
 
         notifyMonthlyDraw(cycle, allSlots, drawn, month, payoutDate);
 
@@ -646,6 +666,8 @@ public class MgrService {
                 .build();
         slotRepo.save(slot);
         log.info("MGR slot manually assigned: cycleId={} user={} slot={}", cycleId, user.getEmail(), slotNumber);
+        auditLogService.log(currentUser(), "MGR_SLOT_ASSIGNED", "MgrSlot", slot.getId(),
+                "Manually assigned " + user.getFullName() + " to slot " + slotNumber + " in \"" + cycle.getName() + "\"");
         return MgrSlotDto.summary(slot, memberId(user), photoUrl(user));
     }
 
@@ -655,6 +677,8 @@ public class MgrService {
         if (slot.getCycle().getStatus() != CycleStatus.DRAFT) {
             throw new BadRequestException("Slots can only be removed from DRAFT cycles.");
         }
+        auditLogService.log(currentUser(), "MGR_SLOT_REMOVED", "MgrSlot", slot.getId(),
+                "Removed " + slot.getUser().getFullName() + "'s slot from \"" + slot.getCycle().getName() + "\"");
         slotRepo.delete(slot);
     }
 
@@ -708,6 +732,10 @@ public class MgrService {
         contribution.setStatus(ContributionStatus.WAIVED);
         contribution.setNotes(reason);
         contributionRepo.save(contribution);
+        auditLogService.log(currentUser(), "MGR_CONTRIBUTION_WAIVED", "MgrContribution", contribution.getId(),
+                "Waived month " + contribution.getContributionMonth() + " contribution for "
+                        + contribution.getSlot().getUser().getFullName()
+                        + (reason != null && !reason.isBlank() ? " — " + reason : ""));
         return MgrContributionDto.from(contribution);
     }
 

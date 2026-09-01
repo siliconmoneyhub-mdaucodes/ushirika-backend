@@ -4,6 +4,9 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
+import com.mdau.ushirika.module.auth.entity.User;
+import com.mdau.ushirika.module.auth.repository.UserRepository;
 import com.mdau.ushirika.module.content.dto.ArticleDto;
 import com.mdau.ushirika.module.content.dto.ArticleRequest;
 import com.mdau.ushirika.module.content.dto.ArticleSummaryDto;
@@ -14,6 +17,7 @@ import com.mdau.ushirika.module.content.repository.ArticleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,8 @@ import java.util.regex.Pattern;
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     // ─────────────────────────────────────── Public
 
@@ -79,7 +85,10 @@ public class ArticleService {
                 .tags(req.tags()    != null ? req.tags()    : new ArrayList<>())
                 .build();
 
-        return ArticleDto.from(articleRepository.save(article));
+        Article saved = articleRepository.save(article);
+        auditLogService.log(currentUser(), "ARTICLE_CREATED", "Article", saved.getId(),
+                "Created article \"" + saved.getTitle() + "\"");
+        return ArticleDto.from(saved);
     }
 
     @Transactional
@@ -104,7 +113,10 @@ public class ArticleService {
         article.setContent(req.content() != null ? req.content() : new ArrayList<>());
         article.setTags(req.tags()    != null ? req.tags()    : new ArrayList<>());
 
-        return ArticleDto.from(articleRepository.save(article));
+        Article saved = articleRepository.save(article);
+        auditLogService.log(currentUser(), "ARTICLE_UPDATED", "Article", saved.getId(),
+                "Updated article \"" + saved.getTitle() + "\"");
+        return ArticleDto.from(saved);
     }
 
     @Transactional
@@ -117,7 +129,10 @@ public class ArticleService {
         article.setStatus(newStatus);
 
         log.info("Article '{}' status → {}", article.getSlug(), newStatus);
-        return ArticleDto.from(articleRepository.save(article));
+        Article saved = articleRepository.save(article);
+        auditLogService.log(currentUser(), "ARTICLE_STATUS_" + newStatus.name(), "Article", saved.getId(),
+                "Article \"" + saved.getTitle() + "\" status changed to " + newStatus);
+        return ArticleDto.from(saved);
     }
 
     @Transactional
@@ -127,8 +142,12 @@ public class ArticleService {
             throw new BadRequestException(
                     "Cannot delete a published article. Archive it first.");
         }
+        String title = article.getTitle();
+        String slug = article.getSlug();
         articleRepository.delete(article);
-        log.info("Article deleted: id={} slug={}", id, article.getSlug());
+        auditLogService.log(currentUser(), "ARTICLE_DELETED", "Article", id,
+                "Deleted article \"" + title + "\"");
+        log.info("Article deleted: id={} slug={}", id, slug);
     }
 
     // ─────────────────────────────────────── Private
@@ -136,6 +155,12 @@ public class ArticleService {
     private Article findById(UUID id) {
         return articleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Article not found: " + id));
+    }
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
     }
 
     private static final Pattern NON_SLUG_CHARS = Pattern.compile("[^a-z0-9\\-]");

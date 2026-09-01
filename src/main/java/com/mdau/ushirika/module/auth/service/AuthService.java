@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.exception.TooManyRequestsException;
 import com.mdau.ushirika.common.util.TextNormalizer;
+import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.dto.*;
 import com.mdau.ushirika.module.auth.entity.RefreshToken;
 import com.mdau.ushirika.module.auth.entity.User;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,7 @@ public class AuthService {
     private final EmailService emailService;
     private final PasswordResetRateLimiter passwordResetRateLimiter;
     private final EmailVerificationOtpRateLimiter emailVerificationOtpRateLimiter;
+    private final AuditLogService auditLogService;
 
     @Value("${app.jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
@@ -135,14 +138,33 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest req) {
+        String rawUsername = req.username().trim();
+
         // Resolve the account regardless of whether the user typed an email,
         // member ID (UW-YYYY-XXXX), or full name.
-        User user = resolveUser(req.username().trim());
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getEmail(), req.password())
-        );
+        User user;
+        try {
+            user = resolveUser(rawUsername);
+        } catch (ResourceNotFoundException e) {
+            auditLogService.logUnknownAttempt("LOGIN_FAILED", rawUsername,
+                    "Login attempt failed — no account matches \"" + rawUsername + "\"");
+            throw e;
+        }
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getEmail(), req.password())
+            );
+        } catch (AuthenticationException e) {
+            auditLogService.log(user, "LOGIN_FAILED", "User", user.getId(),
+                    "Login attempt failed — incorrect password or account not enabled");
+            throw e;
+        }
+
         refreshTokenRepository.revokeAllUserTokens(user);
-        return issueTokens(user);
+        AuthResponse response = issueTokens(user);
+        auditLogService.log(user, "LOGIN_SUCCESS", "User", user.getId(), "Signed in successfully");
+        return response;
     }
 
     // ── Magic login (onboarding "Continue Your Application" link) ──────────────
@@ -172,7 +194,9 @@ public class AuthService {
         userRepository.save(user);
 
         refreshTokenRepository.revokeAllUserTokens(user);
-        return issueTokens(user);
+        AuthResponse response = issueTokens(user);
+        auditLogService.log(user, "LOGIN_SUCCESS", "User", user.getId(), "Signed in via onboarding magic link");
+        return response;
     }
 
     // ── Resolve user from flexible username ───────────────────────────────────
@@ -231,6 +255,7 @@ public class AuthService {
         refreshTokenRepository.findByToken(rawRefreshToken).ifPresent(t -> {
             t.setRevoked(true);
             refreshTokenRepository.save(t);
+            auditLogService.log(t.getUser(), "LOGOUT", "User", t.getUser().getId(), "Signed out");
         });
     }
 
@@ -281,6 +306,7 @@ public class AuthService {
         // Revoke all refresh tokens after password change
         refreshTokenRepository.revokeAllUserTokens(user);
         log.info("Password reset for: {}", user.getEmail());
+        auditLogService.log(user, "PASSWORD_RESET", "User", user.getId(), "Password reset via emailed code");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -339,6 +365,8 @@ public class AuthService {
         userRepository.save(user);
         refreshTokenRepository.revokeAllUserTokens(user);
         log.info("Credentials updated for user: {}", email);
+        auditLogService.log(user, "CREDENTIALS_SELF_UPDATED", "User", user.getId(),
+                "Updated their own login email and/or password");
     }
 
     // ── Change password (authenticated) ───────────────────────────────────────
@@ -361,6 +389,7 @@ public class AuthService {
         // Revoke all existing refresh tokens so other sessions must re-login
         refreshTokenRepository.revokeAllUserTokens(user);
         log.info("Password changed for user: {}", email);
+        auditLogService.log(user, "PASSWORD_CHANGED", "User", user.getId(), "Changed their own password");
     }
 
     // ── Admin panel entry step-up ────────────────────────────────────────────
@@ -398,15 +427,20 @@ public class AuthService {
             user.setAdminEntryOtp(null);
             user.setAdminEntryOtpExpiry(null);
             userRepository.save(user);
+            auditLogService.log(user, "ADMIN_ENTRY_DENIED", "User", user.getId(),
+                    "Admin panel entry denied — confirmation code expired");
             throw new BadRequestException("Confirmation code has expired. Request a new one.");
         }
         if (!storedOtp.equals(otp)) {
+            auditLogService.log(user, "ADMIN_ENTRY_DENIED", "User", user.getId(),
+                    "Admin panel entry denied — incorrect confirmation code");
             throw new BadRequestException("Incorrect code. Please try again.");
         }
 
         user.setAdminEntryOtp(null);
         user.setAdminEntryOtpExpiry(null);
         userRepository.save(user);
+        auditLogService.log(user, "ADMIN_ENTRY_GRANTED", "User", user.getId(), "Entered the admin panel");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
