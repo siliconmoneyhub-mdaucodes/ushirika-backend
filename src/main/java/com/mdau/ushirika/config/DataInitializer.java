@@ -432,6 +432,36 @@ public class DataInitializer implements ApplicationRunner {
         // membership_applications_status_check". Dropped outright (no CHECK constraint) rather than
         // recreated, matching mgr_join_requests_status_check -- validated at the Java layer instead.
         jdbcTemplate.execute("ALTER TABLE membership_applications DROP CONSTRAINT IF EXISTS membership_applications_status_check");
+
+        // Same trap yet again, this time confirmed live via Railway logs: structured audit-log
+        // target fields, the configurable settlement-priority column, and the whole peer_contributions
+        // table were added straight to their entities with no accompanying DDL here, so ddl-auto
+        // never created them in production. Every audit-log write has been silently failing since
+        // target_label/target_ref shipped ("column target_label does not exist", swallowed by
+        // AuditLogService's own catch -- so the audit trail has a gap, not a crash), the Audit Log
+        // admin page 500s outright (its SELECT isn't guarded), and both "who paid on my behalf" /
+        // "who I paid for" endpoints 500 on peer_contributions missing entirely.
+        jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_label VARCHAR(200)");
+        jdbcTemplate.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_ref VARCHAR(60)");
+        jdbcTemplate.execute("ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS settlement_priority VARCHAR(200)");
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS peer_contributions (
+                    id           UUID PRIMARY KEY,
+                    payer_id     UUID NOT NULL REFERENCES users(id),
+                    recipient_id UUID NOT NULL REFERENCES users(id),
+                    amount       NUMERIC(12,2) NOT NULL,
+                    currency     VARCHAR(3) NOT NULL DEFAULT 'USD',
+                    session_id   VARCHAR(100),
+                    created_at   TIMESTAMP NOT NULL DEFAULT now(),
+                    updated_at   TIMESTAMP NOT NULL DEFAULT now(),
+                    created_by   VARCHAR(150),
+                    updated_by   VARCHAR(150),
+                    version      BIGINT NOT NULL DEFAULT 0
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_pc_payer ON peer_contributions (payer_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_pc_recipient ON peer_contributions (recipient_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_pc_created_at ON peer_contributions (created_at)");
     }
 
     /**
