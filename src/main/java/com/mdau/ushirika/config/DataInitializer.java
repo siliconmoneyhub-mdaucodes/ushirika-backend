@@ -424,6 +424,14 @@ public class DataInitializer implements ApplicationRunner {
                 """);
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_status_change_user ON member_status_changes(user_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_status_change_created_at ON member_status_changes(created_at)");
+
+        // Same stale-check-constraint trap as users_role_check/mgr_join_requests_status_check --
+        // ddl-auto=update auto-generated membership_applications_status_check against the original
+        // ApplicationStatus values and never widened it when VOIDED was added. Confirmed live:
+        // voiding an application threw "violates check constraint
+        // membership_applications_status_check". Dropped outright (no CHECK constraint) rather than
+        // recreated, matching mgr_join_requests_status_check -- validated at the Java layer instead.
+        jdbcTemplate.execute("ALTER TABLE membership_applications DROP CONSTRAINT IF EXISTS membership_applications_status_check");
     }
 
     /**
