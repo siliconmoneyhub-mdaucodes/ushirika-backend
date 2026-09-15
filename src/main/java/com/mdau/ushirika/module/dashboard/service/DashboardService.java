@@ -47,8 +47,6 @@ import com.mdau.ushirika.module.donation.repository.DonationRepository;
 import com.mdau.ushirika.module.dashboard.dto.ContentDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.ElectionsDashboardDto;
 import com.mdau.ushirika.module.dashboard.dto.NotificationsDashboardDto;
-import com.mdau.ushirika.module.dues.entity.MembershipDue;
-import com.mdau.ushirika.module.dues.enums.DuesStatus;
 import com.mdau.ushirika.module.dues.repository.MembershipDueRepository;
 import com.mdau.ushirika.module.election.entity.Election;
 import com.mdau.ushirika.module.election.enums.CandidacyStatus;
@@ -81,7 +79,6 @@ import com.mdau.ushirika.module.welfare.repository.WelfareCategoryRepository;
 import com.mdau.ushirika.module.welfare.repository.WelfareDisbursementRepository;
 import com.mdau.ushirika.module.welfare.repository.WelfareRequestRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -418,30 +415,24 @@ public class DashboardService {
     }
 
     /**
-     * "Active" mirrors the exact per-member status classification used elsewhere in the app
-     * (UserProfileDto.from(user, profile, duesStatus), as used by the member's own /users/me
-     * endpoint) -- NOT just the login-enabled boolean, and NOT the same as
-     * AdminMembersController's /admin/members listing, which calls the 2-arg overload with
-     * duesStatus always null and therefore misclassifies every real dues-owing member as
-     * "inactive" regardless of their actual dues status. A member only counts as active here if
-     * they're MEMBER role, not suspended/ceased, application-approved (has a memberId), and their
-     * current-year dues are PAID or WAIVED.
+     * "Active" mirrors the exact per-member status classification used everywhere else in the
+     * app (UserProfileDto.from()), as shown on the member's own /users/me and on the
+     * /admin/members listing ("Active (40)", etc.): MEMBER role, not suspended/ceased,
+     * application-approved (has a memberId), and the account itself is active. Dues-payment
+     * status plays no part in this -- a member who's simply not yet due to pay is still active.
+     * This used to additionally require current-year dues to be PAID/WAIVED, which was the same
+     * status-vs-dues conflation bug fixed in UserProfileDto.from() (a member could show
+     * "inactive" everywhere else in the app, but doubly so here, purely for owing dues that
+     * aren't even overdue yet) -- this method's own copy of that logic was never updated when
+     * that fix landed, so it kept silently under-counting active members on this dashboard tile.
      */
     private long countActiveMembers() {
-        int year = java.time.LocalDate.now().getYear();
-        Map<UUID, DuesStatus> duesByUser = membershipDueRepository
-                .findAllByYearOrderByCreatedAtDesc(year, Pageable.unpaged())
-                .stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        d -> d.getUser().getId(), MembershipDue::getStatus, (a, b) -> a));
-
         long count = 0;
         for (var user : userRepository.findAllByRole(UserRole.MEMBER)) {
             if (user.isMembershipCeased() || !user.isActive()) continue;
             MemberProfile profile = memberProfileRepository.findByUser(user).orElse(null);
             if (profile == null || profile.getMemberId() == null) continue;
-            DuesStatus status = duesByUser.get(user.getId());
-            if (status == DuesStatus.PAID || status == DuesStatus.WAIVED) count++;
+            count++;
         }
         return count;
     }
