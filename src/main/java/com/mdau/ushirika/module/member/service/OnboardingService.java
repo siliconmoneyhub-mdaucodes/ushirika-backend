@@ -66,7 +66,8 @@ public class OnboardingService {
 
     @Transactional(readOnly = true)
     public OnboardingStatusDto getStatus() {
-        return OnboardingStatusDto.from(findApplication(currentUser()));
+        MembershipApplication application = findApplication(currentUser());
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -106,7 +107,7 @@ public class OnboardingService {
         advanceToOnboarding(application);
         applicationRepository.save(application);
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -129,7 +130,7 @@ public class OnboardingService {
             profileRepository.save(profile);
         });
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -152,7 +153,7 @@ public class OnboardingService {
         advanceToOnboarding(application);
         applicationRepository.save(application);
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -180,7 +181,7 @@ public class OnboardingService {
         advanceToOnboarding(application);
         applicationRepository.save(application);
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -205,7 +206,7 @@ public class OnboardingService {
         markKinContactsSubmittedIfComplete(profile, application);
         applicationRepository.save(application);
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -230,7 +231,7 @@ public class OnboardingService {
         markKinContactsSubmittedIfComplete(profile, application);
         applicationRepository.save(application);
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     /** Next-of-kin and emergency contacts are two separate steps/endpoints but one combined
@@ -278,7 +279,7 @@ public class OnboardingService {
         application.setConstitutionSignatureDate(signature.date());
         advanceToOnboarding(application);
         applicationRepository.save(application);
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -297,7 +298,7 @@ public class OnboardingService {
         application.setBylawsSignatureDate(signature.date());
         advanceToOnboarding(application);
         applicationRepository.save(application);
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     @Transactional
@@ -330,7 +331,7 @@ public class OnboardingService {
 
         sendRegistrationCompleteEmail(user, application.getReferenceNumber());
 
-        return OnboardingStatusDto.from(application);
+        return OnboardingStatusDto.from(application, application.getUser());
     }
 
     private void sendRegistrationCompleteEmail(User user, String referenceNumber) {

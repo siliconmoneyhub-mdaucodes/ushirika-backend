@@ -5,6 +5,7 @@ import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.auth.service.ActivationService;
 import com.mdau.ushirika.module.member.dto.AdminApplicationDto;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
@@ -22,6 +23,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,6 +51,7 @@ class MembershipServiceVoidAndSendFormTest {
     @Mock private com.mdau.ushirika.module.payment.repository.PaymentBasketRepository paymentBasketRepository;
     @Mock private com.mdau.ushirika.module.member.repository.ApplicationApprovalRepository approvalRepository;
     @Mock private com.mdau.ushirika.module.program.service.ProgramApplicationService programApplicationService;
+    @Mock private ActivationService activationService;
 
     private MembershipService service;
 
@@ -57,7 +60,16 @@ class MembershipServiceVoidAndSendFormTest {
         service = new MembershipService(
                 applicationRepository, profileRepository, approvalRepository, userRepository,
                 emailService, membershipDuesService, passwordEncoder, paymentBasketRepository,
-                programApplicationService, auditLogService);
+                programApplicationService, auditLogService, activationService);
+
+        when(activationService.issue(any())).thenReturn(new ActivationService.IssuedActivation(
+                "raw-token", "123456", LocalDateTime.now().plusHours(72), LocalDateTime.now().plusMinutes(15)));
+        when(passwordEncoder.encode(any())).thenReturn("encoded");
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(inv -> {
+            User saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID()); // what JPA does on a real save
+            return saved;
+        });
 
         User admin = User.builder().firstName("Ada").lastName("Admin").email("admin@ushirika.test")
                 .role(UserRole.SUPERADMIN).build();
@@ -107,6 +119,31 @@ class MembershipServiceVoidAndSendFormTest {
                 () -> service.sendForm(id, true, true));
         assertTrue(ex.getMessage().contains("barbaraweke@gmail.com"), ex.getMessage());
         verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void sendForm_success_issuesActivationAndNeverEmailsAPassword() {
+        UUID id = UUID.randomUUID();
+        MembershipApplication app = submittedPublicApp();
+        when(applicationRepository.findById(id)).thenReturn(Optional.of(app));
+        when(userRepository.existsByEmail(any())).thenReturn(false);
+        when(userRepository.existsByPhone(any())).thenReturn(false);
+
+        service.sendForm(id, true, false);
+
+        assertEquals(ApplicationStatus.FORM_SENT, app.getStatus());
+        assertTrue(app.getUser().isMustSetPassword(), "new applicant must be flagged to choose a password");
+        verify(activationService).issue(app.getUser());
+        verify(emailService, never()).sendFormSentCredentials(any(), any(), any(), any());
+
+        // Whatever arity of sendActivationInvite was used, the link and code must be in it.
+        var invite = org.mockito.Mockito.mockingDetails(emailService).getInvocations().stream()
+                .filter(i -> i.getMethod().getName().equals("sendActivationInvite"))
+                .findFirst().orElseThrow(() -> new AssertionError("no activation invite was sent"));
+        Object[] args = invite.getArguments();
+        assertEquals("barbaraweke@gmail.com", args[0]);
+        assertTrue(((String) args[2]).endsWith("/activate?t=raw-token"), String.valueOf(args[2]));
+        assertEquals("123456", args[3]);
     }
 
     @Test

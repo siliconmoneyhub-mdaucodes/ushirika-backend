@@ -109,6 +109,43 @@ public class User extends BaseEntity implements UserDetails {
     @Builder.Default
     private int onboardingLoginTokenUses = 0;
 
+    // ── Account activation (replaces the emailed temporary password) ─────────────
+    // Tokens/OTPs/tickets are stored only as SHA-256 hex digests. See ActivationService.
+
+    @Column(name = "activation_token_hash", length = 64)
+    private String activationTokenHash;
+
+    @Column(name = "activation_token_expiry")
+    private LocalDateTime activationTokenExpiry;
+
+    @Column(name = "activation_otp_hash", length = 64)
+    private String activationOtpHash;
+
+    @Column(name = "activation_otp_expiry")
+    private LocalDateTime activationOtpExpiry;
+
+    @Column(name = "activation_otp_attempts", nullable = false)
+    @Builder.Default
+    private int activationOtpAttempts = 0;
+
+    @Column(name = "activation_otp_last_sent_at")
+    private LocalDateTime activationOtpLastSentAt;
+
+    @Column(name = "activation_ticket_hash", length = 64)
+    private String activationTicketHash;
+
+    @Column(name = "activation_ticket_expiry")
+    private LocalDateTime activationTicketExpiry;
+
+    /** True until the user has chosen their own password (activation or set-initial-password). */
+    @Column(name = "must_set_password", nullable = false)
+    @Builder.Default
+    private boolean mustSetPassword = false;
+
+    /** When the user last chose their own password via activation/set-initial-password; null = never. */
+    @Column(name = "password_set_at")
+    private LocalDateTime passwordSetAt;
+
     /** SUPERADMIN can deactivate any account without deleting it. */
     @Column(name = "active", nullable = false)
     @Builder.Default

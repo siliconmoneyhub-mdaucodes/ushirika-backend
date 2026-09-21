@@ -9,6 +9,7 @@ import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.auth.service.ActivationService;
 import com.mdau.ushirika.module.member.dto.*;
 import com.mdau.ushirika.module.member.entity.ApplicationApproval;
 import com.mdau.ushirika.module.member.entity.MemberProfile;
@@ -55,11 +56,14 @@ public class MembershipService {
     private final PaymentBasketRepository paymentBasketRepository;
     private final ProgramApplicationService programApplicationService;
     private final AuditLogService auditLogService;
+    private final ActivationService activationService;
 
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
     private static final int ONBOARDING_LOGIN_TOKEN_HOURS = 48;
+    /** Mirrors ActivationService.TOKEN_TTL_HOURS -- stated in the invite email copy. */
+    private static final int ACTIVATION_TOKEN_HOURS = 72;
 
     // ------------------------------------------------------------------ Member
 
@@ -368,7 +372,6 @@ public class MembershipService {
                     "Only SUBMITTED applications can have the form sent. Current status: " + application.getStatus());
         }
 
-        String tempPassword = generateTempPassword();
         User user = application.getUser();
         String applicantEmail;
         String applicantFirstName;
@@ -409,7 +412,8 @@ public class MembershipService {
                     .lastName(lastName)
                     .email(email)
                     .phone(applicantPhone)
-                    .password(passwordEncoder.encode(tempPassword))
+                    .password(passwordEncoder.encode(generateUnusablePassword()))
+                    .mustSetPassword(true)
                     .role(UserRole.APPLICANT)
                     .emailVerified(true)
                     .active(true)
@@ -428,9 +432,13 @@ public class MembershipService {
             applicantEmail = email;
             applicantFirstName = firstName;
         } else {
-            // Applied while logged in — demote to APPLICANT and issue fresh onboarding credentials.
+            // Applied while logged in — demote to APPLICANT. Their existing password is left alone
+            // (they already have a working one); they only need to be prompted to choose one of
+            // their own if they never did via the activation flow.
             user.setRole(UserRole.APPLICANT);
-            user.setPassword(passwordEncoder.encode(tempPassword));
+            if (user.getPasswordSetAt() == null) {
+                user.setMustSetPassword(true);
+            }
             userRepository.save(user);
             applicantEmail = user.getEmail();
             applicantFirstName = user.getFirstName();
@@ -454,8 +462,12 @@ public class MembershipService {
         }
         applicationRepository.save(application);
 
-        String continueUrl = siteUrl + "/login?token=" + loginToken;
-        emailService.sendFormSentCredentials(applicantEmail, applicantFirstName, tempPassword, continueUrl);
+        // No password is emailed any more: the applicant activates their account (link + one-time
+        // code) and chooses their own. The legacy magic-login token above is still issued so onboarding
+        // emails already sitting in inboxes, and the /login?token= handler, keep working.
+        ActivationService.IssuedActivation activation = activationService.issue(user);
+        emailService.sendActivationInvite(applicantEmail, applicantFirstName,
+                siteUrl + "/activate?t=" + activation.rawToken(), activation.rawOtp(), ACTIVATION_TOKEN_HOURS);
         log.info("Form sent for application {} — applicant={}{}", application.getReferenceNumber(), applicantEmail,
                 waiveRegistrationFee ? " (registration fee pre-waived)" : "");
 
@@ -474,10 +486,11 @@ public class MembershipService {
     }
 
     /**
-     * Recovery path for an applicant who lost their onboarding email, forgot the temp
-     * password, or let the login link expire mid-onboarding. Issues a fresh temp password
-     * and a fresh magic-login token without resetting any onboarding progress already saved
-     * (email verification, additional info, bylaws, programs) — only credentials are reissued.
+     * Recovery path for an applicant who lost their onboarding email or let the setup link
+     * expire mid-onboarding. Re-issues a fresh activation link + code (and the legacy magic-login
+     * token) without resetting any onboarding progress already saved (email verification,
+     * additional info, bylaws, programs). The applicant's password is NEVER touched -- an
+     * applicant who already chose their own password keeps it.
      */
     @Transactional
     public AdminApplicationDto resendFormCredentials(UUID applicationId, boolean isSuperAdmin) {
@@ -494,23 +507,25 @@ public class MembershipService {
             throw new BadRequestException("No account exists yet for this application — use Send Form instead.");
         }
 
-        String tempPassword = generateTempPassword();
-        user.setPassword(passwordEncoder.encode(tempPassword));
+        // A-4 fix: the password is deliberately NOT reset here.
         String loginToken = generateLoginToken();
         user.setOnboardingLoginToken(loginToken);
         user.setOnboardingLoginTokenExpiry(LocalDateTime.now().plusHours(ONBOARDING_LOGIN_TOKEN_HOURS));
         user.setOnboardingLoginTokenUses(0);
         userRepository.save(user);
 
-        String continueUrl = siteUrl + "/login?token=" + loginToken;
-        emailService.sendFormSentCredentials(user.getEmail(), user.getFirstName(), tempPassword, continueUrl);
-        log.info("Onboarding credentials resent for application {} — applicant={}", application.getReferenceNumber(), user.getEmail());
+        ActivationService.IssuedActivation activation = activationService.issue(user);
+        emailService.sendActivationInvite(user.getEmail(), user.getFirstName(),
+                siteUrl + "/activate?t=" + activation.rawToken(), activation.rawOtp(), ACTIVATION_TOKEN_HOURS,
+                user.getPasswordSetAt() != null);
+        log.info("Account setup link resent for application {} — applicant={}", application.getReferenceNumber(), user.getEmail());
 
         User admin = currentUser();
         auditLogService.logAbout(admin, "FORM_CREDENTIALS_RESENT", "MembershipApplication", application.getId(),
                 applicantName(application), application.getReferenceNumber(),
-                "Onboarding credentials resent to " + applicantLabel(application)
-                        + " (application " + application.getReferenceNumber() + ") by " + admin.getFullName());
+                "Account setup link re-sent to " + applicantLabel(application)
+                        + " (application " + application.getReferenceNumber() + ") by " + admin.getFullName()
+                        + " (password NOT reset)");
 
         return AdminApplicationDto.from(application, isSuperAdmin);
     }
@@ -652,12 +667,14 @@ public class MembershipService {
         log.info("Membership application {} rejected.", application.getReferenceNumber());
     }
 
-    private String generateTempPassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!";
-        SecureRandom rand = new SecureRandom();
-        StringBuilder sb = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) sb.append(chars.charAt(rand.nextInt(chars.length())));
-        return sb.toString();
+    /**
+     * Random, never-disclosed placeholder stored as a new applicant's password. Nobody is ever told
+     * it -- the account is reachable only via account activation or a password reset. Kept to 64
+     * characters (two dash-less UUIDs) because BCrypt's hard input limit is 72 bytes and newer
+     * Spring Security versions throw on anything longer.
+     */
+    private String generateUnusablePassword() {
+        return UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     }
 
     /** One-time magic-login token — 32 random bytes, URL-safe, no padding. */

@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.member.dto;
 
+import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.member.entity.MembershipApplication;
 import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.common.util.AppClock;
@@ -22,9 +23,16 @@ public record OnboardingStatusDto(
         boolean bylawsAccepted,
         boolean registrationSubmitted,
         Instant formSentAt,
-        boolean registrationFeeWaived
+        boolean registrationFeeWaived,
+        // Appended (never reorder): account-activation signals for the wizard's step-0 skip logic.
+        boolean passwordSet,
+        boolean mustSetPassword
 ) {
     public static OnboardingStatusDto from(MembershipApplication app) {
+        return from(app, app.getUser());
+    }
+
+    public static OnboardingStatusDto from(MembershipApplication app, User user) {
         return new OnboardingStatusDto(
                 app.getReferenceNumber(),
                 app.getStatus(),
@@ -39,7 +47,9 @@ public record OnboardingStatusDto(
                 app.getBylawsAcceptedAt() != null,
                 app.getRegistrationSubmittedAt() != null,
                 AppClock.serverInstant(app.getFormSentAt()),
-                app.isRegistrationFeeWaived()
+                app.isRegistrationFeeWaived(),
+                user != null && user.getPasswordSetAt() != null,
+                user != null && user.isMustSetPassword()
         );
     }
 }

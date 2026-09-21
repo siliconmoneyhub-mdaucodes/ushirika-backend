@@ -202,6 +202,12 @@ public class SecurityConfig {
                         .requestMatchers("/financial/**").hasAnyAuthority("ROLE_FINANCIAL_ADMIN", "ROLE_FINANCIAL_OFFICIAL", "ROLE_ADMIN", "ROLE_SUPERADMIN", "CAP_FINANCE_DUES")
                         // Applicant onboarding — restricted to APPLICANT role only, never full members
                         .requestMatchers("/onboarding/**").hasRole("APPLICANT")
+                        // Member support threads -- an APPLICANT is mid-onboarding and has no member
+                        // relationship yet. Officials are also members with their own threads, hence
+                        // the full non-applicant list.
+                        .requestMatchers("/messages/**").hasAnyAuthority(
+                                "ROLE_MEMBER", "ROLE_ADMIN", "ROLE_SUPERADMIN", "ROLE_LEADERSHIP", "ROLE_FINANCIAL_ADMIN",
+                                "ROLE_FINANCIAL_OFFICIAL", "ROLE_SECRETARY", "ROLE_CHIEF_WHIP", "ROLE_COMPLIANCE")
                         // Everything else: any authenticated user
                         .anyRequest().authenticated()
                 )

@@ -24,6 +24,8 @@ import com.mdau.ushirika.module.member.enums.ApplicationStatus;
 import com.mdau.ushirika.module.member.repository.MembershipApplicationRepository;
 import com.mdau.ushirika.module.messaging.entity.ConversationMessage;
 import com.mdau.ushirika.module.messaging.entity.ConversationThread;
+import com.mdau.ushirika.module.messaging.enums.ThreadPriority;
+import com.mdau.ushirika.module.messaging.enums.ThreadStatus;
 import com.mdau.ushirika.module.messaging.repository.ConversationMessageRepository;
 import com.mdau.ushirika.module.messaging.repository.ConversationThreadRepository;
 import com.mdau.ushirika.module.mgr.entity.MgrJoinRequest;
@@ -142,6 +144,17 @@ public class ActionItemsService {
             }
         }
 
+        // B-7 fallback, mirroring MessageNotificationService: a program with ZERO assigned coordinators
+        // would otherwise be a dead letter, so ADMIN/SUPERADMIN (who can reply) see its threads instead.
+        if (me.getRole() == UserRole.ADMIN || me.getRole() == UserRole.SUPERADMIN) {
+            for (Program p : programRepository.findAll()) {
+                if (!assignmentRepository.findAllByProgramId(p.getId()).isEmpty()) continue;
+                for (ConversationThread t : threadRepository.findAllByProgramIdOrderByLastMessageAtDesc(p.getId())) {
+                    count += addUnreadMessageItems(t, "/admin/messages", items);
+                }
+            }
+        }
+
         return count;
     }
 
@@ -154,18 +167,25 @@ public class ActionItemsService {
      */
     private int addUnreadMessageItems(ConversationThread t, String link, List<ActionItemDto> items) {
         if (t.getLastMessageAt() == null) return 0;
+        if (t.getStatus() == ThreadStatus.CLOSED) return 0;
         LocalDateTime since = t.getStaffLastReadAt() != null ? t.getStaffLastReadAt() : t.getCreatedAt();
         List<ConversationMessage> unread =
                 messageRepository.findAllByThreadAndFromMemberAndCreatedAtAfterOrderByCreatedAtAsc(t, true, since);
 
+        String priorityPrefix = t.getPriority() != null && t.getPriority() != ThreadPriority.NORMAL
+                ? "[" + t.getPriority() + "] " : "";
+        String title = t.getReferenceNumber() != null
+                ? t.getMember().getFullName() + " · " + t.getReferenceNumber()
+                : t.getMember().getFullName();
+
         for (ConversationMessage m : unread) {
-            String subtitle = t.getProgram() != null
+            String subtitle = priorityPrefix + (t.getProgram() != null
                     ? preview(m.getBody()) + " — " + t.getProgram().getName()
-                    : preview(m.getBody());
+                    : preview(m.getBody()));
             items.add(new ActionItemDto(
                     m.getId().toString(),
                     "MESSAGE",
-                    t.getMember().getFullName(),
+                    title,
                     subtitle,
                     link,
                     AppClock.serverInstant(m.getCreatedAt()).toString()

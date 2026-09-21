@@ -17,6 +17,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByOnboardingLoginToken(String onboardingLoginToken);
 
+    Optional<User> findByActivationTokenHash(String activationTokenHash);
+
+    Optional<User> findByActivationTicketHash(String activationTicketHash);
+
     Optional<User> findFirstByRole(UserRole role);
 
     boolean existsByEmail(String email);

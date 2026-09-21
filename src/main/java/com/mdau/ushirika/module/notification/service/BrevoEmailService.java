@@ -47,6 +47,11 @@ public class BrevoEmailService implements EmailService {
     @Value("${app.site-url:https://ushirikacommunity.site}")
     private String siteUrl;
 
+    /** Contact address printed in setup emails. Same address the legacy credentials email used;
+     *  override with APP_SUPPORT_EMAIL once the owner settles on one canonical domain. */
+    @Value("${app.support-email:info@ushirikacommunity.site}")
+    private String supportEmail;
+
     public BrevoEmailService(JavaMailSender mailSender,
                              NotificationLogRepository logRepository,
                              ObjectMapper objectMapper) {
@@ -122,6 +127,7 @@ public class BrevoEmailService implements EmailService {
         sendPlain(toEmail, name, subject, html);
     }
 
+    @Deprecated
     @Async
     @Override
     public void sendFormSentCredentials(String toEmail, String name, String tempPassword, String onboardingUrl) {
@@ -150,6 +156,118 @@ public class BrevoEmailService implements EmailService {
         sendPlain(toEmail, name, subject, html);
     }
 
+    // -- Account activation emails --------------------------------------------------------
+    // The link token and the code are live credentials, so the copy stored in notification_logs is a
+    // redacted placeholder rather than the real body (see deliver()).
+
+    private static final String ACTIVATION_LOG_PLACEHOLDER =
+            "[Account setup email - the setup link and confirmation code are deliberately not stored]";
+
+    @Async
+    @Override
+    public void sendActivationInvite(String toEmail, String name, String activationUrl, String otp,
+                                     int expiryHours, boolean returning) {
+        sendActivationInviteInternal(toEmail, name, activationUrl, otp, expiryHours, returning);
+    }
+
+    @Async
+    @Override
+    public void sendActivationInvite(String toEmail, String name, String activationUrl, String otp, int expiryHours) {
+        sendActivationInviteInternal(toEmail, name, activationUrl, otp, expiryHours, false);
+    }
+
+    private void sendActivationInviteInternal(String toEmail, String name, String activationUrl, String otp,
+                                              int expiryHours, boolean returning) {
+        String safeName = esc(name);
+        String subject;
+        String intro;
+        String steps;
+        if (returning) {
+            subject = "Continue your Ushirika Welfare Organization application";
+            intro = "<h2 style=\"color:#007834\">Welcome back, %s!</h2>".formatted(safeName)
+                    + "<p>Here is a fresh link to pick up where you left off. Everything you have already filled in "
+                    + "has been saved. Tap the button, enter the confirmation code below, and you will be signed "
+                    + "straight back in &mdash; you will be asked to choose a password again as part of this.</p>";
+            steps = "<p style=\"color:#666;font-size:13px\">Remember your password? You can simply "
+                    + "<a href=\"" + siteUrl + "/login\">sign in as usual</a> instead.</p>";
+        } else {
+            subject = "Set up your Ushirika Welfare Organization account";
+            intro = "<h2 style=\"color:#007834\">Welcome, %s!</h2>".formatted(safeName)
+                    + "<p>Your membership application has been accepted in principle. The next step is to set up "
+                    + "your account &mdash; it takes about a minute, and you choose your own password.</p>";
+            steps = "<p>After that you will complete a short onboarding: your details, your next of kin, the "
+                    + "Constitution and Bylaws, and your registration fee.</p>";
+        }
+        String html = """
+                <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
+                  %s
+                  <p style="margin:24px 0"><a href="%s" style="display:inline-block;padding:12px 24px;background:#007834;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">%s</a></p>
+                  <p>When the page opens, enter this confirmation code:</p>
+                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#007834;margin:16px 0 24px">%s</div>
+                  <p>The code expires in <strong>15 minutes</strong>. The setup link itself works for
+                     <strong>%d hours</strong> &mdash; if the code runs out before you get to it, just open the link
+                     again and request a new one.</p>
+                  %s
+                  <p style="color:#666;font-size:13px"><em>We will never email you a password, and we will never ask
+                     you for your password. If you didn't apply to Ushirika Welfare Organization, please ignore this
+                     email.</em></p>
+                  <p>&mdash; Ushirika Welfare Organization<br>
+                     <span style="color:#666;font-size:13px">Questions? <a href="mailto:%s">%s</a></span></p>
+                </div>
+                """.formatted(intro, activationUrl, returning ? "Continue My Application" : "Set Up My Account",
+                otp, expiryHours, steps, supportEmail, supportEmail);
+        deliver(toEmail, name, subject, html, ACTIVATION_LOG_PLACEHOLDER);
+    }
+
+    @Async
+    @Override
+    public void sendMemberActivationInvite(String toEmail, String name, String memberId,
+                                           String activationUrl, String otp, int expiryHours) {
+        String subject = "Set up your Ushirika Welfare Organization member account";
+        String html = """
+                <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
+                  <h2 style="color:#007834">Welcome, %s!</h2>
+                  <p>An administrator has created your Ushirika Welfare Organization member account. Your Member ID is:</p>
+                  <div style="font-size:22px;font-weight:700;font-family:monospace;color:#007834;margin:12px 0">%s</div>
+                  <p>To start using your member portal, set up your account &mdash; it takes about a minute, and you
+                     choose your own password.</p>
+                  <p style="margin:24px 0"><a href="%s" style="display:inline-block;padding:12px 24px;background:#007834;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">Set Up My Account</a></p>
+                  <p>When the page opens, enter this confirmation code:</p>
+                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#007834;margin:16px 0 24px">%s</div>
+                  <p>The code expires in <strong>15 minutes</strong>. The setup link itself works for
+                     <strong>%d hours</strong> &mdash; if the code runs out before you get to it, just open the link
+                     again and request a new one.</p>
+                  <p style="color:#666;font-size:13px"><em>We will never email you a password, and we will never ask
+                     you for your password. If you weren't expecting this, please ignore this email.</em></p>
+                  <p>&mdash; Ushirika Welfare Organization<br>
+                     <span style="color:#666;font-size:13px">Questions? <a href="mailto:%s">%s</a></span></p>
+                </div>
+                """.formatted(esc(name), esc(memberId), activationUrl, otp, expiryHours, supportEmail, supportEmail);
+        deliver(toEmail, name, subject, html, ACTIVATION_LOG_PLACEHOLDER);
+    }
+
+    @Async
+    @Override
+    public void sendActivationCodeOnly(String toEmail, String name, String otp) {
+        String subject = "Your Ushirika confirmation code";
+        String html = """
+                <div style="font-family:sans-serif;max-width:480px;margin:auto;color:#1a1a1a">
+                  <h2 style="color:#007834">Your confirmation code</h2>
+                  <p>Hi %s, here's a fresh code for setting up your account. It expires in <strong>15 minutes</strong>.</p>
+                  <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#007834;margin:24px 0">%s</div>
+                  <p style="color:#888;font-size:13px">Didn't request this? You can safely ignore this email &mdash;
+                     nothing has changed on your account.</p>
+                </div>
+                """.formatted(esc(name), otp);
+        deliver(toEmail, name, subject, html, ACTIVATION_LOG_PLACEHOLDER);
+    }
+
+    /** Minimal HTML escaping for user-supplied values interpolated into email markup. */
+    private static String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
     @Async
     @Override
     public void sendMembershipApproved(String toEmail, String name, String memberId) {
@@ -170,13 +288,19 @@ public class BrevoEmailService implements EmailService {
     @Async
     @Override
     public void sendPlain(String toEmail, String toName, String subject, String htmlBody) {
+        deliver(toEmail, toName, subject, htmlBody, htmlBody);
+    }
+
+    /** @param logBody what is persisted in notification_logs -- the real body for ordinary mail, a
+     *                 redacted placeholder for emails whose body holds a live credential. */
+    private void deliver(String toEmail, String toName, String subject, String htmlBody, String logBody) {
         NotificationLog logEntry = logRepository.save(
                 NotificationLog.builder()
                         .channel(NotificationChannel.EMAIL)
                         .recipient(toEmail)
                         .recipientName(toName)
                         .subject(subject)
-                        .body(truncate(htmlBody, 2000))
+                        .body(truncate(logBody, 2000))
                         .status(NotificationStatus.PENDING)
                         .build()
         );

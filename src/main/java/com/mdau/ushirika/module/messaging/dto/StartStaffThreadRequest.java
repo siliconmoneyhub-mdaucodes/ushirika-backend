@@ -1,5 +1,6 @@
 package com.mdau.ushirika.module.messaging.dto;
 
+import com.mdau.ushirika.module.messaging.enums.ThreadPriority;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -9,5 +10,6 @@ import java.util.UUID;
 /** Staff-initiated conversation — admin or program coordinator messaging a specific member first. */
 public record StartStaffThreadRequest(
         @NotNull UUID memberId,
-        @NotBlank @Size(max = 2000) String body
+        @NotBlank @Size(max = 2000) String body,
+        ThreadPriority priority
 ) {}

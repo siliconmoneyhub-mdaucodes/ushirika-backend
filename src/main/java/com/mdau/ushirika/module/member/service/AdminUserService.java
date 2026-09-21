@@ -12,6 +12,8 @@ import com.mdau.ushirika.module.auth.dto.UserProfileDto;
 import com.mdau.ushirika.module.auth.entity.User;
 import com.mdau.ushirika.module.auth.enums.UserRole;
 import com.mdau.ushirika.module.auth.repository.UserRepository;
+import com.mdau.ushirika.module.auth.service.ActivationService;
+import org.springframework.beans.factory.annotation.Value;
 import com.mdau.ushirika.module.member.dto.AdminResetCredentialsRequest;
 import com.mdau.ushirika.module.member.dto.BulkSetActiveRequest;
 import com.mdau.ushirika.module.member.dto.BulkStatusResultDto;
@@ -40,7 +42,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -60,6 +61,10 @@ public class AdminUserService {
     private final FineService fineService;
     private final AuditLogService auditLogService;
     private final MemberStatusChangeService statusChangeService;
+    private final ActivationService activationService;
+
+    @Value("${app.site-url:https://ushirikacommunity.site}")
+    private String siteUrl;
 
     private static final int MAX_SUPERADMINS = 5;
 
@@ -272,8 +277,9 @@ public class AdminUserService {
 
     /**
      * Admin-initiated member creation. Bypasses the normal application flow.
-     * Creates a fully verified, active member account and emails the credentials
-     * to the member with a mandatory password-change notice.
+     * Creates a fully verified, active member account and emails the member a setup link +
+     * one-time code (account activation) so they choose their own password -- no password is
+     * ever generated for, or emailed to, them.
      *
      * There is no checkout step in this path, so the one-time registration fee can
      * never actually be collected here -- req.waiveRegistrationFee() must be an explicit,
@@ -297,16 +303,18 @@ public class AdminUserService {
             throw new ConflictException("An account with this phone number already exists.");
         }
 
-        String tempPassword = generateTempPassword();
         log.info("[createMember] building User");
 
+        // No password is ever emailed. The stored one is a random, never-disclosed placeholder; the
+        // member reaches the account through the activation link + code and chooses their own.
         User user = User.builder()
                 .firstName(TextNormalizer.titleCase(req.firstName()))
                 .middleName(TextNormalizer.titleCase(req.middleName()))
                 .lastName(TextNormalizer.titleCase(req.lastName()))
                 .email(email)
                 .phone(req.phone())
-                .password(passwordEncoder.encode(tempPassword))
+                .password(passwordEncoder.encode(generateUnusablePassword()))
+                .mustSetPassword(true)
                 .emailVerified(true)
                 .active(true)
                 .build();
@@ -343,9 +351,12 @@ public class AdminUserService {
                         + " — created directly by admin " + admin.getFullName() + " (no onboarding checkout)");
 
         try {
-            sendWelcomeCredentials(user.getEmail(), user.getFirstName(), memberId, tempPassword);
+            ActivationService.IssuedActivation activation = activationService.issue(user);
+            emailService.sendMemberActivationInvite(user.getEmail(), user.getFirstName(), memberId,
+                    siteUrl + "/activate?t=" + activation.rawToken(), activation.rawOtp(), ActivationService.TOKEN_TTL_HOURS);
         } catch (Exception e) {
-            log.warn("Welcome email failed for {} — account created, credentials must be shared manually: {}", user.getEmail(), e.getMessage());
+            log.warn("Setup email failed for {} — account created; use the applicant 'request a new setup link' "
+                    + "path or a password reset to get them in: {}", user.getEmail(), e.getMessage());
         }
 
         log.info("[createMember] building UserProfileDto");
@@ -375,44 +386,10 @@ public class AdminUserService {
         return "UW-%d-%04d".formatted(year, sequence);
     }
 
-    private String generateTempPassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!";
-        SecureRandom rand = new SecureRandom();
-        StringBuilder sb = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) {
-            sb.append(chars.charAt(rand.nextInt(chars.length())));
-        }
-        return sb.toString();
-    }
-
-    private void sendWelcomeCredentials(String toEmail, String firstName, String memberId, String tempPassword) {
-        String subject = "Welcome to Ushirika Welfare Organization — Your Member Account";
-        String html = """
-                <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#1a1a1a">
-                  <h2 style="color:#007834">Welcome, %s!</h2>
-                  <p>Your Ushirika Welfare Organization member account has been created by the administrator. You can now sign in to your member portal.</p>
-                  <table style="border-collapse:collapse;width:100%%;margin:24px 0;border:1px solid #e5e7eb;border-radius:8px">
-                    <tr style="background:#f9fafb">
-                      <td style="padding:12px 16px;font-weight:600;width:160px">Member ID</td>
-                      <td style="padding:12px 16px;font-family:monospace;font-weight:700">%s</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:12px 16px;font-weight:600;border-top:1px solid #e5e7eb">Login Email</td>
-                      <td style="padding:12px 16px;border-top:1px solid #e5e7eb">%s</td>
-                    </tr>
-                    <tr style="background:#f9fafb">
-                      <td style="padding:12px 16px;font-weight:600;border-top:1px solid #e5e7eb">Temporary Password</td>
-                      <td style="padding:12px 16px;border-top:1px solid #e5e7eb;font-family:monospace;font-weight:700;font-size:16px">%s</td>
-                    </tr>
-                  </table>
-                  <div style="padding:16px;background:#fff3cd;border-left:4px solid #ffc107;border-radius:4px;margin-bottom:24px">
-                    <strong>Important:</strong> This is a temporary password. Please change it immediately after your first login via <strong>Settings → Change Password</strong>.
-                  </div>
-                  <p><a href="https://ushirikacommunity.site/login" style="display:inline-block;padding:12px 24px;background:#007834;color:#fff;text-decoration:none;border-radius:24px;font-weight:600">Sign in to your portal</a></p>
-                  <p style="margin-top:24px;color:#666;font-size:13px">Questions? Contact us at <a href="mailto:admin@ushirikawelfare.org">admin@ushirikawelfare.org</a></p>
-                </div>
-                """.formatted(firstName, memberId, toEmail, tempPassword);
-        emailService.sendPlain(toEmail, firstName, subject, html);
+    /** Random placeholder stored as a new account's password -- never emailed or shown to anyone.
+     *  64 characters, safely under BCrypt's 72-byte input limit. */
+    private String generateUnusablePassword() {
+        return UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     }
 
     /**
@@ -445,6 +422,9 @@ public class AdminUserService {
 
         if (req.newPassword() != null && !req.newPassword().isBlank()) {
             target.setPassword(passwordEncoder.encode(req.newPassword()));
+            // An admin-chosen password is a stop-gap: flag the account so the user is required to
+            // pick their own.
+            target.setMustSetPassword(true);
         }
 
         userRepository.save(target);
@@ -466,7 +446,8 @@ public class AdminUserService {
                     """.formatted(
                             target.getFirstName(),
                             req.newPassword() != null
-                                    ? "<p>A new password has been set. Please sign in and change it immediately.</p>"
+                                    ? "<p>A new password was set on your account by an administrator. Please sign in and "
+                                      + "choose your own password straight away.</p>"
                                     : ""
                     )
             );

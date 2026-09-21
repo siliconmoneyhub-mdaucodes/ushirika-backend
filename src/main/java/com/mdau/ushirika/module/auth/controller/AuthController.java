@@ -3,10 +3,16 @@ package com.mdau.ushirika.module.auth.controller;
 import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.module.auth.dto.*;
+import com.mdau.ushirika.common.exception.TooManyRequestsException;
+import com.mdau.ushirika.common.util.ClientIpResolver;
+import com.mdau.ushirika.module.auth.service.ActivationRateLimiter;
+import com.mdau.ushirika.module.auth.service.ActivationService;
 import com.mdau.ushirika.module.auth.service.AuthService;
+import com.mdau.ushirika.module.auth.service.PasswordPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +48,8 @@ import java.time.Duration;
 public class AuthController {
 
     private final AuthService authService;
+    private final ActivationService activationService;
+    private final ActivationRateLimiter activationRateLimiter;
 
     @Value("${app.cookie.secure:true}")
     private boolean cookieSecure;
@@ -138,9 +146,73 @@ public class AuthController {
     @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Change password while logged in — requires current password")
-    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest req) {
-        authService.changePassword(req);
-        return ResponseEntity.ok(ApiResponse.ok("Password changed successfully. Please log in again with your new password."));
+    public ResponseEntity<ApiResponse<UserSessionResponse>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest req, HttpServletResponse response) {
+        AuthResponse auth = authService.changePassword(req);
+        // Other sessions were signed out; this one gets fresh cookies so it carries on uninterrupted.
+        setSessionCookies(response, auth);
+        return ResponseEntity.ok(ApiResponse.ok("Password changed successfully.", UserSessionResponse.from(auth)));
+    }
+
+    @PostMapping("/set-initial-password")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Choose a password for an account that never set one -- no current password needed")
+    public ResponseEntity<ApiResponse<UserSessionResponse>> setInitialPassword(
+            @Valid @RequestBody SetInitialPasswordRequest req, HttpServletResponse response) {
+        AuthResponse auth = authService.setInitialPassword(req);
+        setSessionCookies(response, auth);
+        return ResponseEntity.ok(ApiResponse.ok("Password set.", UserSessionResponse.from(auth)));
+    }
+
+    @GetMapping("/password-policy")
+    @Operation(summary = "The password rules, for showing a live checklist")
+    public ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy() {
+        return ResponseEntity.ok(ApiResponse.ok("Password policy", PasswordPolicy.describe()));
+    }
+
+    // ── Account activation (public) ──────────────────────────────────────────
+
+    @PostMapping("/activation/lookup")
+    @Operation(summary = "Inspect a setup link -- always 200, never distinguishes unknown from other failures")
+    public ResponseEntity<ApiResponse<ActivationLookupDto>> activationLookup(
+            @Valid @RequestBody ActivationTokenRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Setup link checked", activationService.lookup(req.token())));
+    }
+
+    @PostMapping("/activation/verify")
+    @Operation(summary = "Check the emailed 6-digit code; returns a short-lived single-use ticket")
+    public ResponseEntity<ApiResponse<ActivationTicketDto>> activationVerify(
+            @Valid @RequestBody ActivationVerifyRequest req, HttpServletRequest httpReq) {
+        if (!activationRateLimiter.tryConsumeVerify(ClientIpResolver.resolve(httpReq))) {
+            throw new TooManyRequestsException(
+                    "Too many attempts from this connection. Please wait a while and try again.");
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Code confirmed", activationService.verify(req.token(), req.otp())));
+    }
+
+    @PostMapping("/activation/complete")
+    @Operation(summary = "Choose a password using the ticket from /verify -- starts a session")
+    public ResponseEntity<ApiResponse<UserSessionResponse>> activationComplete(
+            @Valid @RequestBody ActivationCompleteRequest req, HttpServletResponse response) {
+        AuthResponse auth = activationService.complete(req.ticket(), req.newPassword());
+        setSessionCookies(response, auth);
+        return ResponseEntity.ok(ApiResponse.ok("Account set up", UserSessionResponse.from(auth)));
+    }
+
+    @PostMapping("/activation/resend")
+    @Operation(summary = "Email a fresh confirmation code (always 200)")
+    public ResponseEntity<ApiResponse<Void>> activationResend(@Valid @RequestBody ActivationTokenRequest req) {
+        activationService.resend(req.token());
+        return ResponseEntity.ok(ApiResponse.ok("If that link is still active, a new code is on its way."));
+    }
+
+    @PostMapping("/activation/request")
+    @Operation(summary = "Ask for a new setup link by email (always 200 -- anti-enumeration)")
+    public ResponseEntity<ApiResponse<Void>> activationRequest(@Valid @RequestBody ActivationEmailRequest req) {
+        activationService.requestByEmail(req.email());
+        return ResponseEntity.ok(ApiResponse.ok(
+                "If that email has a pending application, a new setup link is on its way."));
     }
 
     @PostMapping("/admin-entry/request")

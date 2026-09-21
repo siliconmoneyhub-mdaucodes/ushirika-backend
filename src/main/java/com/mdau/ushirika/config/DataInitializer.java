@@ -462,6 +462,80 @@ public class DataInitializer implements ApplicationRunner {
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_pc_payer ON peer_contributions (payer_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_pc_recipient ON peer_contributions (recipient_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_pc_created_at ON peer_contributions (created_at)");
+
+        // ── Account activation (replaces the emailed temporary password) ────────────────────
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_token_hash VARCHAR(64)");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_token_expiry TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_otp_hash VARCHAR(64)");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_otp_expiry TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_otp_attempts INTEGER NOT NULL DEFAULT 0");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_otp_last_sent_at TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_ticket_hash VARCHAR(64)");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_ticket_expiry TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_set_password BOOLEAN NOT NULL DEFAULT false");
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_at TIMESTAMP");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_users_activation_token_hash ON users (activation_token_hash)");
+
+        // One-time, self-limiting backfill: applicants who were sent a temporary password under the old
+        // flow and never completed the account-setup step. Gated on email_reverified_at IS NULL, which is
+        // set the moment that step completes -- so an applicant who already finished is never flagged, and
+        // the statement becomes a permanent no-op once each row is handled. Only role = 'APPLICANT' rows
+        // are ever touched.
+        int flagged = jdbcTemplate.update("""
+                UPDATE users u SET must_set_password = true
+                FROM membership_applications a
+                WHERE a.user_id = u.id
+                  AND u.role = 'APPLICANT'
+                  AND u.must_set_password = false
+                  AND u.password_set_at IS NULL
+                  AND a.email_reverified_at IS NULL
+                  AND a.status IN ('FORM_SENT','ONBOARDING_IN_PROGRESS')
+                """);
+        if (flagged > 0) {
+            log.info("Flagged {} applicant account(s) must_set_password (legacy temporary-password flow)", flagged);
+        }
+
+        // ── Messaging: reference numbers, priority, lifecycle, alert throttling ─────────────
+        jdbcTemplate.execute("CREATE SEQUENCE IF NOT EXISTS conversation_thread_ref_seq START 1");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS reference_number VARCHAR(20)");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS priority VARCHAR(10) NOT NULL DEFAULT 'NORMAL'");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS priority_set_by_id UUID");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS priority_set_at TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS status VARCHAR(10) NOT NULL DEFAULT 'OPEN'");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS closed_by_id UUID");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS closed_by_name VARCHAR(200)");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS member_alert_sent_at TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads ADD COLUMN IF NOT EXISTS staff_alert_sent_at TIMESTAMP");
+
+        // No CHECK constraint on priority/status -- same reasoning as user_capabilities and
+        // mgr_join_requests_status_check: enum CHECKs in this schema have drifted and crashed startup
+        // twice. Validated at the Java layer via @Enumerated(STRING) instead.
+        jdbcTemplate.execute("ALTER TABLE conversation_threads DROP CONSTRAINT IF EXISTS conversation_threads_priority_check");
+        jdbcTemplate.execute("ALTER TABLE conversation_threads DROP CONSTRAINT IF EXISTS conversation_threads_status_check");
+
+        // Idempotent, order-stable backfill: oldest thread gets MSG-000001. Runs once; the WHERE clause
+        // makes every later boot a no-op. Looped (not a set-based UPDATE) purely so nextval() is consumed
+        // in created_at order rather than whatever order the planner picks. If a boot is interrupted
+        // mid-loop the next boot resumes with the remaining NULL rows (the sequence has already advanced).
+        jdbcTemplate.execute("""
+                DO $$
+                DECLARE r RECORD;
+                BEGIN
+                    FOR r IN SELECT id FROM conversation_threads WHERE reference_number IS NULL
+                             ORDER BY created_at NULLS FIRST, id LOOP
+                        UPDATE conversation_threads
+                           SET reference_number = 'MSG-' || LPAD(nextval('conversation_thread_ref_seq')::text, 6, '0')
+                         WHERE id = r.id;
+                    END LOOP;
+                END $$;
+                """);
+        // AFTER the backfill, so it can never fail on NULLs / half-filled rows (Postgres unique indexes
+        // permit multiple NULLs anyway, which also covers a still-running old instance inserting a thread
+        // without a reference during a rolling deploy -- the next boot backfills it).
+        jdbcTemplate.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_thread_reference ON conversation_threads (reference_number)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_thread_status_priority ON conversation_threads (status, priority)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_message_thread_created ON conversation_messages (thread_id, created_at)");
     }
 
     /**

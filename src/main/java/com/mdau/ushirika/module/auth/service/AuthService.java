@@ -18,6 +18,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,11 +48,20 @@ public class AuthService {
     private final PasswordResetRateLimiter passwordResetRateLimiter;
     private final EmailVerificationOtpRateLimiter emailVerificationOtpRateLimiter;
     private final AuditLogService auditLogService;
+    private final LoginAttemptLimiter loginAttemptLimiter;
 
     @Value("${app.jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
 
     private static final int OTP_EXPIRY_MINUTES = 15;
+
+    static final String GENERIC_LOGIN_FAILURE =
+            "Those details didn't match an account. Check your email, member ID or name and your password "
+                    + "— or use \"Forgot password?\" to reset it.";
+    static final String TOO_MANY_LOGIN_ATTEMPTS =
+            "Too many sign-in attempts. Please wait 15 minutes and try again, or reset your password.";
+    static final String TOO_MANY_CODE_ATTEMPTS =
+            "Too many incorrect codes. Please wait 15 minutes and try again, or request a new code.";
 
     // ── Register ──────────────────────────────────────────────────────────────
 
@@ -62,6 +74,8 @@ public class AuthService {
         if (userRepository.existsByPhone(req.phone())) {
             throw new ConflictException("An account with this phone number already exists");
         }
+
+        PasswordPolicy.validate(req.password(), email, req.firstName(), req.lastName());
 
         String otp = generateOtp();
         User user = User.builder()
@@ -86,13 +100,23 @@ public class AuthService {
 
     @Transactional
     public AuthResponse verifyEmail(VerifyEmailRequest req) {
-        User user = findByEmail(req.email());
+        String otpKey = "verify:" + req.email().toLowerCase();
+        if (loginAttemptLimiter.isOtpBlocked(otpKey)) {
+            throw new TooManyRequestsException(TOO_MANY_CODE_ATTEMPTS);
+        }
+        // Unknown email gets the same answer as a wrong code (no account enumeration).
+        User user = userRepository.findByEmail(req.email().toLowerCase()).orElse(null);
+        if (user == null) {
+            loginAttemptLimiter.recordOtpFailure(otpKey);
+            throw new BadRequestException("Invalid verification code");
+        }
 
         if (user.isEmailVerified()) {
             throw new BadRequestException("Email is already verified");
         }
         if (user.getEmailVerificationOtp() == null
                 || !user.getEmailVerificationOtp().equals(req.otp())) {
+            loginAttemptLimiter.recordOtpFailure(otpKey);
             throw new BadRequestException("Invalid verification code");
         }
         if (LocalDateTime.now().isAfter(user.getEmailVerificationOtpExpiry())) {
@@ -103,6 +127,7 @@ public class AuthService {
         user.setEmailVerificationOtp(null);
         user.setEmailVerificationOtpExpiry(null);
         userRepository.save(user);
+        loginAttemptLimiter.clearOtp(otpKey);
 
         log.info("Email verified for: {}", user.getEmail());
         return issueTokens(user);
@@ -140,15 +165,33 @@ public class AuthService {
     public AuthResponse login(LoginRequest req) {
         String rawUsername = req.username().trim();
 
+        // Per-account throttle, checked BEFORE the credentials are evaluated so a locked key
+        // reveals nothing about whether the guess was right.
+        if (loginAttemptLimiter.isLoginBlocked(rawUsername)) {
+            throw new TooManyRequestsException(TOO_MANY_LOGIN_ATTEMPTS);
+        }
+
         // Resolve the account regardless of whether the user typed an email,
         // member ID (UW-YYYY-XXXX), or full name.
         User user;
         try {
             user = resolveUser(rawUsername);
-        } catch (ResourceNotFoundException e) {
+        } catch (ResourceNotFoundException | IncorrectResultSizeDataAccessException e) {
+            // The real reason stays visible to admins in the audit log; the caller only ever gets
+            // the one generic message (no account enumeration, and an ambiguous name -- two members
+            // sharing it -- fails the same way rather than as a 500).
             auditLogService.logUnknownAttempt("LOGIN_FAILED", rawUsername,
-                    "Login attempt failed — no account matches \"" + rawUsername + "\"");
-            throw e;
+                    e instanceof ResourceNotFoundException
+                            ? "Login attempt failed — no account matches \"" + rawUsername + "\""
+                            : "Login attempt failed — \"" + rawUsername + "\" matches more than one account");
+            loginAttemptLimiter.recordLoginFailure(rawUsername);
+            throw new BadRequestException(GENERIC_LOGIN_FAILURE);
+        }
+
+        // Different aliases (email / member ID / name) of one account share a throttle too.
+        String accountKey = user.getEmail();
+        if (loginAttemptLimiter.isLoginBlocked(accountKey)) {
+            throw new TooManyRequestsException(TOO_MANY_LOGIN_ATTEMPTS);
         }
 
         try {
@@ -158,9 +201,23 @@ public class AuthService {
         } catch (AuthenticationException e) {
             auditLogService.log(user, "LOGIN_FAILED", "User", user.getId(),
                     "Login attempt failed — incorrect password or account not enabled");
-            throw e;
+            loginAttemptLimiter.recordLoginFailure(rawUsername);
+            // Signing in with the email itself makes both keys the same bucket -- count it once, not twice.
+            if (!accountKey.trim().equalsIgnoreCase(rawUsername.trim())) {
+                loginAttemptLimiter.recordLoginFailure(accountKey);
+            }
+            // A suspended/unverified account is rejected by Spring before the password is even
+            // looked at. Only tell the caller so if they also supplied the right password --
+            // otherwise anyone could probe which accounts exist and are suspended.
+            if ((e instanceof DisabledException || e instanceof LockedException)
+                    && passwordEncoder.matches(req.password(), user.getPassword())) {
+                throw e;
+            }
+            throw new BadRequestException(GENERIC_LOGIN_FAILURE);
         }
 
+        loginAttemptLimiter.clearLogin(rawUsername);
+        loginAttemptLimiter.clearLogin(accountKey);
         refreshTokenRepository.revokeAllUserTokens(user);
         AuthResponse response = issueTokens(user);
         auditLogService.log(user, "LOGIN_SUCCESS", "User", user.getId(), "Signed in successfully");
@@ -289,19 +346,30 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest req) {
-        User user = findByEmail(req.email());
-
-        if (user.getPasswordResetOtp() == null || !user.getPasswordResetOtp().equals(req.otp())) {
+        String otpKey = "reset:" + req.email().toLowerCase();
+        if (loginAttemptLimiter.isOtpBlocked(otpKey)) {
+            throw new TooManyRequestsException(TOO_MANY_CODE_ATTEMPTS);
+        }
+        // Unknown email is indistinguishable from a wrong code (no account enumeration).
+        User user = userRepository.findByEmail(req.email().toLowerCase()).orElse(null);
+        if (user == null || user.getPasswordResetOtp() == null || !user.getPasswordResetOtp().equals(req.otp())) {
+            loginAttemptLimiter.recordOtpFailure(otpKey);
             throw new BadRequestException("Invalid or expired reset code");
         }
         if (LocalDateTime.now().isAfter(user.getPasswordResetOtpExpiry())) {
             throw new BadRequestException("Reset code has expired. Request a new one");
         }
 
+        PasswordPolicy.validate(req.newPassword(), user.getEmail(), user.getFirstName(), user.getLastName());
+
         user.setPassword(passwordEncoder.encode(req.newPassword()));
+        // They have now chosen their own password, so any pending "must set a password" is satisfied.
+        user.setPasswordSetAt(LocalDateTime.now());
+        user.setMustSetPassword(false);
         user.setPasswordResetOtp(null);
         user.setPasswordResetOtpExpiry(null);
         userRepository.save(user);
+        loginAttemptLimiter.clearOtp(otpKey);
 
         // Revoke all refresh tokens after password change
         refreshTokenRepository.revokeAllUserTokens(user);
@@ -310,6 +378,28 @@ public class AuthService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Fresh access + refresh token pair (persisted) for the given user. Used by ActivationService
+     *  after it has revoked the old ones. */
+    @Transactional
+    public AuthResponse issueSession(User user) {
+        return issueTokens(user);
+    }
+
+    /**
+     * Marks a user's activation link as spent: every one-time secret is wiped, but the link's hash
+     * is kept with a null expiry so the same link later reads as USED ("already used, sign in")
+     * rather than as an unrecognisable INVALID one. The next issue() overwrites the hash.
+     */
+    static void markActivationConsumed(User user) {
+        user.setActivationTokenExpiry(null);
+        user.setActivationOtpHash(null);
+        user.setActivationOtpExpiry(null);
+        user.setActivationOtpAttempts(0);
+        user.setActivationOtpLastSentAt(null);
+        user.setActivationTicketHash(null);
+        user.setActivationTicketExpiry(null);
+    }
 
     private AuthResponse issueTokens(User user) {
         String accessToken = jwtService.generateAccessToken(user);
@@ -359,7 +449,10 @@ public class AuthService {
             if (passwordEncoder.matches(req.newPassword(), user.getPassword())) {
                 throw new BadRequestException("New password must be different from the current password");
             }
+            PasswordPolicy.validate(req.newPassword(), user.getEmail(), user.getFirstName(), user.getLastName());
             user.setPassword(passwordEncoder.encode(req.newPassword()));
+            user.setPasswordSetAt(LocalDateTime.now());
+            user.setMustSetPassword(false);
         }
 
         userRepository.save(user);
@@ -371,8 +464,13 @@ public class AuthService {
 
     // ── Change password (authenticated) ───────────────────────────────────────
 
+    /**
+     * Revokes every existing refresh token (so OTHER sessions must sign in again) but immediately
+     * issues the caller a fresh pair, which the controller turns back into cookies -- so a password
+     * change mid-onboarding no longer silently kills the caller's own session 15 minutes later.
+     */
     @Transactional
-    public void changePassword(ChangePasswordRequest req) {
+    public AuthResponse changePassword(ChangePasswordRequest req) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = findByEmail(email);
 
@@ -382,14 +480,43 @@ public class AuthService {
         if (req.currentPassword().equals(req.newPassword())) {
             throw new BadRequestException("New password must be different from the current password");
         }
+        PasswordPolicy.validate(req.newPassword(), user.getEmail(), user.getFirstName(), user.getLastName());
 
         user.setPassword(passwordEncoder.encode(req.newPassword()));
+        user.setPasswordSetAt(LocalDateTime.now());
+        user.setMustSetPassword(false);
         userRepository.save(user);
 
-        // Revoke all existing refresh tokens so other sessions must re-login
         refreshTokenRepository.revokeAllUserTokens(user);
+        AuthResponse session = issueTokens(user);
         log.info("Password changed for user: {}", email);
         auditLogService.log(user, "PASSWORD_CHANGED", "User", user.getId(), "Changed their own password");
+        return session;
+    }
+
+    // ── Set initial password (no current password -- for an account that never chose one) ──────
+
+    @Transactional
+    public AuthResponse setInitialPassword(SetInitialPasswordRequest req) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = findByEmail(email);
+
+        if (!user.isMustSetPassword()) {
+            throw new BadRequestException("Your password is already set — use Change Password instead.");
+        }
+        PasswordPolicy.validate(req.newPassword(), user.getEmail(), user.getFirstName(), user.getLastName());
+
+        user.setPassword(passwordEncoder.encode(req.newPassword()));
+        user.setPasswordSetAt(LocalDateTime.now());
+        user.setMustSetPassword(false);
+        markActivationConsumed(user); // any still-pending setup link/code is now moot
+        userRepository.save(user);
+
+        refreshTokenRepository.revokeAllUserTokens(user);
+        AuthResponse session = issueTokens(user);
+        auditLogService.log(user, "PASSWORD_SET_INITIAL", "User", user.getId(),
+                "Chose their own password (no current password required)");
+        return session;
     }
 
     // ── Admin panel entry step-up ────────────────────────────────────────────
