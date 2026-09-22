@@ -25,8 +25,9 @@ public class AdminLoanController {
     public ResponseEntity<ApiResponse<PagedResponse<LoanApplicationDto>>> listLoans(
             @RequestParam(required = false) LoanStatus status,
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.ok(loanService.listLoans(status, page, size)));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
+        return ResponseEntity.ok(ApiResponse.ok(loanService.listLoans(status, page, size, sort)));
     }
 
     @GetMapping("/{id}")

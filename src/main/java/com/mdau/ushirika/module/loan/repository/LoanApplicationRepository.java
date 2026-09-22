@@ -17,9 +17,7 @@ public interface LoanApplicationRepository extends JpaRepository<LoanApplication
 
     List<LoanApplication> findByUserOrderByCreatedAtDesc(User user);
 
-    Page<LoanApplication> findAllByOrderByCreatedAtDesc(Pageable pageable);
-
-    Page<LoanApplication> findAllByStatusOrderByCreatedAtDesc(LoanStatus status, Pageable pageable);
+    Page<LoanApplication> findAllByStatus(LoanStatus status, Pageable pageable);
 
     Optional<LoanApplication> findByReferenceNumber(String referenceNumber);
 

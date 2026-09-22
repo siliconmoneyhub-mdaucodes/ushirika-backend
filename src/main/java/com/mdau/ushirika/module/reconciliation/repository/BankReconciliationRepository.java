@@ -17,12 +17,14 @@ public interface BankReconciliationRepository extends JpaRepository<BankReconcil
      *  sentinel "ORG_WIDE" returns only org-wide (scope IS NULL) rows; anything else filters to
      *  that exact program scope. Kept distinct from findLatestByScope below, which has no "all"
      *  concept -- the summary view always asks for one specific scope, org-wide or a program. */
+    /** No ORDER BY here deliberately -- ordering comes entirely from the caller's Pageable so a
+     *  client-requested sort (e.g. by physicalBalance) isn't just a secondary tiebreaker behind a
+     *  hardcoded recordedAt DESC. Callers default to recordedAt DESC when no sort is requested. */
     @Query("""
             SELECT r FROM BankReconciliation r
             WHERE :scope IS NULL
                OR (:scope = 'ORG_WIDE' AND r.scope IS NULL)
                OR r.scope = :scope
-            ORDER BY r.recordedAt DESC
             """)
     Page<BankReconciliation> findByScope(@Param("scope") String scope, Pageable pageable);
 

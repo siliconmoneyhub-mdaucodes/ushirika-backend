@@ -133,6 +133,29 @@ public class OnboardingService {
         return OnboardingStatusDto.from(application, application.getUser());
     }
 
+    /** Mandatory profile photo step -- selfie or an uploaded image, already sent to Cloudinary
+     * client-side (same direct-upload flow as the portal's own photo-replace feature). Just
+     * records the resulting URL and marks the milestone; the photo itself stays editable later
+     * from the portal without re-triggering this. */
+    @Transactional
+    public OnboardingStatusDto submitProfilePhoto(String photoUrl) {
+        if (photoUrl == null || photoUrl.isBlank()) {
+            throw new BadRequestException("A profile photo is required to continue.");
+        }
+        User user = currentUser();
+        MembershipApplication application = findApplication(user);
+        MemberProfile profile = findOrCreateProfile(user);
+
+        profile.setPhotoUrl(photoUrl.trim());
+        profileRepository.save(profile);
+
+        application.setPhotoSubmittedAt(LocalDateTime.now());
+        advanceToOnboarding(application);
+        applicationRepository.save(application);
+
+        return OnboardingStatusDto.from(application, application.getUser());
+    }
+
     @Transactional
     public OnboardingStatusDto submitIdentityInfo(IdentityInfoRequest req) {
         User user = currentUser();

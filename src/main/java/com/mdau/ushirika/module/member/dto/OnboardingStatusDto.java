@@ -26,7 +26,9 @@ public record OnboardingStatusDto(
         boolean registrationFeeWaived,
         // Appended (never reorder): account-activation signals for the wizard's step-0 skip logic.
         boolean passwordSet,
-        boolean mustSetPassword
+        boolean mustSetPassword,
+        // Appended (never reorder): mandatory profile photo step.
+        boolean photoSubmitted
 ) {
     public static OnboardingStatusDto from(MembershipApplication app) {
         return from(app, app.getUser());
@@ -49,7 +51,8 @@ public record OnboardingStatusDto(
                 AppClock.serverInstant(app.getFormSentAt()),
                 app.isRegistrationFeeWaived(),
                 user != null && user.getPasswordSetAt() != null,
-                user != null && user.isMustSetPassword()
+                user != null && user.isMustSetPassword(),
+                app.getPhotoSubmittedAt() != null
         );
     }
 }

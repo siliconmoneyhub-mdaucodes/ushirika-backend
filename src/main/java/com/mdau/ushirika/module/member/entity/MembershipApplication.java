@@ -166,6 +166,12 @@ public class MembershipApplication extends BaseEntity {
     @Column(name = "bylaws_signature_date")
     private LocalDate bylawsSignatureDate;
 
+    /** Set once the mandatory onboarding Photo step (selfie or uploaded image) is submitted --
+     * a real profile photo is required to proceed, distinct from MemberProfile.photoUrl itself
+     * (which a member can later change any time from their portal without re-triggering this). */
+    @Column(name = "photo_submitted_at")
+    private LocalDateTime photoSubmittedAt;
+
     /** Set once the new onboarding Identity step (idNumber/DOB/gender/marital/occupation) is submitted. */
     @Column(name = "identity_info_submitted_at")
     private LocalDateTime identityInfoSubmittedAt;
@@ -180,6 +186,12 @@ public class MembershipApplication extends BaseEntity {
 
     @Column(name = "registration_submitted_at")
     private LocalDateTime registrationSubmittedAt;
+
+    /** Last time a daily "finish your onboarding" reminder email was sent for this application --
+     * caps reminders at once per day regardless of how often the scheduler runs. Null until the
+     * first reminder fires. See ApplicantOnboardingReminderScheduler. */
+    @Column(name = "onboarding_reminder_sent_at")
+    private LocalDateTime onboardingReminderSentAt;
 
     /** Set when an admin approves membership without a verified Stripe payment -- the
      * mass-onboarding path for real-world members who joined before the platform existed. */

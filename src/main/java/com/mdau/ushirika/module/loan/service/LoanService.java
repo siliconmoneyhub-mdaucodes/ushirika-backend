@@ -4,6 +4,7 @@ import com.mdau.ushirika.common.exception.BadRequestException;
 import com.mdau.ushirika.common.exception.ConflictException;
 import com.mdau.ushirika.common.exception.ResourceNotFoundException;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.SortParams;
 import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.service.AuditLogService;
 import com.mdau.ushirika.module.auth.entity.User;
@@ -184,12 +185,16 @@ public class LoanService {
 
     // ── Admin: list / get ─────────────────────────────────────────────────────
 
+    private static final java.util.Set<String> LOAN_SORTABLE_FIELDS = java.util.Set.of(
+            "referenceNumber", "requestedAmount", "approvedAmount", "termMonths", "status", "createdAt");
+
     @Transactional(readOnly = true)
-    public PagedResponse<LoanApplicationDto> listLoans(LoanStatus status, int page, int size) {
-        var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    public PagedResponse<LoanApplicationDto> listLoans(LoanStatus status, int page, int size, String sort) {
+        Sort resolved = SortParams.parse(sort, LOAN_SORTABLE_FIELDS, Sort.by("createdAt").descending());
+        var pageable = PageRequest.of(page, size, resolved);
         var pg = status == null
-                ? loanRepo.findAllByOrderByCreatedAtDesc(pageable)
-                : loanRepo.findAllByStatusOrderByCreatedAtDesc(status, pageable);
+                ? loanRepo.findAll(pageable)
+                : loanRepo.findAllByStatus(status, pageable);
         return PagedResponse.of(pg.map(this::toSummaryDto));
     }
 

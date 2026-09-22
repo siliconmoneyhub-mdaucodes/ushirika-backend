@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.reconciliation.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.SortParams;
 import com.mdau.ushirika.module.reconciliation.dto.BankReconciliationDto;
 import com.mdau.ushirika.module.reconciliation.dto.ReconciliationSummaryDto;
 import com.mdau.ushirika.module.reconciliation.dto.RecordReconciliationRequest;
@@ -43,15 +44,19 @@ public class AdminReconciliationController {
         return ResponseEntity.ok(ApiResponse.ok("Reconciliation recorded", reconciliationService.record(req)));
     }
 
+    private static final java.util.Set<String> RECONCILIATION_SORTABLE_FIELDS = java.util.Set.of(
+            "scope", "recordedByName", "physicalBalance", "expectedBalance", "variance", "recordedAt");
+
     @GetMapping("/history")
     @Operation(summary = "Paginated reconciliation history, optionally filtered to one scope")
     public ResponseEntity<ApiResponse<PagedResponse<BankReconciliationDto>>> history(
             @RequestParam(required = false) String scope,
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort
     ) {
-        var result = reconciliationService.listHistory(scope,
-                PageRequest.of(page, size, Sort.by("recordedAt").descending()));
+        Sort resolved = SortParams.parse(sort, RECONCILIATION_SORTABLE_FIELDS, Sort.by("recordedAt").descending());
+        var result = reconciliationService.listHistory(scope, PageRequest.of(page, size, resolved));
         return ResponseEntity.ok(ApiResponse.ok(PagedResponse.of(result)));
     }
 }

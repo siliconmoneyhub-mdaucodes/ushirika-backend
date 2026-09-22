@@ -54,6 +54,14 @@ public class OnboardingController {
         return ResponseEntity.ok(ApiResponse.ok("Email verified", onboardingService.verifyEmailOtp(req)));
     }
 
+    @PostMapping("/photo")
+    @Operation(summary = "Submit the mandatory profile photo (selfie or uploaded image, already sent to Cloudinary)")
+    public ResponseEntity<ApiResponse<OnboardingStatusDto>> photo(@RequestBody PhotoSubmitRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Profile photo saved", onboardingService.submitProfilePhoto(req.photoUrl())));
+    }
+
+    public record PhotoSubmitRequest(String photoUrl) {}
+
     @PostMapping("/identity-info")
     @Operation(summary = "Submit identity details — ID number, date of birth, gender, marital status")
     public ResponseEntity<ApiResponse<OnboardingStatusDto>> identityInfo(@Valid @RequestBody IdentityInfoRequest req) {

@@ -103,6 +103,7 @@ public record AdminApplicationDto(
                 : ApplicantInfo.fromPublicApplication(app);
 
         boolean onboardingComplete = app.getEmailReverifiedAt() != null
+                && app.getPhotoSubmittedAt() != null
                 && app.getIdentityInfoSubmittedAt() != null
                 && app.getAddressInfoSubmittedAt() != null
                 && app.getKinContactsSubmittedAt() != null

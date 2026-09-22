@@ -2,6 +2,7 @@ package com.mdau.ushirika.module.audit.controller;
 
 import com.mdau.ushirika.common.response.ApiResponse;
 import com.mdau.ushirika.common.response.PagedResponse;
+import com.mdau.ushirika.common.util.SortParams;
 import com.mdau.ushirika.module.audit.dto.AuditLogDto;
 import com.mdau.ushirika.module.audit.enums.LedgerDirection;
 import com.mdau.ushirika.module.audit.repository.AuditLogRepository;
@@ -45,6 +46,9 @@ public class AdminMoneyFlowController {
 
     private final AuditLogRepository auditLogRepository;
 
+    private static final java.util.Set<String> LEDGER_SORTABLE_FIELDS =
+            java.util.Set.of("actorName", "entityType", "direction", "amount", "createdAt");
+
     @GetMapping
     @Operation(summary = "List ledger entries (money-moving audit rows only), optionally filtered by program/direction/date range")
     public ResponseEntity<ApiResponse<PagedResponse<AuditLogDto>>> list(
@@ -53,13 +57,15 @@ public class AdminMoneyFlowController {
             @RequestParam(required = false) LocalDateTime from,
             @RequestParam(required = false) LocalDateTime to,
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "50") int size
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String sort
     ) {
+        Sort resolved = SortParams.parse(sort, LEDGER_SORTABLE_FIELDS, Sort.by("createdAt").descending());
         Page<AuditLogDto> result = auditLogRepository
                 .findLedgerEntries(entityType, direction,
                         from != null ? from : EPOCH,
                         to != null ? to : LocalDateTime.now(),
-                        PageRequest.of(page, size, Sort.by("createdAt").descending()))
+                        PageRequest.of(page, size, resolved))
                 .map(AuditLogDto::from);
 
         return ResponseEntity.ok(ApiResponse.ok("Money flow retrieved", PagedResponse.of(result)));

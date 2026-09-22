@@ -342,9 +342,10 @@ public class MembershipService {
         return (name == null || name.isBlank()) ? "unnamed applicant" : name;
     }
 
-    /** Same six checkpoints as {@link #requireOnboardingComplete}, as a plain boolean. */
+    /** Same seven checkpoints as {@link #requireOnboardingComplete}, as a plain boolean. */
     private boolean isOnboardingComplete(MembershipApplication a) {
         return a.getEmailReverifiedAt() != null
+                && a.getPhotoSubmittedAt() != null
                 && a.getIdentityInfoSubmittedAt() != null
                 && a.getAddressInfoSubmittedAt() != null
                 && a.getKinContactsSubmittedAt() != null
@@ -623,6 +624,7 @@ public class MembershipService {
     private void requireOnboardingComplete(MembershipApplication application) {
         List<String> missing = new java.util.ArrayList<>();
         if (application.getEmailReverifiedAt() == null) missing.add("email verification");
+        if (application.getPhotoSubmittedAt() == null) missing.add("profile photo");
         if (application.getIdentityInfoSubmittedAt() == null) missing.add("identity details");
         if (application.getAddressInfoSubmittedAt() == null) missing.add("address");
         if (application.getKinContactsSubmittedAt() == null) missing.add("next-of-kin & emergency contacts");

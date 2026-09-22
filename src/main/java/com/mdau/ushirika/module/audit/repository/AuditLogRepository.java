@@ -15,12 +15,14 @@ import java.util.UUID;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
+    /** No ORDER BY here deliberately -- ordering comes entirely from the caller's Pageable so a
+     * client-requested sort isn't just a secondary tiebreaker behind a hardcoded createdAt DESC.
+     * Callers default to createdAt DESC when no sort is requested. */
     @Query("""
             SELECT a FROM AuditLog a
             WHERE (:actorId IS NULL OR a.actorId = :actorId)
               AND (:action IS NULL OR a.action = :action)
               AND (:entityType IS NULL OR a.entityType = :entityType)
-            ORDER BY a.createdAt DESC
             """)
     Page<AuditLog> findWithFilters(
             @Param("actorId")    UUID   actorId,
@@ -36,7 +38,10 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
      * here reproducibly threw "could not determine data type of parameter $1" against Postgres,
      * because Hibernate binds the same named parameter as two separate JDBC positions and the
      * IS-NULL-only position at PREPARE time has no typed column to infer from. Callers resolve
-     * "no filter" to a wide sentinel range instead of passing null. */
+     * "no filter" to a wide sentinel range instead of passing null.
+     * <p>No ORDER BY here deliberately -- ordering comes entirely from the caller's Pageable so a
+     * client-requested sort isn't just a secondary tiebreaker behind a hardcoded createdAt DESC.
+     * Callers default to createdAt DESC when no sort is requested. */
     @Query("""
             SELECT a FROM AuditLog a
             WHERE a.direction IS NOT NULL
@@ -44,7 +49,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
               AND (:direction IS NULL OR a.direction = :direction)
               AND a.createdAt >= :from
               AND a.createdAt <= :to
-            ORDER BY a.createdAt DESC
             """)
     Page<AuditLog> findLedgerEntries(
             @Param("entityType") String entityType,
